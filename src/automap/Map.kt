@@ -20,7 +20,7 @@ import java.awt.Rectangle
 import java.util.*
 
 
-// Emacs style mode select -*- C++ -*-
+
 // -----------------------------------------------------------------------------
 //
 // $Id: Map.java,v 1.37 2012/09/24 22:36:28 velktron Exp $

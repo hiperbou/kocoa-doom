@@ -7,7 +7,6 @@ import m.fixed_t.Companion.FRACUNIT
 import p.ActiveStates
 import p.MobjFlags
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: info.java,v 1.13 2013/06/03 12:36:42 velktron Exp $

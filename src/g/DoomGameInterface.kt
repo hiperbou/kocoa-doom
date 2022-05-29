@@ -5,7 +5,6 @@ import defines.skill_t
 import doom.event_t
 import doom.gameaction_t
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: DoomGameInterface.java,v 1.4 2010/12/20 17:15:08 velktron Exp $

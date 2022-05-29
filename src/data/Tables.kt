@@ -2,7 +2,6 @@ package data
 
 import m.fixed_t
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: Tables.java,v 1.22 2011/05/06 09:21:59 velktron Exp $

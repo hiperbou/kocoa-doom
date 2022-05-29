@@ -3,7 +3,6 @@ package i
 
 import data.sfxinfo_t
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: DoomSoundInterface.java,v 1.3 2011/02/11 00:11:13 velktron Exp $

@@ -3,7 +3,6 @@ package i
 
 import data.sfxinfo_t
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: SystemSoundInterface.java,v 1.2 2011/05/17 16:51:20 velktron Exp $

@@ -19,7 +19,6 @@ import v.renderers.DoomScreen
 import java.awt.Rectangle
 
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: Finale.java,v 1.28 2012/09/24 17:16:23 velktron Exp $

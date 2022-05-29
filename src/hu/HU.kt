@@ -14,7 +14,7 @@ import v.renderers.DoomScreen
 import java.awt.Rectangle
 import java.util.*
 
-// Emacs style mode select -*- C++ -*-
+
 // -----------------------------------------------------------------------------
 //
 // $Id: HU.java,v 1.32 2012/09/24 17:16:23 velktron Exp $

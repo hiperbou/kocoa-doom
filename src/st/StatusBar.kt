@@ -15,7 +15,7 @@ import v.DoomGraphicSystem
 import v.renderers.DoomScreen
 import java.awt.Rectangle
 
-// Emacs style mode select -*- C++ -*-
+
 // -----------------------------------------------------------------------------
 //
 // $Id: StatusBar.java,v 1.47 2011/11/01 23:46:37 velktron Exp $

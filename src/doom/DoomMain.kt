@@ -59,7 +59,6 @@ import java.util.*
 import java.util.function.Consumer
 
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: DoomMain.java,v 1.109 2012/11/06 16:04:58 velktron Exp $

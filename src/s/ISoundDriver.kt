@@ -6,7 +6,6 @@ import doom.CVarManager
 import doom.CommandVariable
 import doom.DoomMain
 
-//Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: ISoundDriver.java,v 1.1 2012/11/08 17:12:42 velktron Exp $

@@ -1,7 +1,6 @@
 package data
 
 
-// Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
 // $Id: doomdata.java,v 1.4 2011/02/11 00:11:13 velktron Exp $

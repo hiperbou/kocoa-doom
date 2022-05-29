@@ -4,7 +4,7 @@
 ![Code Size](https://img.shields.io/github/languages/code-size/hiperbou/kocoa-doom.svg?style=flat)
 ![License](https://img.shields.io/github/license/hiperbou/kocoa-doom.svg?style=flat&logo=gnu)
 
-Kokoa Doom is a pure Kotlin Doom source port. It is based on the Java port [Mocha Doom](https://github.com/AXDOOMER/mochadoom).
+Kocoa Doom is a pure Kotlin Doom source port. It is based on the Java port [Mocha Doom](https://github.com/AXDOOMER/mochadoom).
 
 # How to run
 

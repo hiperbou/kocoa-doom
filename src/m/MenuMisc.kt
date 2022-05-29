@@ -8,7 +8,6 @@ import java.nio.ByteBuffer
 import java.util.*
 import javax.imageio.ImageIO
 
-// Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
 // $Id: MenuMisc.java,v 1.29 2012/09/24 17:16:22 velktron Exp $

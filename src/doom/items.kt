@@ -3,7 +3,6 @@ package doom
 import defines.ammotype_t
 import defines.statenum_t
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: items.java,v 1.3 2010/12/20 17:15:08 velktron Exp $

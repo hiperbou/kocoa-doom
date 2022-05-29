@@ -13,7 +13,7 @@ import v.DoomGraphicSystem
 import v.renderers.DoomScreen
 import w.animenum_t
 
-/* Emacs style mode select   -*- C++ -*-
+/*
 //-----------------------------------------------------------------------------
 //
 // $Id: EndLevel.java,v 1.11 2012/09/24 17:16:23 velktron Exp $

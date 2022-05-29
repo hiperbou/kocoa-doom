@@ -9,7 +9,6 @@ import doom.DoomMain
 import m.fixed_t.Companion.FRACBITS
 import p.mobj_t
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: IDoomSound.java,v 1.5 2011/08/24 15:55:12 velktron Exp $

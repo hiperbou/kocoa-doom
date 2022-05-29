@@ -8,7 +8,6 @@ import g.Signals.ScanCode
 import m.fixed_t
 
 //import m.define;
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: Defines.java,v 1.48 2012/09/24 17:16:22 velktron Exp $

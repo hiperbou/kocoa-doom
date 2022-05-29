@@ -2,7 +2,6 @@ package m
 
 import data.Defines
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: fixed_t.java,v 1.14 2011/10/25 19:52:13 velktron Exp $

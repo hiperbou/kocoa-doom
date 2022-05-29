@@ -4,7 +4,6 @@ import data.mobjtype_t
 import p.ActiveStates
 
 
-// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: DoomRandom.java,v 1.4 2013/06/04 11:29:25 velktron Exp $

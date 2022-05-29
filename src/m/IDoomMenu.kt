@@ -4,7 +4,7 @@ package m
 import doom.SourceCode.M_Menu
 import doom.event_t
 
-// Emacs style mode select -*- C++ -*-
+
 // -----------------------------------------------------------------------------
 //
 // $Id: IDoomMenu.java,v 1.5 2011/09/29 15:16:23 velktron Exp $

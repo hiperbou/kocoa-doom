@@ -17,7 +17,6 @@ import java.io.IOException
 import java.nio.ByteOrder
 import java.util.function.IntFunction
 
-//Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: LevelLoader.java,v 1.44 2012/09/24 17:16:23 velktron Exp $
