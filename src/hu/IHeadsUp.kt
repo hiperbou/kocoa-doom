@@ -1,31 +1,21 @@
-package hu;
+package hu
 
-import doom.SourceCode.HU_Stuff;
-import static doom.SourceCode.HU_Stuff.HU_Responder;
-import doom.event_t;
-import rr.patch_t;
 
-public interface IHeadsUp {
+import doom.SourceCode.HU_Stuff
+import doom.event_t
+import rr.patch_t
 
-	void Ticker();
+interface IHeadsUp {
+    fun Ticker()
+    fun Erase()
+    fun Drawer()
 
-	void Erase();
-
-	void Drawer();
-
-    @HU_Stuff.C(HU_Responder)
-	boolean Responder(event_t ev);
-
-	patch_t[] getHUFonts();
-
-	char dequeueChatChar();
-
-	void Init();
-
-	void setChatMacro(int i, String s);
-
-	void Start();
-
-	void Stop();
-
+    @HU_Stuff.C(HU_Stuff.HU_Responder)
+    fun Responder(ev: event_t): Boolean
+    fun getHUFonts(): Array<patch_t>
+    fun dequeueChatChar(): Char
+    fun Init()
+    fun setChatMacro(i: Int, s: String)
+    fun Start()
+    fun Stop()
 }

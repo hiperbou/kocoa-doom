@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,60 +13,51 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http:></http:>//www.gnu.org/licenses/>.
  */
+package g
 
-package g;
+
+import doom.event_t
+import doom.event_t.keyevent_t
+import doom.evtype_t
+import java.awt.event.InputEvent
+import java.awt.event.KeyEvent
+import java.awt.event.KeyEvent.*
 
 //
-
-import doom.event_t;
-import doom.evtype_t;
-import static java.awt.event.InputEvent.ALT_DOWN_MASK;
-import static java.awt.event.InputEvent.CTRL_DOWN_MASK;
-import static java.awt.event.InputEvent.META_DOWN_MASK;
-import static java.awt.event.InputEvent.SHIFT_DOWN_MASK;
-import java.awt.event.KeyEvent;
-import static java.awt.event.KeyEvent.*;
-
-public class Signals {
+object Signals {
     // 65535 + 4 bytes in memory, acceptable for speed purpose
-    private final static byte[] map = new byte[Character.MAX_VALUE];
-    // plus 260 bytes in this
-    private final static byte[] siblings = new byte[Byte.MAX_VALUE << 1];
-    
-    public static ScanCode getScanCode(KeyEvent e) {
-        final ScanCode ret = ScanCode.v[map[e.getKeyCode()] & 0xFF];
+    private val map = ByteArray(Character.MAX_VALUE.toInt())
 
-        if (ret.location == e.getKeyLocation()) {
-            return ret;
+    // plus 260 bytes in this
+    private val siblings = ByteArray(Byte.MAX_VALUE.toInt() shl 1)
+    fun getScanCode(e: KeyEvent): ScanCode {
+        val ret = ScanCode.v[Signals.map[e.keyCode].toInt() and 0xFF]
+        if (ret.location == e.keyLocation) {
+            return ret
         }
 
         // try sibling
-        final ScanCode sib = ScanCode.v[siblings[ret.ordinal()] & 0xFF];
-        if (sib.location == e.getKeyLocation()) {
-            return sib;
-        }
-        
-        return ScanCode.SC_NULL;
+        val sib = ScanCode.v[Signals.siblings[ret.ordinal].toInt() and 0xFF]
+        return if (sib.location == e.keyLocation) {
+            sib
+        } else ScanCode.SC_NULL
     }
 
-    private Signals() {}
-    
-    @FunctionalInterface
-    public interface SignalListener {
-        void sendEvent(ScanCode sc, int eventType);
+    fun interface SignalListener {
+        fun sendEvent(sc: ScanCode?, eventType: Int)
     }
-    
+
     /**
      * Maps scan codes for whatever crap we use. They should be system dependent, but
      * it seems I've invented a "keyboard" instead of passing it to real one.
      * This one "keyboard" should be very like old DOS keyboards, and most of the key mappings
      * will be compatible with those what can produce vanilla DOOM. But only most, not all.
      * The order of these is important! Do not move.
-     *  - Good Sign 2017/04/19
+     * - Good Sign 2017/04/19
      */
-    public enum ScanCode {
+    enum class ScanCode {
         /*   0 */ SC_NULL,
         /*   1 */ SC_ESCAPE(VK_ESCAPE),
         /*   2 */ SC_1(VK_1),
@@ -204,30 +196,36 @@ public class Signals {
         /** Custom ScanCodes - no keyboard or platform standard **/
         /* 140 */ SC_LMETA(VK_META, KEY_LOCATION_LEFT, META_DOWN_MASK),
         /* 141 */ SC_RMETA(VK_META, KEY_LOCATION_RIGHT, META_DOWN_MASK);
-        
-        public final char c;
-        public final event_t doomEventUp;
-        public final event_t doomEventDown;
-        
-        private final int location;
-        private final char virtualKey;
-        private final static ScanCode[] v = values();
-        
-        ScanCode() {
-            this.doomEventUp = this.doomEventDown = event_t.EMPTY_EVENT;
-            this.location = this.c = this.virtualKey = 0;
+
+
+        val c: Char
+        val doomEventUp: event_t
+        val doomEventDown: event_t
+        val location: Int
+        private val virtualKey: Char
+
+        constructor() {
+            doomEventDown = event_t.EMPTY_EVENT
+            doomEventUp = doomEventDown
+            virtualKey = 0.toChar()
+            c = virtualKey
+            location = c.code
         }
 
-        ScanCode(int virtualKey, int... properties) {
-            this.location = properties.length > 0 ? properties[0] : KEY_LOCATION_STANDARD;
-            this.virtualKey = (char) virtualKey;
-            this.doomEventUp = new event_t.keyevent_t(evtype_t.ev_keyup, this);
-            this.doomEventDown = new event_t.keyevent_t(evtype_t.ev_keydown, this);
-            this.c = Character.toLowerCase(this.virtualKey);
-            if (map[virtualKey] != 0) {
-                siblings[ordinal()] = map[virtualKey];
+        constructor(virtualKey: Int, vararg properties: Int) {
+            location = if (properties.size > 0) properties[0] else KeyEvent.KEY_LOCATION_STANDARD
+            this.virtualKey = virtualKey.toChar()
+            doomEventUp = keyevent_t(evtype_t.ev_keyup, this)
+            doomEventDown = keyevent_t(evtype_t.ev_keydown, this)
+            c = this.virtualKey.lowercaseChar()
+            if (Signals.map[virtualKey].toInt() != 0) {
+                Signals.siblings[ordinal] = Signals.map[virtualKey]
             }
-            map[virtualKey] = (byte) ordinal();
+            Signals.map[virtualKey] = ordinal.toByte()
+        }
+
+        companion object {
+            val v: Array<ScanCode> = Signals.ScanCode.values()
         }
     }
 }

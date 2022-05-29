@@ -1,86 +1,88 @@
-package f;
+package f
 
-import w.animenum_t;
-import rr.patch_t;
+
+import rr.patch_t
+import w.animenum_t
 
 //
 //Animation.
 //There is another anim_t used in p_spec.
 //
-
-public class anim_t {
-
-        public anim_t(animenum_t type, int period, int nanims, point_t loc,
-            int data1, int data2, patch_t[] p, int nexttic, int lastdrawn,
-            int ctr, int state) {
-        this.type = type;
-        this.period = period;
-        this.nanims = nanims;
-        this.loc = loc;
-        this.data1 = data1;
-        this.data2 = data2;
-        this.p = p;
-        this.nexttic = nexttic;
-        this.lastdrawn = lastdrawn;
-        this.ctr = ctr;
-        this.state = state;
+class anim_t {
+    constructor(
+        type: animenum_t, period: Int, nanims: Int, loc: point_t,
+        data1: Int, data2: Int, p: Array<patch_t?>, nexttic: Int, lastdrawn: Int,
+        ctr: Int, state: Int
+    ) {
+        this.type = type
+        this.period = period
+        this.nanims = nanims
+        this.loc = loc
+        this.data1 = data1
+        this.data2 = data2
+        this.p = p
+        this.nexttic = nexttic
+        this.lastdrawn = lastdrawn
+        this.ctr = ctr
+        this.state = state
     }
-        // Partial constructor, only 4 first fields.
-        public anim_t(animenum_t animAlways, int period, int nanims, point_t loc
-               ) {
-            this.type = animAlways;
-            this.period = period;
-            this.nanims = nanims;
-            this.loc = loc;
-        }
-        
-        // Partial constructor, only 5 first fields.
-        public anim_t(animenum_t type, int period, int nanims, point_t loc, int data1
-               ) {
-            this.type = type;
-            this.period = period;
-            this.nanims = nanims;
-            this.loc = loc;
-            this.data1=data1;
-        }
-        
-        public animenum_t  type;
 
-        // period in tics between animations
-        public int     period;
+    // Partial constructor, only 4 first fields.
+    constructor(
+        animAlways: animenum_t, period: Int, nanims: Int, loc: point_t
+    ) {
+        type = animAlways
+        this.period = period
+        this.nanims = nanims
+        this.loc = loc
+    }
 
-        // number of animation frames
-        public int     nanims;
+    // Partial constructor, only 5 first fields.
+    constructor(
+        type: animenum_t, period: Int, nanims: Int, loc: point_t, data1: Int
+    ) {
+        this.type = type
+        this.period = period
+        this.nanims = nanims
+        this.loc = loc
+        this.data1 = data1
+    }
 
-        // location of animation
-        point_t loc;
+    var type: animenum_t
 
-        // ALWAYS: n/a,
-        // RANDOM: period deviation (<256),
-        // LEVEL: level
-        public int     data1;
+    // period in tics between animations
+    var period: Int
 
-        // ALWAYS: n/a,
-        // RANDOM: random base period,
-        // LEVEL: n/a
-        public int     data2; 
+    // number of animation frames
+    var nanims: Int
 
-        // actual graphics for frames of animations
-        //Maes: was pointer to array
-        public patch_t[] p= new patch_t[3];
+    // location of animation
+    var loc: point_t
 
-        // following must be initialized to zero before use!
+    // ALWAYS: n/a,
+    // RANDOM: period deviation (<256),
+    // LEVEL: level
+    var data1 = 0
 
-        // next value of bcnt (used in conjunction with period)
-        public int     nexttic;
+    // ALWAYS: n/a,
+    // RANDOM: random base period,
+    // LEVEL: n/a
+    var data2 = 0
 
-        // last drawn animation frame
-        public int     lastdrawn;
+    // actual graphics for frames of animations
+    //Maes: was pointer to array
+    var p = arrayOfNulls<patch_t>(3)
 
-        // next frame number to animate
-        public int     ctr;
-        
-        // used by RANDOM and LEVEL when animating
-        public int     state;  
+    // following must be initialized to zero before use!
+    // next value of bcnt (used in conjunction with period)
+    var nexttic = 0
 
-    } 
+    // last drawn animation frame
+    var lastdrawn = 0
+
+    // next frame number to animate
+    var ctr = 0
+
+    // used by RANDOM and LEVEL when animating
+    var state = 0
+}

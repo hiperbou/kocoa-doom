@@ -1,36 +1,32 @@
-package boom;
+package boom
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import w.CacheableDoomObject;
+
+import w.CacheableDoomObject
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /** ZDoom node?
  *
  */
-
-public class mapseg_znod_t implements CacheableDoomObject{
-    
-    public mapseg_znod_t(){
-        
+class mapseg_znod_t : CacheableDoomObject {
+    var v1 = 0
+    var v2 // Those are unsigned :-/
+            = 0
+    var linedef = 0.toChar()
+    var side: Byte = 0
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        v1 = buf.int
+        v2 = buf.int
+        linedef = buf.char
+        side = buf.get()
     }
 
-  	public int v1,v2; // Those are unsigned :-/
-  	public char linedef;
-  	public byte side;
-   
-   public static int sizeOf(){
-       return 11;
-   }
-   
-   @Override
-   public void unpack(ByteBuffer buf)
-           throws IOException {
-       buf.order(ByteOrder.LITTLE_ENDIAN);
-       this.v1 = buf.getInt();
-       this.v2 = buf.getInt();
-       this.linedef=buf.getChar();
-       this.side=buf.get();
-   		}
-   
- };
+    companion object {
+        fun sizeOf(): Int {
+            return 11
+        }
+    }
+}

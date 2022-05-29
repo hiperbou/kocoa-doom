@@ -1,15 +1,14 @@
-package timing;
+package timing
 
-public class FastTicker implements ITicker {
-
+class FastTicker : ITicker {
     /**
      * I_GetTime
      * returns time in 1/70th second tics
      */
-    @Override
-    public int GetTime() {
-        return fasttic++;
+    override fun GetTime(): Int {
+        return fasttic++
     }
 
-    protected volatile int fasttic = 0;
+    @Volatile
+    var fasttic = 0
 }

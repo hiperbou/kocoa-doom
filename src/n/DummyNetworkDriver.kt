@@ -1,47 +1,37 @@
-package n;
+package n
 
-import doom.CommandVariable;
-import doom.DoomMain;
-import doom.NetConsts;
-import doom.doomcom_t;
-import mochadoom.Engine;
+import doom.CommandVariable
+import doom.DoomMain
+import doom.NetConsts
+import doom.doomcom_t
+import mochadoom.Engine
+
 
 /** Does nothing.
- *  Allows running single-player games without an actual network.
- *  Hopefully, it will be replaced by a real UDP-based driver one day.
- *  
- * @author Velktron
+ * Allows running single-player games without an actual network.
+ * Hopefully, it will be replaced by a real UDP-based driver one day.
  *
+ * @author Velktron
  */
+class DummyNetworkDriver<T, V>(  ////////////// STATUS ///////////
+    private val DOOM: DoomMain<T, V>
+) : NetConsts, DoomSystemNetworking {
+    override fun InitNetwork() {
+        val doomcom = doomcom_t()
+        doomcom.id = NetConsts.DOOMCOM_ID
+        doomcom.ticdup = 1
 
-public class DummyNetworkDriver<T, V> implements NetConsts, DoomSystemNetworking {
+        // single player game
+        DOOM.netgame = Engine.getCVM().present(CommandVariable.NET)
+        doomcom.id = NetConsts.DOOMCOM_ID
+        doomcom.numnodes = 1
+        doomcom.numplayers = doomcom.numnodes
+        doomcom.deathmatch = 0
+        doomcom.consoleplayer = 0
+        DOOM.gameNetworking.setDoomCom(doomcom)
+    }
 
-	////////////// STATUS ///////////
-
-    private final DoomMain<T, V> DOOM;
-
-	public DummyNetworkDriver(DoomMain<T, V> DOOM){
-        this.DOOM = DOOM;
-	}
-
-	@Override
-	public void InitNetwork() {
-		doomcom_t doomcom =new doomcom_t();
-		doomcom.id=DOOMCOM_ID;
-		doomcom.ticdup=1;
-
-		// single player game
-        DOOM.netgame = Engine.getCVM().present(CommandVariable.NET);
-		doomcom.id = DOOMCOM_ID;
-		doomcom.numplayers = doomcom.numnodes = 1;
-		doomcom.deathmatch = 0;
-		doomcom.consoleplayer = 0;
-		DOOM.gameNetworking.setDoomCom(doomcom);
-	}
-
-	@Override
-	public void NetCmd() {
-		// TODO Auto-generated method stub
-
-	}
+    override fun NetCmd() {
+        // TODO Auto-generated method stub
+    }
 }

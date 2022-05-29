@@ -1,10 +1,15 @@
-package st;
+package st
+
+import doom.SourceCode.ST_Stuff
+import doom.event_t
+
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: IDoomStatusBar.java,v 1.4 2012/09/24 17:16:23 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -22,48 +27,39 @@ package st;
 //	Does palette indicators as well (red pain/berserk, bright pickup)
 //
 //-----------------------------------------------------------------------------
-
-import doom.SourceCode.ST_Stuff;
-import static doom.SourceCode.ST_Stuff.ST_Responder;
-import doom.event_t;
-
-public interface IDoomStatusBar {
+interface IDoomStatusBar {
     //
     // STATUS BAR
     //
-    
-    public void NotifyAMEnter();
+    fun NotifyAMEnter()
+    fun NotifyAMExit()
 
-    public void NotifyAMExit();
+    /** Called by main loop.  */
+    @ST_Stuff.C(ST_Stuff.ST_Responder)
+    fun Responder(ev: event_t): Boolean
+
+    /** Called by main loop.  */
+    fun Ticker()
 
     /** Called by main loop. */
-    @ST_Stuff.C(ST_Responder)
-    public boolean Responder(event_t ev);
+    fun Drawer(fullscreen: Boolean, refresh: Boolean)
 
-    /** Called by main loop. */
-    public void Ticker();
+    /** Called when the console player is spawned on each level.  */
+    fun Start()
 
-    /** Called by main loop.*/
-    public void Drawer(boolean fullscreen, boolean refresh);
+    /** Called by startup code.  */
+    fun Init()
 
-    /** Called when the console player is spawned on each level. */
-    public void Start();
-
-    /** Called by startup code. */
-    public void Init();
-
-    /** Used externally to determine window scaling. 
-     *  This means that drawing transparent status bars is possible, but
-     *  it will look fugly because of the solid windowing (and possibly
-     *  HOMS).
+    /** Used externally to determine window scaling.
+     * This means that drawing transparent status bars is possible, but
+     * it will look fugly because of the solid windowing (and possibly
+     * HOMS).
      */
-    public int getHeight();
-    
+    fun getHeight(): Int
+
     /** Forces a full refresh for reasons not handled otherwise, e.g. after full-page
-     *  draws of help screens, which normally don't trigger a complete redraw even if
-     *  they should, really.
+     * draws of help screens, which normally don't trigger a complete redraw even if
+     * they should, really.
      */
-    
-    void forceRefresh();
-
+    fun forceRefresh()
 }

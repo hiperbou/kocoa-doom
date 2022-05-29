@@ -1,20 +1,10 @@
-package w;
+package w
 
-public enum statenum_t {
 
-        NoState(-1),
-        StatCount(0),
-        ShowNextLoc(1);
-        
-        private int value;
-        
-        private statenum_t(int val){
-            this.value=val;
-        }
+enum class statenum_t(private val value: Int) {
+    NoState(-1), StatCount(0), ShowNextLoc(1);
 
-        public int getValue() {
-            return value;
-        }
-        
-    
+    fun getValue(): Int {
+        return value
+    }
 }

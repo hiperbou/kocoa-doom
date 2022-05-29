@@ -1,6 +1,7 @@
-package g;
+package g
 
-import rr.line_t;
+
+import rr.line_t
 
 /* Emacs style mode select   -*- C++ -*-
  *-----------------------------------------------------------------------------
@@ -14,6 +15,7 @@ import rr.line_t;
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright (C) 2022 hiperbou
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -36,233 +38,49 @@ import rr.line_t;
  *
  *---------------------------------------------------------------------
  */
+class Overflow {
+    var overflow_cfgname = arrayOf(
+        "overrun_spechit_emulate",
+        "overrun_reject_emulate",
+        "overrun_intercept_emulate",
+        "overrun_playeringame_emulate",
+        "overrun_donut_emulate",
+        "overrun_missedbackside_emulate"
+    )
 
-public class Overflow {
-
-    String[] overflow_cfgname =
-    {
-      "overrun_spechit_emulate",
-      "overrun_reject_emulate",
-      "overrun_intercept_emulate",
-      "overrun_playeringame_emulate",
-      "overrun_donut_emulate",
-      "overrun_missedbackside_emulate"
-    };
-    
-    class overrun_param_t{
-      boolean warn;
-      boolean emulate;
-      boolean tmp_emulate;
-      int promted;
-      int shit_happens;
-    }
-    
-    class intercepts_overrun_t
-    {
-        int len;
-        long addr;
-        boolean int16_array;
-    } 
-
-
-    public static final int OVERFLOW_SPECHIT=0;
-    public static final int OVERFLOW_REJECT=1;
-    public static final int OVERFLOW_INTERCEPT=2;
-    public static final int OVERFLOW_PLYERINGAME=3;
-    public static final int OVERFLOW_DONUT=4;
-    public static final int OVERFLOW_MISSEDBACKSIDE=5;
-    public static final int OVERFLOW_MAX=6;
-    
-    public static final int MAXINTERCEPTS_ORIGINAL=128;
-
-    
-    
-    public static final boolean EMULATE(int overflow) {
-        return (overflows[overflow].emulate || overflows[overflow].tmp_emulate);
-    }
-    
-    public static final boolean PROCESS(int overflow) {
-        return (overflows[overflow].warn || EMULATE(overflow));
+    inner class overrun_param_t {
+        var warn = false
+        var emulate = false
+        var tmp_emulate = false
+        var promted = 0
+        var shit_happens = 0
     }
 
-    static overrun_param_t[] overflows=new overrun_param_t[OVERFLOW_MAX];
-    
-    public static intercepts_overrun_t[] intercepts_overrun;
-
-/*
-    static void ShowOverflowWarning(int overflow, int fatal, String ... params)
-    {
-      overflows[overflow].shit_happens = true;
-
-      if (overflows[overflow].warn && !overflows[overflow].promted)
-      {
-        va_list argptr;
-        char buffer[1024];
-
-        static const char *name[OVERFLOW_MAX] = {
-          "SPECHIT", "REJECT", "INTERCEPT", "PLYERINGAME", "DONUT", "MISSEDBACKSIDE"};
-
-        static const char str1[] =
-          "Too big or not supported %s overflow has been detected. "
-          "Desync or crash can occur soon "
-          "or during playback with the vanilla engine in case you're recording demo.%s%s";
-        
-        static const char str2[] = 
-          "%s overflow has been detected.%s%s";
-
-        static const char str3[] = 
-          "%s overflow has been detected. "
-          "The option responsible for emulation of this overflow is switched off "
-          "hence desync or crash can occur soon "
-          "or during playback with the vanilla engine in case you're recording demo.%s%s";
-
-        overflows[overflow].promted = true;
-
-        sprintf(buffer,
-          (fatal ? str1 : (EMULATE(overflow) ? str2 : str3)), 
-          name[overflow],
-          "\nYou can change PrBoom behaviour for this overflow through in-game menu.",
-          params);
-        
-        va_start(argptr, params);
-        I_vWarning(buffer, argptr);
-        va_end(argptr);
-      }
-    } */
-
-    // e6y
-    //
-    // Intercepts Overrun emulation
-    // See more information on:
-    // doomworld.com/vb/doom-speed-demos/35214-spechits-reject-and-intercepts-overflow-lists
-    //
-    // Thanks to Simon Howard (fraggle) for refactor the intercepts
-    // overrun code so that it should work properly on big endian machines
-    // as well as little endian machines.
-
-    // Overwrite a specific memory location with a value.
-    
-    /*
-    static void InterceptsMemoryOverrun(int location, int value)
-    {
-      int i, offset;
-      int index;
-      long addr;
-
-      i = 0;
-      offset = 0;
-
-      // Search down the array until we find the right entry
-
-      while (intercepts_overrun[i].len != 0)
-      {
-        if (offset + intercepts_overrun[i].len > location)
-        {
-          addr = intercepts_overrun[i].addr;
-
-          // Write the value to the memory location.
-          // 16-bit and 32-bit values are written differently.
-
-          if (addr != NULL)
-          {
-            if (intercepts_overrun[i].int16_array)
-            {
-              index = (location - offset) / 2;
-              ((short *) addr)[index] = value & 0xffff;
-              ((short *) addr)[index + 1] = (value >> 16) & 0xffff;
-            }
-            else
-            {
-              index = (location - offset) / 4;
-              ((int *) addr)[index] = value;
-            }
-          }
-
-          break;
-        }
-
-        offset += intercepts_overrun[i].len;
-        ++i;
-      }
+    inner class intercepts_overrun_t {
+        var len = 0
+        var addr: Long = 0
+        var int16_array = false
     }
-*/
 
-    /*
-    void InterceptsOverrun(int num_intercepts, intercept_t intercept)
-    {
-      if (num_intercepts > MAXINTERCEPTS_ORIGINAL && demo_compatibility && PROCESS(OVERFLOW_INTERCEPT))
-      {
-        ShowOverflowWarning(OVERFLOW_INTERCEPT, false, "");
-
-        if (EMULATE(OVERFLOW_INTERCEPT))
-        {
-          int location = (num_intercepts - MAXINTERCEPTS_ORIGINAL - 1) * 12;
-
-          // Overwrite memory that is overwritten in Vanilla Doom, using
-          // the values from the intercept structure.
-          //
-          // Note: the .d.{thing,line} member should really have its
-          // address translated into the correct address value for 
-          // Vanilla Doom.
-
-          InterceptsMemoryOverrun(location, intercept.frac);
-          InterceptsMemoryOverrun(location + 4, intercept.isaline);
-          InterceptsMemoryOverrun(location + 8, (int) intercept.d.thing);
-        }
-      }
+    internal inner class spechit_overrun_param_t {
+        var line: line_t? = null
+        lateinit var spechit: Array<line_t>
+        var numspechit = 0
+        lateinit var tmbbox: IntArray
+        lateinit var tmfloorz: IntArray
+        lateinit var tmceilingz: IntArray
+        var crushchange = false
+        var nofit = false
     }
-*/
-    // e6y
-    // playeringame overrun emulation
-    // it detects and emulates overflows on vex6d.wad\bug_wald(toke).lmp, etc.
-    // http://www.doom2.net/doom2/research/runningbody.zip
 
-    /*static boolean PlayeringameOverrun(final mapthing_t mthing, DoomStatus DS)
-    {
-      if (mthing.type == 0 && PROCESS(OVERFLOW_PLYERINGAME))
-      {
-        ShowOverflowWarning(OVERFLOW_PLYERINGAME, DS.players[4].didsecret, "");
+    var spechit_baseaddr: Long = 0 // e6y
 
-        if (EMULATE(OVERFLOW_PLYERINGAME))
-        {
-          return true;
-        }
-      }
-      return false;
-    }*/
-
- //
- // spechit overrun emulation
- //
-
- // Spechit overrun magic value.
- public static final int DEFAULT_SPECHIT_MAGIC =0x01C09C98;
-
- class spechit_overrun_param_t
- {
-   line_t line;
-
-   line_t[] spechit;
-   int numspechit;
-
-   int[] tmbbox;
-   int[] tmfloorz;
-   int[] tmceilingz;
-
-   boolean crushchange;
-   boolean nofit;
- }
-
-    long spechit_baseaddr = 0;
-
-    // e6y
     // Code to emulate the behavior of Vanilla Doom when encountering an overrun
     // of the spechit array.
     // No more desyncs on compet-n\hr.wad\hr18*.lmp, all strain.wad\map07 demos etc.
     // http://www.doomworld.com/vb/showthread.php?s=&threadid=35214
     // See more information on:
     // doomworld.com/vb/doom-speed-demos/35214-spechits-reject-and-intercepts-overflow-lists
-    
     /*
     static void SpechitOverrun(spechit_overrun_param_t params)
     {
@@ -366,11 +184,9 @@ public class Overflow {
       }
     }
     */
-
     //
     // reject overrun emulation
     //
-
     // padding the reject table if it is too short
     // totallines must be the number returned by P_GroupLines()
     // an underflow will be padded with zeroes, or a doom.exe z_zone header
@@ -380,7 +196,6 @@ public class Overflow {
     // It's emulated successfully if the size of overflow no more than 16 bytes.
     // No more desync on teeth-32.wad\teeth-32.lmp.
     // http://www.doomworld.com/vb/showthread.php?s=&threadid=35214
-
     /*public static byte[] RejectOverrun(int rejectlump, final byte[] rejectmatrix, int totallines, int numsectors)
     {
       int required;
@@ -412,7 +227,7 @@ public class Overflow {
         //W_UnlockLumpNum(rejectlump);
         rejectlump = -1;
 
-        /*if (demo_compatibility && PROCESS(OVERFLOW_REJECT))
+        / *if (demo_compatibility && PROCESS(OVERFLOW_REJECT))
         {
           ShowOverflowWarning(OVERFLOW_REJECT, (required - length > 16) || (length%4 != 0), "");
 
@@ -444,11 +259,9 @@ public class Overflow {
         lprintf(LO_WARN, "P_LoadReject: REJECT too short (%u<%u) - padded\n", length, required);
       }
     }*/
-
     //
     // Read Access Violation emulation.
     //
-
     // C:\>debug
     // -d 0:0
     //
@@ -460,7 +273,6 @@ public class Overflow {
     // 0000:0000  (9E 0F C9 00) 65 04 70 00-(16 00)
     // DOSBox under XP:
     // 0000:0000  (00 00 00 F1) ?? ?? ?? 00-(07 00)
-
     /*#define DOS_MEM_DUMP_SIZE 10
 
     unsigned char mem_dump_dos622[DOS_MEM_DUMP_SIZE] = {
@@ -585,5 +397,166 @@ public class Overflow {
 
       return false;
     }*/
+    companion object {
+        const val OVERFLOW_SPECHIT = 0
+        const val OVERFLOW_REJECT = 1
+        const val OVERFLOW_INTERCEPT = 2
+        const val OVERFLOW_PLYERINGAME = 3
+        const val OVERFLOW_DONUT = 4
+        const val OVERFLOW_MISSEDBACKSIDE = 5
+        const val OVERFLOW_MAX = 6
+        const val MAXINTERCEPTS_ORIGINAL = 128
+        fun EMULATE(overflow: Int): Boolean {
+            return Overflow.overflows.get(overflow)!!.emulate || Overflow.overflows.get(overflow)!!.tmp_emulate
+        }
 
+        fun PROCESS(overflow: Int): Boolean {
+            return Overflow.overflows.get(overflow)!!.warn || Overflow.EMULATE(overflow)
+        }
+
+        var overflows = arrayOfNulls<overrun_param_t>(Overflow.OVERFLOW_MAX)
+        lateinit var intercepts_overrun: Array<intercepts_overrun_t>
+
+        /*
+    static void ShowOverflowWarning(int overflow, int fatal, String ... params)
+    {
+      overflows[overflow].shit_happens = true;
+
+      if (overflows[overflow].warn && !overflows[overflow].promted)
+      {
+        va_list argptr;
+        char buffer[1024];
+
+        static const char *name[OVERFLOW_MAX] = {
+          "SPECHIT", "REJECT", "INTERCEPT", "PLYERINGAME", "DONUT", "MISSEDBACKSIDE"};
+
+        static const char str1[] =
+          "Too big or not supported %s overflow has been detected. "
+          "Desync or crash can occur soon "
+          "or during playback with the vanilla engine in case you're recording demo.%s%s";
+        
+        static const char str2[] = 
+          "%s overflow has been detected.%s%s";
+
+        static const char str3[] = 
+          "%s overflow has been detected. "
+          "The option responsible for emulation of this overflow is switched off "
+          "hence desync or crash can occur soon "
+          "or during playback with the vanilla engine in case you're recording demo.%s%s";
+
+        overflows[overflow].promted = true;
+
+        sprintf(buffer,
+          (fatal ? str1 : (EMULATE(overflow) ? str2 : str3)), 
+          name[overflow],
+          "\nYou can change PrBoom behaviour for this overflow through in-game menu.",
+          params);
+        
+        va_start(argptr, params);
+        I_vWarning(buffer, argptr);
+        va_end(argptr);
+      }
+    } */
+        // e6y
+        //
+        // Intercepts Overrun emulation
+        // See more information on:
+        // doomworld.com/vb/doom-speed-demos/35214-spechits-reject-and-intercepts-overflow-lists
+        //
+        // Thanks to Simon Howard (fraggle) for refactor the intercepts
+        // overrun code so that it should work properly on big endian machines
+        // as well as little endian machines.
+        // Overwrite a specific memory location with a value.
+        /*
+    static void InterceptsMemoryOverrun(int location, int value)
+    {
+      int i, offset;
+      int index;
+      long addr;
+
+      i = 0;
+      offset = 0;
+
+      // Search down the array until we find the right entry
+
+      while (intercepts_overrun[i].len != 0)
+      {
+        if (offset + intercepts_overrun[i].len > location)
+        {
+          addr = intercepts_overrun[i].addr;
+
+          // Write the value to the memory location.
+          // 16-bit and 32-bit values are written differently.
+
+          if (addr != NULL)
+          {
+            if (intercepts_overrun[i].int16_array)
+            {
+              index = (location - offset) / 2;
+              ((short *) addr)[index] = value & 0xffff;
+              ((short *) addr)[index + 1] = (value >> 16) & 0xffff;
+            }
+            else
+            {
+              index = (location - offset) / 4;
+              ((int *) addr)[index] = value;
+            }
+          }
+
+          break;
+        }
+
+        offset += intercepts_overrun[i].len;
+        ++i;
+      }
+    }
+*/
+        /*
+    void InterceptsOverrun(int num_intercepts, intercept_t intercept)
+    {
+      if (num_intercepts > MAXINTERCEPTS_ORIGINAL && demo_compatibility && PROCESS(OVERFLOW_INTERCEPT))
+      {
+        ShowOverflowWarning(OVERFLOW_INTERCEPT, false, "");
+
+        if (EMULATE(OVERFLOW_INTERCEPT))
+        {
+          int location = (num_intercepts - MAXINTERCEPTS_ORIGINAL - 1) * 12;
+
+          // Overwrite memory that is overwritten in Vanilla Doom, using
+          // the values from the intercept structure.
+          //
+          // Note: the .d.{thing,line} member should really have its
+          // address translated into the correct address value for 
+          // Vanilla Doom.
+
+          InterceptsMemoryOverrun(location, intercept.frac);
+          InterceptsMemoryOverrun(location + 4, intercept.isaline);
+          InterceptsMemoryOverrun(location + 8, (int) intercept.d.thing);
+        }
+      }
+    }
+*/
+        // e6y
+        // playeringame overrun emulation
+        // it detects and emulates overflows on vex6d.wad\bug_wald(toke).lmp, etc.
+        // http://www.doom2.net/doom2/research/runningbody.zip
+        /*static boolean PlayeringameOverrun(final mapthing_t mthing, DoomStatus DS)
+    {
+      if (mthing.type == 0 && PROCESS(OVERFLOW_PLYERINGAME))
+      {
+        ShowOverflowWarning(OVERFLOW_PLYERINGAME, DS.players[4].didsecret, "");
+
+        if (EMULATE(OVERFLOW_PLYERINGAME))
+        {
+          return true;
+        }
+      }
+      return false;
+    }*/
+        //
+        // spechit overrun emulation
+        //
+        // Spechit overrun magic value.
+        const val DEFAULT_SPECHIT_MAGIC = 0x01C09C98
+    }
 }

@@ -1,38 +1,38 @@
-package p;
+package p
 
-import m.fixed_t;
+import m.fixed_t
 
-public interface DoomPlayer {
-	
-	public fixed_t
-	AimLineAttack
-	( mobj_t	t1,
-	  int	angle,
-	  fixed_t	distance );
 
-	public void
-	LineAttack
-	( mobj_t	t1,
-	  int	angle,
-	  fixed_t	distance,
-	  fixed_t	slope,
-	  int		damage );
+interface DoomPlayer {
+    fun AimLineAttack(
+        t1: mobj_t?,
+        angle: Int,
+        distance: fixed_t?
+    ): fixed_t?
 
-	void
-	RadiusAttack
-	( mobj_t	spot,
-	  mobj_t	source,
-	  int		damage );
-	
-	void
-	TouchSpecialThing
-	( mobj_t	special,
-	  mobj_t	toucher );
+    fun LineAttack(
+        t1: mobj_t?,
+        angle: Int,
+        distance: fixed_t?,
+        slope: fixed_t?,
+        damage: Int
+    )
 
-	void
-	DamageMobj
-	( mobj_t	target,
-	  mobj_t	inflictor,
-	  mobj_t	source,
-	  int		damage );
-	}
+    fun RadiusAttack(
+        spot: mobj_t?,
+        source: mobj_t?,
+        damage: Int
+    )
+
+    fun TouchSpecialThing(
+        special: mobj_t?,
+        toucher: mobj_t?
+    )
+
+    fun DamageMobj(
+        target: mobj_t?,
+        inflictor: mobj_t?,
+        source: mobj_t?,
+        damage: Int
+    )
+}

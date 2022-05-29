@@ -1,45 +1,46 @@
-package doom;
+package doom
 
-import static data.Limits.MAXPLAYERS;
-import static utils.GenericCopy.malloc;
 
-public class wbstartstruct_t implements Cloneable{
+import data.Limits
+import utils.GenericCopy
 
-        public wbstartstruct_t(){
-            plyr = malloc(wbplayerstruct_t::new, wbplayerstruct_t[]::new, MAXPLAYERS);
+class wbstartstruct_t : Cloneable {
+    var epsd // episode # (0-2)
+            = 0
+
+    // if true, splash the secret level
+    var didsecret = false
+
+    // previous and next levels, origin 0
+    var last = 0
+    var next = 0
+    var maxkills = 0
+    var maxitems = 0
+    var maxsecret = 0
+    var maxfrags = 0
+
+    /** the par time  */
+    var partime = 0
+
+    /** index of this player in game  */
+    var pnum = 0
+
+    /** meant to be treated as a "struct", therefore assignments should be deep copies  */
+    var plyr: Array<wbplayerstruct_t>
+
+    init {
+        plyr = GenericCopy.malloc({ wbplayerstruct_t() }, Limits.MAXPLAYERS)
+    }
+
+    public override fun clone(): wbstartstruct_t {
+        var cl: wbstartstruct_t? = null
+        try {
+            cl = super.clone() as wbstartstruct_t
+        } catch (e: CloneNotSupportedException) {
+            // TODO Auto-generated catch block
+            e.printStackTrace()
         }
-    
-        public int      epsd;   // episode # (0-2)
-
-        // if true, splash the secret level
-        public boolean  didsecret;
-        
-        // previous and next levels, origin 0
-        public int      last;
-        public int      next;   
-        
-        public int      maxkills;
-        public int      maxitems;
-        public int      maxsecret;
-        public int      maxfrags;
-
-        /** the par time */
-        public int      partime;
-        
-        /** index of this player in game */
-        public int      pnum;   
-        /** meant to be treated as a "struct", therefore assignments should be deep copies */
-        public wbplayerstruct_t[]   plyr;
-        
-        public wbstartstruct_t clone(){
-            wbstartstruct_t cl=null;
-            try {
-                cl=(wbstartstruct_t)super.clone();
-            } catch (CloneNotSupportedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-            /*cl.epsd=this.epsd;
+        /*cl.epsd=this.epsd;
             cl.didsecret=this.didsecret;
             cl.last=this.last;
             cl.next=this.next;
@@ -48,14 +49,10 @@ public class wbstartstruct_t implements Cloneable{
             cl.maxsecret=this.maxsecret;
             cl.maxkills=this.maxkills;
             cl.partime=this.partime;
-            cl.pnum=this.pnum;*/
-            for (int i=0;i<cl.plyr.length;i++){
-                cl.plyr[i]=this.plyr[i].clone();    
-            }
-            //cl.plyr=this.plyr.clone();
-            
-            return cl;
-            
+            cl.pnum=this.pnum;*/for (i in cl!!.plyr.indices) {
+            cl.plyr[i] = plyr[i].clone()
         }
-        
-    } 
+        //cl.plyr=this.plyr.clone();
+        return cl
+    }
+}

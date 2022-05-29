@@ -1,10 +1,10 @@
-package data;
+package data
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
-import w.CacheableDoomObject;
+import w.CacheableDoomObject
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * This is the structure of a map vertex ON DISK: in memory it gets shifted and
@@ -12,33 +12,18 @@ import w.CacheableDoomObject;
  * lump: it is not individually cacheable, even though it implements
  * CacheableDoomObject.
  */
-
-public class mapvertex_t
-        implements CacheableDoomObject {
-
-    public mapvertex_t(short x, short y) {
-        this.x = x;
-        this.y = y;
+class mapvertex_t /*@JvmOverloads*/ constructor(var x: Short = 0.toShort(), var y: Short = 0.toShort()) :
+    CacheableDoomObject {
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        x = buf.short
+        y = buf.short
     }
 
-    public mapvertex_t() {
-        this((short) 0, (short) 0);
+    companion object {
+        fun sizeOf(): Int {
+            return 4
+        }
     }
-
-    public short x;
-
-    public short y;
-
-    public static int sizeOf() {
-        return 4;
-    }
-
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        x = buf.getShort();
-        y = buf.getShort();
-    }
-
 }

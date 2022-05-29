@@ -1,7 +1,6 @@
-package p;
+package p
 
-public enum bwhere_e {
-        top,
-        middle,
-        bottom
-        }
+
+enum class bwhere_e {
+    top, middle, bottom
+}

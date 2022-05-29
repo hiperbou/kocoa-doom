@@ -1,51 +1,42 @@
-package data;
+package data
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
-import w.CacheableDoomObject;
-import w.DoomBuffer;
+import w.CacheableDoomObject
+import w.DoomBuffer
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.*
 
 /**
  * A SideDef, defining the visual appearance of a wall, by setting textures and
  * offsets. ON-DISK.
  */
-
-public class mapsidedef_t implements CacheableDoomObject{
-
-    public mapsidedef_t() {
-
-    }
-
-    public short textureoffset;
-
-    public short rowoffset;
+class mapsidedef_t : CacheableDoomObject {
+    var textureoffset: Short = 0
+    var rowoffset: Short = 0
 
     // 8-char strings.
-    public String toptexture;
+    var toptexture: String? = null
+    var bottomtexture: String? = null
+    var midtexture: String? = null
 
-    public String bottomtexture;
-
-    public String midtexture;
-
-    /** Front sector, towards viewer. */
-    public short sector;
-
-    public static int sizeOf() {
-        return 30;
+    /** Front sector, towards viewer.  */
+    var sector: Short = 0
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        textureoffset = buf.short
+        rowoffset = buf.short
+        toptexture = DoomBuffer.getNullTerminatedString(buf, 8)!!.uppercase(Locale.getDefault())
+        bottomtexture = DoomBuffer.getNullTerminatedString(buf, 8)!!.uppercase(Locale.getDefault())
+        midtexture = DoomBuffer.getNullTerminatedString(buf, 8)!!.uppercase(Locale.getDefault())
+        sector = buf.short
     }
 
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        this.textureoffset = buf.getShort();
-        this.rowoffset = buf.getShort();
-        this.toptexture=DoomBuffer.getNullTerminatedString(buf,8).toUpperCase();
-        this.bottomtexture=DoomBuffer.getNullTerminatedString(buf,8).toUpperCase();
-        this.midtexture=DoomBuffer.getNullTerminatedString(buf,8).toUpperCase();
-        this.sector = buf.getShort();
-        
+    companion object {
+        fun sizeOf(): Int {
+            return 30
+        }
     }
 }

@@ -1,6 +1,7 @@
-package p;
+package p
 
-public class slideframe_t {
-	public int[] frontFrames = new int[4];
-	public int[] backFrames = new int[4];
+
+class slideframe_t {
+    var frontFrames = IntArray(4)
+    var backFrames = IntArray(4)
 }

@@ -1,86 +1,89 @@
-package rr.drawfuns;
+package rr.drawfuns
 
-import i.IDoomSystem;
-import v.tables.BlurryTable;
+ 
+import i.IDoomSystem
+import v.tables.BlurryTable
 
-/** Prototype for 
- * 
+/** Prototype for
+ *
  * @author velktron
  *
  * @param <T>
- */
+</T> */
+abstract class DoomColumnFunction<T, V> : ColumnFunction<T, V> {
+    protected val RANGECHECK = false
+    protected val SCREENWIDTH: Int
+    protected val SCREENHEIGHT: Int
+    protected var dcvars: ColVars<T, V>
+    protected val screen: V
+    protected val I: IDoomSystem?
+    protected val ylookup: IntArray
+    protected val columnofs: IntArray
+    protected var blurryTable: BlurryTable?
+    protected var _flags = 0
 
-public abstract class DoomColumnFunction<T,V> implements ColumnFunction<T,V>{
-    
-    protected final boolean RANGECHECK=false;
-    protected final int SCREENWIDTH;
-    protected final int SCREENHEIGHT;
-    protected ColVars<T,V> dcvars;
-    protected final V screen;
-    protected final IDoomSystem I;
-    protected final int[] ylookup;
-    protected final int[] columnofs;
-    protected BlurryTable blurryTable;
-    protected int flags;
-    
-    public DoomColumnFunction(int sCREENWIDTH, int sCREENHEIGHT,int[] ylookup,
-            int[] columnofs, ColVars<T,V> dcvars, V screen,IDoomSystem I) {
-        SCREENWIDTH = sCREENWIDTH;
-        SCREENHEIGHT = sCREENHEIGHT;
-        this.ylookup=ylookup;
-        this.columnofs=columnofs;
-        this.dcvars = dcvars;
-        this.screen = screen;
-        this.I=I;
-        this.blurryTable=null;
-    }
-    
-    public DoomColumnFunction(int sCREENWIDTH, int sCREENHEIGHT,int[] ylookup,
-            int[] columnofs, ColVars<T,V> dcvars, V screen,IDoomSystem I, BlurryTable BLURRY_MAP) {
-        SCREENWIDTH = sCREENWIDTH;
-        SCREENHEIGHT = sCREENHEIGHT;
-        this.ylookup = ylookup;
-        this.columnofs = columnofs;
-        this.dcvars = dcvars;
-        this.screen = screen;
-        this.I = I;
-        this.blurryTable = BLURRY_MAP;
+    constructor(
+        sCREENWIDTH: Int, sCREENHEIGHT: Int, ylookup: IntArray,
+        columnofs: IntArray, dcvars: ColVars<T, V>?, screen: V, I: IDoomSystem?
+    ) {
+        SCREENWIDTH = sCREENWIDTH
+        SCREENHEIGHT = sCREENHEIGHT
+        this.ylookup = ylookup
+        this.columnofs = columnofs
+        this.dcvars = dcvars!!
+        this.screen = screen
+        this.I = I
+        blurryTable = null
     }
 
-    protected final void performRangeCheck(){
-        if (dcvars.dc_x >= SCREENWIDTH || dcvars.dc_yl < 0 || dcvars.dc_yh >= SCREENHEIGHT)
-            I.Error("R_DrawColumn: %d to %d at %d", dcvars.dc_yl, dcvars.dc_yh, dcvars.dc_x);
+    constructor(
+        sCREENWIDTH: Int, sCREENHEIGHT: Int, ylookup: IntArray,
+        columnofs: IntArray, dcvars: ColVars<T, V>?, screen: V, I: IDoomSystem?, BLURRY_MAP: BlurryTable?
+    ) {
+        SCREENWIDTH = sCREENWIDTH
+        SCREENHEIGHT = sCREENHEIGHT
+        this.ylookup = ylookup
+        this.columnofs = columnofs
+        this.dcvars = dcvars!!
+        this.screen = screen
+        this.I = I
+        blurryTable = BLURRY_MAP
     }
-    
+
+    protected fun performRangeCheck() {
+        if (dcvars.dc_x >= SCREENWIDTH || dcvars.dc_yl < 0 || dcvars.dc_yh >= SCREENHEIGHT) I?.Error(
+            "R_DrawColumn: %d to %d at %d",
+            dcvars.dc_yl,
+            dcvars.dc_yh,
+            dcvars.dc_x
+        )
+    }
+
     /**
-     * 
+     *
      * Use ylookup LUT to avoid multiply with ScreenWidth.
      * Use columnofs LUT for subwindows?
-     * 
+     *
      * @return Framebuffer destination address.
      */
-    
-    protected final int computeScreenDest() {
-        return ylookup[dcvars.dc_yl] + columnofs[dcvars.dc_x];
+    protected fun computeScreenDest(): Int {
+        return ylookup[dcvars.dc_yl] + columnofs[dcvars.dc_x]
     }
 
-    protected final int blockyDest1() {
-        return ylookup[dcvars.dc_yl] + columnofs[dcvars.dc_x << 1];
+    protected fun blockyDest1(): Int {
+        return ylookup[dcvars.dc_yl] + columnofs[dcvars.dc_x shl 1]
     }
 
-    protected final int blockyDest2() {
-        return ylookup[dcvars.dc_yl] + columnofs[(dcvars.dc_x << 1) + 1];
+    protected fun blockyDest2(): Int {
+        return ylookup[dcvars.dc_yl] + columnofs[(dcvars.dc_x shl 1) + 1]
     }
 
-    @Override
-    public final void invoke(ColVars<T,V> dcvars) {
-        this.dcvars=dcvars;
-        invoke();
+    override fun invoke(dcvars: ColVars<T, V>) {
+        this.dcvars = dcvars
+        invoke()
     }
-    
-    @Override
-    public final int getFlags(){
-        return this.flags;
+
+    override fun getFlags(): Int {
+        return _flags
     }
-    
 }

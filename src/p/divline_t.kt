@@ -1,40 +1,45 @@
-package p;
+package p
 
-import static m.fixed_t.*;
-import rr.line_t;
-import static utils.C2JUtils.eval;
+
+import m.*
+import m.fixed_t.Companion.FRACBITS
+import p.divline_t
+import rr.line_t
+import utils.C2JUtils
+
 //
 // P_MAPUTL
 //
+class divline_t {
+    /** fixed_t  */
+    var x = 0
+    var y = 0
+    var dx = 0
+    var dy = 0
 
-public class divline_t {
+    /**
+     * P_PointOnDivlineSide
+     * Returns 0 or 1. (false or true)
+     * @param x fixed
+     * @param y fixed
+     * @param divline_t
+     */
+    fun PointOnDivlineSide(
+        x: Int,
+        y: Int
+    ): Boolean {
 
-    /** fixed_t */
-     public int x, y, dx, dy;
-     
 
-     /**
-      *P_PointOnDivlineSide
-      *Returns 0 or 1. (false or true)
-      *@param x fixed
-      *@param y fixed
-      *@param divline_t
-      */
-     public boolean
-     PointOnDivlineSide
-     ( int   x,
-     int   y
-     )
-     {
-    	 
-    	 
-    	 // Using Killough's version.
-    	  return
-    	    (dx==0) ? x <= this.x ? dy > 0 : dy < 0 :
-    	    (dy==0) ? y <= this.y ? dx < 0 : dx > 0 :
-    	    (dy^dx^(x -= this.x)^(y -= this.y)) < 0 ? (dy^x) < 0 :
-    	    FixedMul(y>>8, this.dx>>8) >= FixedMul(this.dy>>8, x>>8);
-    	    /*
+        // Using Killough's version.
+        var x = x
+        var y = y
+        return if (dx == 0) if (x <= this.x) dy > 0 else dy < 0 else if (dy == 0) if (y <= this.y) dx < 0 else dx > 0 else if (dy xor dx xor this.x.let { x -= it; x } xor this.y.let { y -= it; y } < 0) dy xor x < 0 else fixed_t.FixedMul(
+            y shr 8,
+            dx shr 8
+        ) >= fixed_t.FixedMul(
+            dy shr 8, x shr 8
+        )
+        /*
     	    int PUREFUNC P_PointOnDivlineSide(fixed_t x, fixed_t y, const divline_t *line)
     	    {
     	      return
@@ -43,8 +48,8 @@ public class divline_t {
     	        (line->dy^line->dx^(x -= line->x)^(y -= line->y)) < 0 ? (line->dy^x) < 0 :
     	        FixedMul(y>>8, line->dx>>8) >= FixedMul(line->dy>>8, x>>8);
     	    }*/
-    	    
-    /*
+
+        /*
       int dx;
       int dy;
       int left;
@@ -83,60 +88,52 @@ public class divline_t {
       return false;       // front side
       return true;           // back side
       */
-     }
+    }
 
+    //
+    //P_MakeDivline
+    //
+    fun MakeDivline(li: line_t) {
+        x = li.v1x
+        y = li.v1y
+        dx = li.dx
+        dy = li.dy
+    }
 
+    constructor(li: line_t) {
+        x = li.v1x
+        y = li.v1y
+        dx = li.dx
+        dy = li.dy
+    }
 
-     //
-     //P_MakeDivline
-     //
-     public void
-     MakeDivline
-     ( line_t   li)
-     {
-      this.x = li.v1x;
-      this.y = li.v1y;
-      this.dx = li.dx;
-      this.dy = li.dy;
-     }
+    constructor() {
+        // TODO Auto-generated constructor stub
+    }
 
-     public divline_t(line_t   li)
-     {
-      this.x = li.v1x;
-      this.y = li.v1y;
-      this.dx = li.dx;
-      this.dy = li.dy;
-     }
+    /**
+     * P_DivlineSide
+     * Returns side 0 (front), 1 (back), or 2 (on).
+     */
+    fun DivlineSide(
+        x: Int,
+        y: Int
+    ): Int {
+        var left: Int
+        var right: Int
+        // Boom-style code. Da fack.
+        // [Maes:] it is MUCH more corrent than the linuxdoom one, for whatever reason.
+        return if (dx == 0) if (x == this.x) 2 else if (x <= this.x) C2JUtils.eval(dy > 0) else C2JUtils.eval(dy < 0) else if (dy == 0) if ((if (divline_t.olddemo) x else y) == this.y) 2 else if (y <= this.y) C2JUtils.eval(
+            dx < 0
+        ) else C2JUtils.eval(dx > 0) else if (dy == 0) if (y == this.y) 2 else if (y <= this.y) C2JUtils.eval(dx < 0) else C2JUtils.eval(
+            dx > 0
+        ) else if ((y - this.y shr FRACBITS) * (dx shr FRACBITS).also {
+                right = it
+            } < ((x - this.x shr FRACBITS) * (dy shr FRACBITS)).also {
+                left = it
+            }) 0 else if (right == left) 2 else 1
 
-     public divline_t() {
-		// TODO Auto-generated constructor stub
-	}
-
-
-
-	/**
- 	  * P_DivlineSide
- 	  * Returns side 0 (front), 1 (back), or 2 (on).
- 	 */
- 	public int
- 	DivlineSide
- 	( int	x,
- 	  int	y)
- 	{
- 	    
- 	   int left,right;
- 	    // Boom-style code. Da fack.
- 	   // [Maes:] it is MUCH more corrent than the linuxdoom one, for whatever reason.
- 	    
- 	   return
- 	  (this.dx==0) ? x == this.x ? 2 : x <= this.x ? eval(this.dy > 0) : eval(this.dy < 0) :
- 	  (this.dy==0) ? (olddemo ? x : y) == this.y ? 2 : y <= this.y ? eval(this.dx < 0) : eval(this.dx > 0) :
- 	  (this.dy==0) ? y == this.y ? 2 : y <= this.y ? eval(this.dx < 0) : eval(this.dx > 0) :
- 	  (right = ((y - this.y) >> FRACBITS) * (this.dx >> FRACBITS)) <
- 	  (left  = ((x - this.x) >> FRACBITS) * (this.dy >> FRACBITS)) ? 0 :
- 	  right == left ? 2 : 1;
- 	  
- 	  /*  
+        /*  
  	    
  	    int	left,right,dx,dy;
 
@@ -175,9 +172,9 @@ public class divline_t {
  	    return 2;
  	    return 1;       // back side
  	    */
- 	}
- 	
- 	private static final boolean olddemo = true;
-     
-     
- }
+    }
+
+    companion object {
+        private const val olddemo = true
+    }
+}

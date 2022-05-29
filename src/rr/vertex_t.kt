@@ -1,48 +1,38 @@
-package rr;
+package rr
 
-import static m.fixed_t.FRACBITS;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
-import p.Resettable;
-
-import w.CacheableDoomObject;
+import m.fixed_t.Companion.FRACBITS
+import p.Resettable
+import w.CacheableDoomObject
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /** This is the vertex structure used IN MEMORY with fixed-point arithmetic.
- *  It's DIFFERENT than the one used on disk, which has 16-bit signed shorts.
- *  However, it must be parsed. 
+ * It's DIFFERENT than the one used on disk, which has 16-bit signed shorts.
+ * However, it must be parsed.
  *
  */
+open class vertex_t : CacheableDoomObject, Resettable {
+    /** treat as (fixed_t)  */
+    var x = 0
+    var y = 0
 
-public class vertex_t  implements CacheableDoomObject, Resettable{
-
-    public vertex_t(){
-        
-    }
-    /** treat as (fixed_t) */
-    public  int x,y;
-    
-    
-    /** Notice how we auto-expand to fixed_t */
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        this.x=buf.getShort()<<FRACBITS;
-        this.y=buf.getShort()<<FRACBITS;
-        
+    /** Notice how we auto-expand to fixed_t  */
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        x = buf.short.toInt() shl FRACBITS
+        y = buf.short.toInt() shl FRACBITS
     }
 
-    @Override
-    public void reset() {
-        x=0; y=0;        
+    override fun reset() {
+        x = 0
+        y = 0
     }
 
-
-    public static int sizeOf() {
-        return 4;
+    companion object {
+        fun sizeOf(): Int {
+            return 4
+        }
     }
-    
 }

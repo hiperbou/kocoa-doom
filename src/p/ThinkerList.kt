@@ -1,18 +1,18 @@
-package p;
+package p
 
-import doom.SourceCode.P_Tick;
-import static doom.SourceCode.P_Tick.*;
-import doom.thinker_t;
 
-public interface ThinkerList {
+import doom.SourceCode.P_Tick
+import doom.thinker_t
 
-    @P_Tick.C(P_AddThinker)
-    void AddThinker(thinker_t thinker);
-    @P_Tick.C(P_RemoveThinker)
-    void RemoveThinker(thinker_t thinker);
-    @P_Tick.C(P_InitThinkers)
-    void InitThinkers();
-    
-    thinker_t getRandomThinker();
-    thinker_t getThinkerCap();
+interface ThinkerList {
+    @P_Tick.C(P_Tick.P_AddThinker)
+    fun AddThinker(thinker: thinker_t)
+
+    @P_Tick.C(P_Tick.P_RemoveThinker)
+    fun RemoveThinker(thinker: thinker_t)
+
+    @P_Tick.C(P_Tick.P_InitThinkers)
+    fun InitThinkers()
+    fun getRandomThinker(): thinker_t
+    fun getThinkerCap(): thinker_t
 }

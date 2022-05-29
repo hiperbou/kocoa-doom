@@ -1,11 +1,4 @@
-package f;
+package f
 
-public class point_t {
-     public point_t(int x, int y) {
-        this.x=x;
-        this.y=y;
-    }
-     public   int     x;
-     public  int     y;
-        
-    }
+
+class point_t(var x: Int, var y: Int)

@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,70 +13,69 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http:></http:>//www.gnu.org/licenses/>.
  */
+package v.scale
 
-package v.scale;
+import doom.CVarManager
+import doom.CommandVariable
 
-import doom.CVarManager;
-import doom.CommandVariable;
+object VisualSettings {
+    /** Default video scale is "triple vanilla: 3 x (320 x 200)  */
+    val vanilla: VideoScale = VideoScaleInfo(1.0f)
+    val double_vanilla: VideoScale = VideoScaleInfo(2.0f)
+    val triple_vanilla: VideoScale = VideoScaleInfo(3.0f)
+    val default_scale = VisualSettings.triple_vanilla
 
-public class VisualSettings {
-
-    /** Default video scale is "triple vanilla: 3 x (320 x 200) */
-    public final static VideoScale vanilla = new VideoScaleInfo(1.0f);
-    public final static VideoScale double_vanilla = new VideoScaleInfo(2.0f);
-    public final static VideoScale triple_vanilla = new VideoScaleInfo(3.0f);
-    public final static VideoScale default_scale = triple_vanilla;
-    
     /** Parses the command line for resolution-specific commands, and creates
-     *  an appropriate IVideoScale object.
-     *  
+     * an appropriate IVideoScale object.
+     *
      * @param CM
      * @return
      */
-    
-    public final static VideoScale parse(CVarManager CVM){
-        
-        { // check multiply
+    fun parse(CVM: CVarManager): VideoScale {
+        run {
+            // check multiply
             // -multiply parameter defined from linux doom.
             // It gets priority over all others, if present.
-            final int multiply = CVM.get(CommandVariable.MULTIPLY, Integer.class, 0).orElse(-1);
+            val multiply = CVM.get(CommandVariable.MULTIPLY, Int::class.java, 0).orElse(-1)
 
             // If -multiply was successful, trump any others.
             // Implied to be a solid multiple of the vanilla resolution.
             if (multiply > 0 && multiply <= 5) {
-                return new VideoScaleInfo(multiply);
+                return VideoScaleInfo(multiply.toFloat())
             }
         } // forget multiply
-        
+
         // At least one of them is not a dud.
-        final int mulx, muly, mulf;
-        
+        val mulx: Int
+        val muly: Int
+        val mulf: Int
+
         // check width & height
-        final int width = CVM.get(CommandVariable.WIDTH, Integer.class, 0).orElse(-1);
-        final int height = CVM.get(CommandVariable.HEIGHT, Integer.class, 0).orElse(-1);
+        val width = CVM.get(CommandVariable.WIDTH, Int::class.java, 0).orElse(-1)
+        val height = CVM.get(CommandVariable.HEIGHT, Int::class.java, 0).orElse(-1)
 
         // Nothing to do?
         if (height == -1 && width == -1) {
-            return default_scale;
+            return VisualSettings.default_scale
         }
 
         // Break them down to the nearest multiple of the base width or height.
-        mulx = Math.round((float) width / VideoScale.BASE_WIDTH);
-        muly = Math.round((float) height / VideoScale.BASE_HEIGHT);
-        
+        mulx = Math.round(width.toFloat() / VideoScale.BASE_WIDTH).toInt()
+        muly = Math.round(height.toFloat() / VideoScale.BASE_HEIGHT).toInt()
+
         // Do not accept zero or sub-vanilla resolutions
         if (mulx > 0 || muly > 0) {
             // Use the maximum multiplier. We don't support skewed
             // aspect ratios yet.
-            mulf = Math.max(mulx, muly);
+            mulf = Math.max(mulx, muly)
             if (mulf >= 1 && mulf <= 5) {
-                return new VideoScaleInfo(mulf);
+                return VideoScaleInfo(mulf.toFloat())
             }
         }
-        
+
         // In all other cases...
-        return default_scale;
+        return VisualSettings.default_scale
     }
 }

@@ -1,58 +1,42 @@
-package rr;
+package rr
 
-import p.Resettable;
+import p.Resettable
 
 /**
- * 
+ *
  * A SubSector. References a Sector. Basically, this is a list of LineSegs,
  * indicating the visible walls that define (all or some) sides of a convex BSP
  * leaf.
- * 
+ *
  * @author admin
  */
-public class subsector_t implements Resettable{
-
-	public subsector_t() {
-		this(null,  0,  0);
-	} 
-
-	public subsector_t(sector_t sector, int numlines, int firstline) {
-		this.sector = sector;
-		this.numlines = numlines;
-		this.firstline = firstline;
-	}
-
-	// Maes: single pointer
-	public sector_t sector;
-	// e6y: support for extended nodes
-	// 'int' instead of 'short'
-	public int numlines;
-	public int firstline;
-	
-	public String toString(){
-		sb.setLength(0);
-		sb.append("Subsector");
-		sb.append('\t');
-		sb.append("Sector: ");
-		sb.append(sector);
-		sb.append('\t');
-		sb.append("numlines ");
-		sb.append(numlines);
-		sb.append('\t');
-		sb.append("firstline ");
-		sb.append(firstline);
-		return sb.toString();
-		
-		
-	}
-	
-	private static StringBuilder sb=new StringBuilder();
-
-    @Override
-    public void reset() {
-        sector=null;
-        firstline=numlines=0;        
+class subsector_t @JvmOverloads constructor(// Maes: single pointer
+    var sector: sector_t? = null, // e6y: support for extended nodes
+    // 'int' instead of 'short'
+    var numlines: Int = 0, var firstline: Int = 0
+) : Resettable {
+    override fun toString(): String {
+        subsector_t.sb.setLength(0)
+        subsector_t.sb.append("Subsector")
+        subsector_t.sb.append('\t')
+        subsector_t.sb.append("Sector: ")
+        subsector_t.sb.append(sector)
+        subsector_t.sb.append('\t')
+        subsector_t.sb.append("numlines ")
+        subsector_t.sb.append(numlines)
+        subsector_t.sb.append('\t')
+        subsector_t.sb.append("firstline ")
+        subsector_t.sb.append(firstline)
+        return subsector_t.sb.toString()
     }
-	
 
+    override fun reset() {
+        sector = null
+        numlines = 0
+        firstline = numlines
+    }
+
+    companion object {
+        private val sb = StringBuilder()
+    }
 }

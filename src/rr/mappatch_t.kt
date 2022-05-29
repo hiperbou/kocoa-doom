@@ -1,10 +1,9 @@
-package rr;
+package rr
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
-import w.CacheableDoomObject;
+import w.CacheableDoomObject
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * Texture definition.
@@ -12,30 +11,27 @@ import w.CacheableDoomObject;
  * with patches being lumps stored in the WAD.
  * The lumps are referenced by number, and patched
  * into the rectangular texture space using origin
- * and possibly other attributes. 
+ * and possibly other attributes.
  */
-
-public class mappatch_t implements CacheableDoomObject {
-     public short   originx;
-     public short   originy;
-     public short   patch;
-     public short   stepdir;
-     public short   colormap;
-     
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        originx=buf.getShort();
-        originy=buf.getShort();
-        patch=buf.getShort();
-        stepdir=buf.getShort();
-        colormap=buf.getShort();        
+class mappatch_t : CacheableDoomObject {
+    var originx: Short = 0
+    var originy: Short = 0
+    var patch: Short = 0
+    var stepdir: Short = 0
+    var colormap: Short = 0
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        originx = buf.short
+        originy = buf.short
+        patch = buf.short
+        stepdir = buf.short
+        colormap = buf.short
     }
 
-    public static final int size() {
-        return 10;
+    companion object {
+        fun size(): Int {
+            return 10
+        }
     }
-     
-     
- };
+}

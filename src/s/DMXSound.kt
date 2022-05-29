@@ -1,38 +1,33 @@
-package s;
+package s
 
-import java.io.IOException;
-import java.nio.BufferUnderflowException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import w.CacheableDoomObject
+import java.io.IOException
+import java.nio.BufferUnderflowException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
-import w.CacheableDoomObject;
+/** An object representation of Doom's sound format  */
+class DMXSound : CacheableDoomObject {
+    /** ushort, all Doom samples are "type 3". No idea how   */
+    var type = 0
 
-/** An object representation of Doom's sound format */
+    /** ushort, speed in Hz.  */
+    var speed = 0
 
-public class DMXSound implements CacheableDoomObject{
-
-    /** ushort, all Doom samples are "type 3". No idea how  */    
-    public int type;
-    /** ushort, speed in Hz. */
-    public int speed;    
-    /** uint */
-    public int datasize;
-
-    public byte[] data;
-    
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-       buf.order(ByteOrder.LITTLE_ENDIAN);
-       type=buf.getChar();
-       speed=buf.getChar();
-		try {
-			datasize = buf.getInt();
-		} catch (BufferUnderflowException e) {
-			datasize = buf.capacity() - buf.position();
-		}
-       data=new byte[Math.min(buf.remaining(),datasize)];
-       buf.get(data);
+    /** uint  */
+    var datasize = 0
+    lateinit var data: ByteArray
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        type = buf.char.code
+        speed = buf.char.code
+        datasize = try {
+            buf.int
+        } catch (e: BufferUnderflowException) {
+            buf.capacity() - buf.position()
+        }
+        data = ByteArray(Math.min(buf.remaining(), datasize))
+        buf[data]
     }
-
 }

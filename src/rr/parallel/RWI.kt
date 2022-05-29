@@ -1,14 +1,15 @@
-package rr.parallel;
+package rr.parallel
 
-import rr.drawfuns.ColVars;
 
-public interface RWI<T,V> {
-	public interface Init<T,V>{
-		RenderWallExecutor<T,V>[] InitRWIExecutors(int num,ColVars<T,V>[] RWI);
-	}
-	
-	public interface Get<T,V>{
-		ColVars<T,V>[] getRWI();
-		void setExecutors(RenderWallExecutor<T,V>[] RWIExec);
-	}
+import rr.drawfuns.ColVars
+
+interface RWI<T, V> {
+    interface Init<T, V> {
+        fun InitRWIExecutors(num: Int, RWI: Array<ColVars<T, V>?>?): Array<RenderWallExecutor<T, V>?>?
+    }
+
+    interface Get<T, V> {
+        fun getRWI(): Array<ColVars<T, V>>
+        fun setExecutors(RWIExec: Array<RenderWallExecutor<T, V>>)
+    }
 }

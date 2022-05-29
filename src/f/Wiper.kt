@@ -1,58 +1,36 @@
-package f;
+package f
 
-import v.graphics.Wipers;
 
-public interface Wiper {
-    boolean ScreenWipe(Wipers.WipeType type, int x, int y, int width, int height, int ticks);
+import v.graphics.Wipers
+import v.graphics.Wipers.WipeFunc
 
-    boolean EndScreen(int x, int y, int width, int height);
-
-    boolean StartScreen(int x, int y, int width, int height);
-    
-    public enum Wipe implements Wipers.WipeType {
+interface Wiper {
+    fun ScreenWipe(type: Wipers.WipeType, x: Int, y: Int, width: Int, height: Int, ticks: Int): Boolean
+    fun EndScreen(x: Int, y: Int, width: Int, height: Int): Boolean
+    fun StartScreen(x: Int, y: Int, width: Int, height: Int): Boolean
+    enum class Wipe(val _initFunc: WipeFunc, val _doFunc: WipeFunc, val _exitFunc: WipeFunc): Wipers.WipeType {
         // simple gradual pixel change for 8-bit only
         // MAES: this transition isn't guaranteed to always terminate
         // see Chocolate Strife develpment. Unused in Doom anyway.
         ColorXForm(
-            Wipers.WipeFunc.initColorXForm,
-            Wipers.WipeFunc.doColorXForm,
-            Wipers.WipeFunc.exitColorXForm
-        ),
-        // weird screen melt
+            WipeFunc.initColorXForm,
+            WipeFunc.doColorXForm,
+            WipeFunc.exitColorXForm
+        ),  // weird screen melt
         Melt(
-            Wipers.WipeFunc.initMelt,
-            Wipers.WipeFunc.doMelt,
-            Wipers.WipeFunc.exitMelt
+            WipeFunc.initMelt,
+            WipeFunc.doMelt,
+            WipeFunc.exitMelt
         ),
         ScaledMelt(
-            Wipers.WipeFunc.initScaledMelt,
-            Wipers.WipeFunc.doScaledMelt,
-            Wipers.WipeFunc.exitMelt
+            WipeFunc.initScaledMelt,
+            WipeFunc.doScaledMelt,
+            WipeFunc.exitMelt
         );
 
-        private final Wipers.WipeFunc initFunc;
-        private final Wipers.WipeFunc doFunc;
-        private final Wipers.WipeFunc exitFunc;
+        override fun getDoFunc() = _doFunc
+        override fun getExitFunc() = _exitFunc
 
-        @Override
-        public Wipers.WipeFunc getDoFunc() {
-            return doFunc;
-        }
-
-        @Override
-        public Wipers.WipeFunc getExitFunc() {
-            return exitFunc;
-        }
-
-        @Override
-        public Wipers.WipeFunc getInitFunc() {
-            return initFunc;
-        }
-
-        private Wipe(Wipers.WipeFunc initFunc, Wipers.WipeFunc doFunc, Wipers.WipeFunc exitFunc) {
-            this.initFunc = initFunc;
-            this.doFunc = doFunc;
-            this.exitFunc = exitFunc;
-        }
-    }   
+        override fun getInitFunc() = _initFunc
+    }
 }

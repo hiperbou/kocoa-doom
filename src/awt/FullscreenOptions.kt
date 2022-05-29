@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,165 +15,152 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package awt;
+package awt
 
-import java.awt.DisplayMode;
-import java.awt.Graphics2D;
-import java.awt.GraphicsDevice;
-import java.awt.Image;
-import static java.awt.RenderingHints.*;
-import java.awt.image.ImageObserver;
-import m.Settings;
-import mochadoom.Engine;
+import awt.FullscreenOptions.FullscreenFunction
+import awt.FullscreenOptions.StretchMode
+import m.Settings
+import mochadoom.Engine
+import java.awt.*
+import java.awt.image.ImageObserver
 
 /**
  * Full-screen switch and scale governor
- * 
+ *
  * @author Good Sign
  */
-public interface FullscreenOptions {
-    enum InterpolationMode {
-        Nearest, Bilinear, Biqubic;
+interface FullscreenOptions {
+    enum class InterpolationMode {
+        Nearest, Bilinear, Biqubic
     }
-    
-    enum StretchMode {
+
+    enum class StretchMode(
+        val widthFun: Fitter,
+        val heightFun: Fitter,
+        val offsXFun: Fitter,
+        val offsYFun: Fitter
+    ) {
         Centre(
-            (w, defW, h, defH) -> Math.min(defW, w),
-            (w, defW, h, defH) -> Math.min(defH, h),
-            (w, defW, h, defH) -> Math.max(0, (w - defW) / 2),
-            (w, defW, h, defH) -> Math.max(0, (h - defH) / 2)
-        ), Stretch(
-            (w, defW, h, defH) -> w,
-            (w, defW, h, defH) -> h,
-            (w, defW, h, defH) -> 0,
-            (w, defW, h, defH) -> 0
-        ), Fit(
-            (w, defW, h, defH) -> (int) (defW * minScale(w, defW, h, defH)),
-            (w, defW, h, defH) -> (int) (defH * minScale(w, defW, h, defH)),
-            (w, defW, h, defH) -> (w - (int) (defW * minScale(w, defW, h, defH))) / 2,
-            (w, defW, h, defH) -> (h - (int) (defH * minScale(w, defW, h, defH))) / 2
-        ), Aspect_4_3(
-            (w, defW, h, defH) -> Fit.widthFun.fit(w, defW, h, (int) (defH * 1.2f)),
-            (w, defW, h, defH) -> Fit.heightFun.fit(w, defW, h, (int) (defH * 1.2f)),
-            (w, defW, h, defH) -> Fit.offsXFun.fit(w, defW, h, (int) (defH * 1.2f)),
-            (w, defW, h, defH) -> Fit.offsYFun.fit(w, defW, h, (int) (defH * 1.2f))
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Math.min(defW, w) },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Math.min(defH, h) },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Math.max(0, (w - defW) / 2) },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Math.max(0, (h - defH) / 2) }
+        ),
+        Stretch(
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> w },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> h },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> 0 },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> 0 }
+        ),
+        Fit(
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> (defW * minScale(w, defW, h, defH)).toInt() },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> (defH * minScale(w, defW, h, defH)).toInt() },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> (w - (defW * minScale(w, defW, h, defH)).toInt()) / 2 },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> (h - (defH * minScale(w, defW, h, defH)).toInt()) / 2 }
+        ),
+        Aspect_4_3(
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Fit.widthFun.fit(w, defW, h, (defH * 1.2f).toInt()) },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Fit.heightFun.fit(w, defW, h, (defH * 1.2f).toInt()) },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Fit.offsXFun.fit(w, defW, h, (defH * 1.2f).toInt()) },
+            Fitter { w: Int, defW: Int, h: Int, defH: Int -> Fit.offsYFun.fit(w, defW, h, (defH * 1.2f).toInt()) }
         );
-        
-        final Fitter widthFun, heightFun, offsXFun, offsYFun;
 
-        private StretchMode(
-            final Fitter widthFun,
-            final Fitter heightFun,
-            final Fitter offsXFun,
-            final Fitter offsYFun
-        ) {
-            this.widthFun = widthFun;
-            this.heightFun = heightFun;
-            this.offsXFun = offsXFun;
-            this.offsYFun = offsYFun;
-        }
-
-        private static float minScale(int w, int defW, int h, int defH) {
-            float scaleX = w / (float) defW;
-            float scaleY = h / (float) defH;
-            return Math.min(scaleX, scaleY);
+        companion object {
+            private fun minScale(w: Int, defW: Int, h: Int, defH: Int): Float {
+                val scaleX = w / defW.toFloat()
+                val scaleY = h / defH.toFloat()
+                return Math.min(scaleX, scaleY)
+            }
         }
     }
-    
-    enum FullMode {
-        Best, Native;
+
+    enum class FullMode {
+        Best, Native
     }
-    
-    static FullMode FULLMODE = Engine.getConfig().getValue(Settings.fullscreen_mode, FullMode.class);
-    static StretchMode STRETCH = Engine.getConfig().getValue(Settings.fullscreen_stretch, StretchMode.class);
-    static InterpolationMode INTERPOLATION = Engine.getConfig().getValue(Settings.fullscreen_interpolation, InterpolationMode.class);
-    
+
     interface Dimension {
-        int width();
-        int height();
-        int defWidth();
-        int defHeight();
-        
-        default int fitX() {
-            return STRETCH.widthFun.fit(width(), defWidth(), height(), defHeight());
-        }
-        
-        default int fitY() {
-            return STRETCH.heightFun.fit(width(), defWidth(), height(), defHeight());
-        }
-        
-        default int offsX() {
-            return STRETCH.offsXFun.fit(width(), defWidth(), height(), defHeight());
-        }
-        
-        default int offsY() {
-            return STRETCH.offsYFun.fit(width(), defWidth(), height(), defHeight());
-        }
-    }
-    
-    interface Fitter {
-        int fit(int width, int defWidth, int height, int defHeight);
-    }
-    
-    default void options(Graphics2D graphics) {
-        switch(INTERPOLATION) {
-            case Nearest:
-                graphics.setRenderingHint(KEY_INTERPOLATION, VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-                break;
-            case Bilinear:
-                graphics.setRenderingHint(KEY_INTERPOLATION, VALUE_INTERPOLATION_BILINEAR);
-                break;
-            case Biqubic:
-                graphics.setRenderingHint(KEY_INTERPOLATION, VALUE_INTERPOLATION_BICUBIC);
-                break;
-        }
-    }
-    
-    default void draw(Graphics2D graphics, Image image, Dimension dim, ImageObserver observer) {
-        graphics.drawImage(image, dim.offsX(), dim.offsY(), dim.fitX(), dim.fitY(), observer);
-    }
-    
-    default FullscreenFunction createFullSwitcher(final GraphicsDevice device) {
-        switch(FULLMODE) {
-            case Best:
-                return new FullscreenSwitch(device, new DisplayModePicker(device));
-            case Native:
-                return (w, h) -> device.getDisplayMode();
-        }
-        
-        throw new Error("Enum reflection overuse?");
-    }
-    
-    @FunctionalInterface
-    interface FullscreenFunction {
-        DisplayMode get(int width, int height);
-    }
-    
-    static class FullscreenSwitch implements FullscreenFunction {
-        private final GraphicsDevice dev;
-        private final DisplayModePicker dmp;
-        private DisplayMode oldDisplayMode;
-        private DisplayMode displayMode;
-
-        private FullscreenSwitch(GraphicsDevice dev, DisplayModePicker dmp) {
-            this.dev = dev;
-            this.dmp = dmp;
+        fun width(): Int
+        fun height(): Int
+        fun defWidth(): Int
+        fun defHeight(): Int
+        fun fitX(): Int {
+            return FullscreenOptions.STRETCH.widthFun.fit(width(), defWidth(), height(), defHeight())
         }
 
-        @Override
-        public DisplayMode get(final int width, final int height) {
+        fun fitY(): Int {
+            return FullscreenOptions.STRETCH.heightFun.fit(width(), defWidth(), height(), defHeight())
+        }
+
+        fun offsX(): Int {
+            return FullscreenOptions.STRETCH.offsXFun.fit(width(), defWidth(), height(), defHeight())
+        }
+
+        fun offsY(): Int {
+            return FullscreenOptions.STRETCH.offsYFun.fit(width(), defWidth(), height(), defHeight())
+        }
+    }
+
+    fun interface Fitter {
+        fun fit(width: Int, defWidth: Int, height: Int, defHeight: Int): Int
+    }
+
+    fun options(graphics: Graphics2D) {
+        when (FullscreenOptions.INTERPOLATION) {
+            InterpolationMode.Nearest -> graphics.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR
+            )
+            InterpolationMode.Bilinear -> graphics.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BILINEAR
+            )
+            InterpolationMode.Biqubic -> graphics.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BICUBIC
+            )
+        }
+    }
+
+    fun draw(graphics: Graphics2D, image: Image?, dim: FullscreenOptions.Dimension, observer: ImageObserver?) {
+        graphics.drawImage(image, dim.offsX(), dim.offsY(), dim.fitX(), dim.fitY(), observer)
+    }
+
+    fun createFullSwitcher(device: GraphicsDevice): FullscreenFunction? {
+        when (FullscreenOptions.FULLMODE) {
+            FullMode.Best -> return FullscreenSwitch(device, DisplayModePicker(device))
+            FullMode.Native -> return FullscreenFunction { w: Int, h: Int -> device.displayMode }
+        }
+        throw Error("Enum reflection overuse?")
+    }
+
+    fun interface FullscreenFunction {
+        operator fun get(width: Int, height: Int): DisplayMode?
+    }
+
+    class FullscreenSwitch(private val dev: GraphicsDevice, private val dmp: DisplayModePicker) : FullscreenFunction {
+        private var oldDisplayMode: DisplayMode? = null
+        private var displayMode: DisplayMode? = null
+        override fun get(width: Int, height: Int): DisplayMode? {
             if (oldDisplayMode == null) {
                 // In case we need to revert.
-                oldDisplayMode = dev.getDisplayMode();
+                oldDisplayMode = dev.displayMode
                 // TODO: what if bit depths are too small?
-                displayMode = dmp.pickClosest(width, height);
+                displayMode = dmp.pickClosest(width, height)
             } else {
                 // We restore the original resolution
-                displayMode = oldDisplayMode;
-                oldDisplayMode = null;
+                displayMode = oldDisplayMode
+                oldDisplayMode = null
             }
-            
-            return displayMode;
+            return displayMode
         }
+    }
+
+    companion object {
+        val FULLMODE: FullMode =
+            Engine.getConfig().getValue<FullMode>(Settings.fullscreen_mode, FullMode::class.java)!!
+        val STRETCH: StretchMode =
+            Engine.getConfig().getValue<StretchMode>(Settings.fullscreen_stretch, StretchMode::class.java)!!
+        val INTERPOLATION: InterpolationMode = Engine.getConfig()
+            .getValue<InterpolationMode>(Settings.fullscreen_interpolation, InterpolationMode::class.java)!!
     }
 }

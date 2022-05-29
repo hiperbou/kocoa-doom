@@ -1,37 +1,38 @@
-package timing;
+package timing
 
-import static data.Defines.TICRATE;
 
-public class NanoTicker
-        implements ITicker {
+import data.Defines
 
+class NanoTicker : ITicker {
     /**
      * I_GetTime
      * returns time in 1/70th second tics
      */
-   
-    @Override
-    public int GetTime() {
-        long tp;
+    override fun GetTime(): Int {
+        val tp: Long
         //struct timezone   tzp;
-        int newtics;
+        val newtics: Int
 
         // Attention: System.nanoTime() might not be consistent across multicore CPUs.
         // To avoid the core getting back to the past,
-        tp = System.nanoTime();
-        if (basetime == 0) {
-            basetime = tp;
+        tp = System.nanoTime()
+        if (basetime == 0L) {
+            basetime = tp
         }
-        newtics = (int) (((tp - basetime) * TICRATE) / 1000000000);// + tp.tv_usec*TICRATE/1000000;
+        newtics = ((tp - basetime) * Defines.TICRATE / 1000000000).toInt() // + tp.tv_usec*TICRATE/1000000;
         if (newtics < oldtics) {
-            System.err.printf("Timer discrepancies detected : %d", (++discrepancies));
-            return oldtics;
+            System.err.printf("Timer discrepancies detected : %d", ++discrepancies)
+            return oldtics
         }
-        return (oldtics = newtics);
+        return newtics.also { oldtics = it }
     }
 
-    protected volatile long basetime=0;
-    protected volatile int oldtics=0;
-    protected volatile int discrepancies;
-    
+    @Volatile
+    var basetime: Long = 0
+
+    @Volatile
+    var oldtics = 0
+
+    @Volatile
+    protected var discrepancies = 0
 }

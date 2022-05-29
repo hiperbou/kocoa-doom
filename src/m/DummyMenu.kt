@@ -1,84 +1,48 @@
-package m;
+package m
 
-import doom.DoomMain;
-import doom.event_t;
+
+import doom.DoomMain
+import doom.event_t
 
 /** A dummy menu, useful for testers that do need a defined
- *  menu object.
- * 
- * @author Maes
+ * menu object.
  *
+ * @author Maes
  */
-
-public class DummyMenu<T, V> extends AbstractDoomMenu<T, V> {
-    public DummyMenu(DoomMain<T, V> DOOM) {
-        super(DOOM);
-    }
-    
-    @Override
-    public boolean Responder(event_t ev) {
+class DummyMenu<T, V>(DOOM: DoomMain<T, V>) : AbstractDoomMenu<T, V>(DOOM!!) {
+    override fun Responder(ev: event_t): Boolean {
         // TODO Auto-generated method stub
-        return false;
+        return false
     }
 
-    @Override
-    public void Ticker() {
+    override fun Ticker() {
         // TODO Auto-generated method stub
-
     }
 
-    @Override
-    public void Drawer() {
+    override fun Drawer() {
         // TODO Auto-generated method stub
-
     }
 
-    @Override
-    public void Init() {
+    override fun Init() {
         // TODO Auto-generated method stub
-
     }
 
-    @Override
-    public void StartControlPanel() {
+    override fun StartControlPanel() {
         // TODO Auto-generated method stub
-
     }
 
-    @Override
-    public boolean getShowMessages() {
+    override var showMessages: Boolean
+        get() = false
+        set(value) {}
+
+    override var screenBlocks: Int
+        get() = 0
+        set(value) {}
+
+    override val detailLevel: Int
+        get() = 0
+
+    override fun ClearMenus() {
         // TODO Auto-generated method stub
-        return false;
     }
-
-    @Override
-    public void setShowMessages(boolean val) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public int getScreenBlocks() {
-        // TODO Auto-generated method stub
-        return 0;
-    }
-
-    @Override
-    public void setScreenBlocks(int val) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public int getDetailLevel() {
-        // TODO Auto-generated method stub
-        return 0;
-    }
-
-	@Override
-	public void ClearMenus() {
-		// TODO Auto-generated method stub
-		
-	}
-
 }

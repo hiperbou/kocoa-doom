@@ -1,22 +1,23 @@
-package timing;
+package timing
 
-import doom.CVarManager;
-import doom.CommandVariable;
-import doom.SourceCode.I_IBM;
-import static doom.SourceCode.I_IBM.*;
 
-public interface ITicker {
+import doom.CVarManager
+import doom.CommandVariable
+import doom.SourceCode.I_IBM
 
-    static ITicker createTicker(CVarManager CVM) {
-        if (CVM.bool(CommandVariable.MILLIS)) {
-            return new MilliTicker();
-        } else if (CVM.bool(CommandVariable.FASTTIC) || CVM.bool(CommandVariable.FASTDEMO)) {
-            return new DelegateTicker();
-        } else {
-            return new NanoTicker();
+interface ITicker {
+    @I_IBM.C(I_IBM.I_GetTime)
+    fun GetTime(): Int
+
+    companion object {
+        fun createTicker(CVM: CVarManager): ITicker {
+            return if (CVM.bool(CommandVariable.MILLIS)) {
+                MilliTicker()
+            } else if (CVM.bool(CommandVariable.FASTTIC) || CVM.bool(CommandVariable.FASTDEMO)) {
+                DelegateTicker()
+            } else {
+                NanoTicker()
+            }
         }
     }
-    
-    @I_IBM.C(I_GetTime)
-    public int GetTime();
 }

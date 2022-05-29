@@ -1,7 +1,6 @@
-package st;
+package st
 
-enum st_chatstateenum_t {
-	    StartChatState,
-	    WaitDestState,
-	    GetChatState
+
+internal enum class st_chatstateenum_t {
+    StartChatState, WaitDestState, GetChatState
 }

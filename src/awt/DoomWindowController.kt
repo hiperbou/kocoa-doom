@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,97 +15,94 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package awt;
+package awt
 
-import doom.event_t;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.DisplayMode;
-import java.awt.GraphicsDevice;
-import java.awt.Image;
-import java.awt.Toolkit;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-import java.util.logging.Level;
-import m.Settings;
-import mochadoom.Engine;
-import mochadoom.Loggers;
+import java.awt.*
+import awt.FullscreenOptions.FullscreenFunction
+import doom.event_t
+import m.Settings
+import mochadoom.Engine
+import mochadoom.Loggers
+import java.util.function.Consumer
+import java.util.function.Supplier
+import java.util.logging.Level
 
 /**
  * Display, its configuration and resolution related stuff,
  * DoomFrame creation, full-screen related code. Window recreation control.
  * That sort of things.
  */
-public class DoomWindowController<E extends Component & DoomWindow<E>, H extends Enum<H> & EventBase<H>> implements FullscreenOptions {
-    private static final long ALL_EVENTS_MASK = 0xFFFF_FFFF_FFFF_FFFFL;
-
-    final GraphicsDevice device;
-    final FullscreenFunction switcher;
-    final int defaultWidth, defaultHeight;
-
-    private final E component;
-    private final EventObserver<H> observer;
-    private DoomFrame<E> doomFrame;
+class DoomWindowController<E, H> internal constructor(
+    handlerClass: Class<EventHandler>,
+    val device: GraphicsDevice,
+    imageSource: Supplier<Image>,
+    doomEventConsumer: Consumer<in event_t>,
+    component: E,
+    defaultWidth: Int,
+    defaultHeight: Int
+) : FullscreenOptions where E : Component, E : DoomWindow<E>, H : Enum<H>, H : EventBase<H> {
+    val switcher: FullscreenFunction
+    val defaultWidth: Int
+    val defaultHeight: Int
+    private val component: E
+    val _observer: EventObserver<H>
+    private var doomFrame: DoomFrame<E>
 
     /**
      * Default window size. It might change upon entering full screen, so don't consider it absolute. Due to letter
      * boxing and screen doubling, stretching etc. it might be different that the screen buffer (typically, larger).
      */
-    private final DimensionImpl dimension;
-    private boolean isFullScreen;
+    private val dimension: DimensionImpl
+    private var isFullScreen = false
 
-    DoomWindowController(
-        final Class<H> handlerClass,
-        final GraphicsDevice device,
-        final Supplier<Image> imageSource,
-        final Consumer<? super event_t> doomEventConsumer,
-        final E component,
-        final int defaultWidth,
-        final int defaultHeight
-    ) {
-        this.device = device;
-        this.switcher = createFullSwitcher(device);
-        this.component = component;
-        this.defaultWidth = defaultWidth;
-        this.defaultHeight = defaultHeight;
-        this.dimension = new DimensionImpl(defaultWidth, defaultHeight);
-        this.doomFrame = new DoomFrame<>(dimension, component, imageSource);
-        this.observer = new EventObserver<>(handlerClass, component, doomEventConsumer);
-        Toolkit.getDefaultToolkit().addAWTEventListener(observer::observe, ALL_EVENTS_MASK);
-        sizeInit();
-        doomFrame.turnOn();
+    init {
+        switcher = createFullSwitcher(device)!!
+        this.component = component
+        this.defaultWidth = defaultWidth
+        this.defaultHeight = defaultHeight
+        dimension = DimensionImpl(defaultWidth, defaultHeight)
+        doomFrame = DoomFrame(dimension, component, imageSource)
+        _observer = EventObserver(handlerClass, component, doomEventConsumer) as EventObserver<H>
+        Toolkit.getDefaultToolkit().addAWTEventListener(
+            { ev -> _observer.observe(ev) },
+            ALL_EVENTS_MASK
+        )
+        sizeInit()
+        doomFrame.turnOn()
     }
-    
-    private void sizeInit() {
+
+    private fun sizeInit() {
         try {
-            if (!(Engine.getConfig().equals(Settings.fullscreen, Boolean.TRUE) && switchToFullScreen())) {
-                updateSize();
+            if (!(Engine.getConfig()
+                    .equals(Settings.fullscreen, java.lang.Boolean.TRUE) && switchToFullScreen())
+            ) {
+                updateSize()
             }
-        } catch (Exception e) {
-            Loggers.getLogger(DoomWindow.class.getName()).log(Level.SEVERE,
-                    String.format("Error creating DOOM AWT frame. Exiting. Reason: %s", e.getMessage()), e);
-            throw e;
+        } catch (e: Exception) {
+            Loggers.getLogger(DoomWindow::class.java.name)
+                .log(Level.SEVERE, String.format("Error creating DOOM AWT frame. Exiting. Reason: %s", e.message), e)
+            throw e
         }
     }
-    
-    public void updateFrame() {
-        doomFrame.update();
+
+    fun updateFrame() {
+        doomFrame.update()
     }
 
-    public EventObserver<H> getObserver() {
-        return observer;
+    fun getObserver(): EventObserver<H> {
+        return _observer
     }
 
-    public boolean switchFullscreen() {
-        Loggers.getLogger(DoomFrame.class.getName()).log(Level.WARNING, "FULLSCREEN SWITHED");
+    fun switchFullscreen(): Boolean {
+        Loggers.getLogger(DoomFrame::class.java.name).log(Level.WARNING, "FULLSCREEN SWITHED")
         // remove the frame from view
-        doomFrame.dispose();
-        doomFrame = new DoomFrame<>(dimension, component, doomFrame.imageSupplier);
+        doomFrame.dispose()
+        doomFrame = DoomFrame(dimension, component, doomFrame.imageSupplier)
         // change all the properties
-        final boolean ret = switchToFullScreen();
+        val ret = switchToFullScreen()
         // now show back the frame
-        doomFrame.turnOn();
-        return ret;
+        doomFrame.turnOn()
+        return ret
     }
 
     /**
@@ -114,110 +112,113 @@ public class DoomWindowController<E extends Component & DoomWindow<E>, H extends
      *
      * Therefore, a "best fit" strategy with centering is used.
      */
-    public final boolean switchToFullScreen() {
+    fun switchToFullScreen(): Boolean {
         if (!isFullScreen) {
-            isFullScreen = device.isFullScreenSupported();
+            isFullScreen = device.isFullScreenSupported
             if (!isFullScreen) {
-                return false;
+                return false
             }
         } else {
-            isFullScreen = false;
+            isFullScreen = false
         }
-        final DisplayMode displayMode = switcher.get(defaultWidth, defaultHeight);
-        doomFrame.setUndecorated(isFullScreen);
+        val displayMode = switcher[defaultWidth, defaultHeight]!!
+        doomFrame.isUndecorated = isFullScreen
 
         // Full-screen mode
-        device.setFullScreenWindow(isFullScreen ? doomFrame : null);
-        if (device.isDisplayChangeSupported()) {
-            device.setDisplayMode(displayMode);
+        device.fullScreenWindow = if (isFullScreen) doomFrame else null
+        if (device.isDisplayChangeSupported) {
+            device.displayMode = displayMode
         }
-
-        component.validate();
-        dimension.setSize(displayMode);
-        updateSize();
-        return isFullScreen;
+        component.validate()
+        dimension.setSize(displayMode)
+        updateSize()
+        return isFullScreen
     }
 
-    private void updateSize() {
-        doomFrame.setPreferredSize(isFullscreen() ? dimension : null);
-        component.setPreferredSize(dimension);
-        component.setBounds(0, 0, defaultWidth - 1, defaultHeight - 1);
-        component.setBackground(Color.black);
-        doomFrame.renewGraphics();
+    private fun updateSize() {
+        doomFrame.preferredSize = if (isFullscreen()) dimension else null
+        component.preferredSize = dimension
+        component.setBounds(0, 0, defaultWidth - 1, defaultHeight - 1)
+        component.background = Color.black
+        doomFrame.renewGraphics()
     }
 
-    public boolean isFullscreen() {
-        return isFullScreen;
+    fun isFullscreen(): Boolean {
+        return isFullScreen
     }
-    
-    private class DimensionImpl extends java.awt.Dimension implements Dimension {
-		private static final long serialVersionUID = 4598094740125688728L;
-		private int offsetX, offsetY;
-        private int fitWidth, fitHeight;
 
-        DimensionImpl(int width, int height) {
-            this.width = defaultWidth;
-            this.height = defaultHeight;
-            this.offsetX = offsetY = 0;
-            this.fitWidth = width;
-            this.fitHeight = height;
-        }
-        
-        @Override
-        public int width() {
-            return width;
+    private inner class DimensionImpl internal constructor(width: Int, height: Int) : Dimension(),
+        FullscreenOptions.Dimension {
+        private var offsetX: Int
+        private var offsetY: Int
+        private var fitWidth: Int
+        private var fitHeight: Int
+
+        init {
+            this.width = defaultWidth
+            this.height = defaultHeight
+            offsetY = 0
+            offsetX = offsetY
+            fitWidth = width
+            fitHeight = height
         }
 
-        @Override
-        public int height() {
-            return height;
+        override fun width(): Int {
+            return width
         }
 
-        @Override
-        public int defWidth() {
-            return defaultWidth;
+        override fun height(): Int {
+            return height
         }
 
-        @Override
-        public int defHeight() {
-            return defaultHeight;
+        override fun defWidth(): Int {
+            return defaultWidth
         }
 
-        @Override
-        public int fitX() {
-            return fitWidth;
+        override fun defHeight(): Int {
+            return defaultHeight
         }
 
-        @Override
-        public int fitY() {
-            return fitHeight;
+        override fun fitX(): Int {
+            return fitWidth
         }
 
-        @Override
-        public int offsX() {
-            return offsetX;
+        override fun fitY(): Int {
+            return fitHeight
         }
 
-        @Override
-        public int offsY() {
-            return offsetY;
+        override fun offsX(): Int {
+            return offsetX
         }
-        
-        private void setSize(DisplayMode mode) {
+
+        override fun offsY(): Int {
+            return offsetY
+        }
+
+        fun setSize(mode: DisplayMode) {
             if (isFullScreen) {
-                this.width = mode.getWidth();
-                this.height = mode.getHeight();
-                this.offsetX = Dimension.super.offsX();
-                this.offsetY = Dimension.super.offsY();
-                this.fitWidth = Dimension.super.fitX();
-                this.fitHeight = Dimension.super.fitY();
+                width = mode.width
+                height = mode.height
+                offsetX = super.offsX()
+                offsetY = super.offsY()
+                fitWidth = super.fitX()
+                fitHeight = super.fitY()
             } else {
-                this.width = defaultWidth;
-                this.height = defaultHeight;
-                this.offsetX = offsetY = 0;
-                this.fitWidth = width;
-                this.fitHeight = height;
+                width = defaultWidth
+                height = defaultHeight
+                offsetY = 0
+                offsetX = offsetY
+                fitWidth = width
+                fitHeight = height
             }
         }
+
+        /*companion object {
+            private const val serialVersionUID = 4598094740125688728L
+        }*/
+    }
+
+    companion object {
+        private const val ALL_EVENTS_MASK = -0x1L
     }
 }

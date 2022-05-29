@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,31 +15,28 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.graphics;
+package v.graphics
 
 /**
- * Horizontal represents a range from a screen buffer (byte or short or int array) 
- * 
+ * Horizontal represents a range from a screen buffer (byte or short or int array)
+ *
  * @author Good Sign
  */
-public class Horizontal {
-    
-    public int start;
-    public int length;
+class Horizontal {
+    var start = 0
+    var length = 0
 
-    public Horizontal() {
+    constructor() {}
+    constructor(start: Int, length: Int) {
+        this.start = start
+        this.length = length
     }
 
-    public Horizontal(int start, int length) {
-        this.start = start;
-        this.length = length;
+    fun relocate(amount: Int): Relocation {
+        return Relocation(start, start + amount, length)
     }
 
-    public Relocation relocate(int amount) {
-        return new Relocation(start, start + amount, length);
-    }
-
-    public void shift(int amount) {
-        this.start += amount;
+    fun shift(amount: Int) {
+        start += amount
     }
 }

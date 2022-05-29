@@ -1,67 +1,49 @@
-package s;
+package s
 
-import data.sfxinfo_t;
+import data.sfxinfo_t
 
-public class DummySFX implements ISoundDriver {
+class DummySFX : ISoundDriver {
+    override fun InitSound(): Boolean {
+        // Dummy is super-reliable ;-)
+        return true
+    }
 
-	@Override
-	public boolean InitSound() {
-		// Dummy is super-reliable ;-)
-		return true;
-	}
+    override fun UpdateSound() {
+        // TODO Auto-generated method stub
+    }
 
-	@Override
-	public void UpdateSound() {
-		// TODO Auto-generated method stub
+    override fun SubmitSound() {
+        // TODO Auto-generated method stub
+    }
 
-	}
+    override fun ShutdownSound() {
+        // TODO Auto-generated method stub
+    }
 
-	@Override
-	public void SubmitSound() {
-		// TODO Auto-generated method stub
+    override fun GetSfxLumpNum(sfxinfo: sfxinfo_t): Int {
+        // TODO Auto-generated method stub
+        return 0
+    }
 
-	}
+    override fun StartSound(id: Int, vol: Int, sep: Int, pitch: Int, priority: Int): Int {
+        // TODO Auto-generated method stub
+        return 0
+    }
 
-	@Override
-	public void ShutdownSound() {
-		// TODO Auto-generated method stub
+    override fun StopSound(handle: Int) {
+        // TODO Auto-generated method stub
+    }
 
-	}
+    override fun SoundIsPlaying(handle: Int): Boolean {
+        // TODO Auto-generated method stub
+        return false
+    }
 
-	@Override
-	public int GetSfxLumpNum(sfxinfo_t sfxinfo) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
+    override fun UpdateSoundParams(handle: Int, vol: Int, sep: Int, pitch: Int) {
+        // TODO Auto-generated method stub
+    }
 
-	@Override
-	public int StartSound(int id, int vol, int sep, int pitch, int priority) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	@Override
-	public void StopSound(int handle) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public boolean SoundIsPlaying(int handle) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public void UpdateSoundParams(int handle, int vol, int sep, int pitch) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void SetChannels(int numChannels) {
-		// TODO Auto-generated method stub
-		
-	}
-
+    override fun SetChannels(numChannels: Int) {
+        // TODO Auto-generated method stub
+    }
 }

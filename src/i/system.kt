@@ -4,6 +4,7 @@
 // $Id: system.java,v 1.5 2011/02/11 00:11:13 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -36,12 +37,26 @@
 // DESCRIPTION:
 //
 //-----------------------------------------------------------------------------
+package i
 
-package i;
 
-public class system{
-    
-/*
+class system {
+    fun Tactile(
+        on: Int,
+        off: Int,
+        total: Int
+    ) {
+        // UNUSED.
+        var on = on
+        var off = off
+        var total = total
+        total = 0
+        off = total
+        on = off
+    }
+
+    companion object {
+        /*
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -64,22 +79,9 @@ public class system{
 #include "i_system.h"
 
 */
+        var mb_used = 6
 
-
-static int	mb_used = 6;
-
-
-public void
-Tactile
-( int	on,
-  int	off,
-  int	total )
-{
-  // UNUSED.
-  on = off = total = 0;
-}
-
-/*
+        /*
 ticcmd_t	emptycmd;
 ticcmd_t*	I_BaseTiccmd(void)
 {
@@ -87,26 +89,22 @@ ticcmd_t*	I_BaseTiccmd(void)
 }
 
 */
+        fun GetHeapSize(): Int {
+            return system.mb_used * 1024 * 1024
+        }
 
-public static int  GetHeapSize ()
-{
-    return mb_used*1024*1024;
-}
-
-/*
+        /*
 byte* I_ZoneBase (int*	size)
 {
     *size = mb_used*1024*1024;
     return (byte *) malloc (*size);
 }
 */
-
-
-//
-// I_GetTime
-// returns time in 1/70th second tics
-//
-/*
+        //
+        // I_GetTime
+        // returns time in 1/70th second tics
+        //
+        /*
 int  I_GetTime ()
 {
     struct timeval	tp;
@@ -121,12 +119,10 @@ int  I_GetTime ()
     return newtics;
 }
 */
-
-
-//
-// I_Init
-//
-/*
+        //
+        // I_Init
+        //
+        /*
 void I_Init (void)
 {
     I_InitSound();
@@ -177,32 +173,29 @@ byte*	I_AllocLow(int length)
 }
 
 */
+        //
+        // I_Error
+        //
+        var demorecording = false
+        fun Error(error: String?, vararg args: Any?) {
+            //va_list	argptr;
 
-//
-// I_Error
-//
-public static boolean demorecording;
+            // Message first.
+            //va_start (argptr,error);
+            System.err.print("Error: ")
+            System.err.printf(error, *args)
+            System.err.print("\n")
+            //va_end (argptr);
 
-public static void Error (String error, Object ... args)
-{
-    //va_list	argptr;
+            //fflush( stderr );
 
-    // Message first.
-    //va_start (argptr,error);
-    System.err.print("Error: ");
-    System.err.printf(error,args);
-    System.err.print("\n");
-    //va_end (argptr);
+            // Shutdown. Here might be other errors.
+            //if (demorecording)
+            //G_CheckDemoStatus();
 
-    //fflush( stderr );
-
-    // Shutdown. Here might be other errors.
-    //if (demorecording)
-	//G_CheckDemoStatus();
-
-    //D_QuitNetGame ();
-    //I_ShutdownGraphics();
-    
-    System.exit(-1);
-}
+            //D_QuitNetGame ();
+            //I_ShutdownGraphics();
+            System.exit(-1)
+        }
+    }
 }

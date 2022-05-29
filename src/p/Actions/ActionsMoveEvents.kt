@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,30 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import p.ceiling_e;
-import p.floor_e;
-import p.mobj_t;
-import p.plattype_e;
-import p.stair_e;
-import p.vldoor_e;
-import rr.line_t;
+import data.mobjtype_t
+import p.*
+import rr.line_t
 
-public interface ActionsMoveEvents extends ActionTrait {
-
-    boolean DoDoor(line_t line, vldoor_e type);
-    boolean DoFloor(line_t line, floor_e floor_e);
-    boolean DoPlat(line_t line, plattype_e plattype_e, int i);
-    boolean BuildStairs(line_t line, stair_e stair_e);
-    boolean DoCeiling(line_t line, ceiling_e ceiling_e);
-    void StopPlat(line_t line);
-    void LightTurnOn(line_t line, int i);
-    void StartLightStrobing(line_t line);
-    void TurnTagLightsOff(line_t line);
-    int Teleport(line_t line, int side, mobj_t thing);
-    int CeilingCrushStop(line_t line);
-
+interface ActionsMoveEvents : ActionTrait {
+    fun DoDoor(line: line_t, type: vldoor_e?): Boolean
+    fun DoFloor(line: line_t, floor_e: floor_e): Boolean
+    fun DoPlat(line: line_t, plattype_e: plattype_e?, i: Int): Boolean
+    fun BuildStairs(line: line_t?, stair_e: stair_e?): Boolean
+    fun DoCeiling(line: line_t, ceiling_e: ceiling_e): Boolean
+    fun StopPlat(line: line_t)
+    fun LightTurnOn(line: line_t, i: Int)
+    fun StartLightStrobing(line: line_t)
+    fun TurnTagLightsOff(line: line_t)
+    fun Teleport(line: line_t, side: Int, thing: mobj_t): Int
+    fun CeilingCrushStop(line: line_t): Int
     //
     //EVENTS
     //Events are operations triggered by using, crossing,
@@ -47,457 +42,291 @@ public interface ActionsMoveEvents extends ActionTrait {
     /**
      * P_CrossSpecialLine - TRIGGER Called every time a thing origin is about to cross a line with a non 0 special.
      */
-    default void CrossSpecialLine(line_t line, int side, mobj_t thing) {
+    fun CrossSpecialLine(line: line_t, side: Int, thing: mobj_t) {
         //line_t line;
-        boolean ok;
+        var ok: Boolean
 
         //line = LL.lines[linenum];
         //  Triggers that other things can activate
         if (thing.player == null) {
             // Things that should NOT trigger specials...
-            switch (thing.type) {
-                case MT_ROCKET:
-                case MT_PLASMA:
-                case MT_BFG:
-                case MT_TROOPSHOT:
-                case MT_HEADSHOT:
-                case MT_BRUISERSHOT:
-                    return;
-                // break;
-
-                default:
-                    break;
+            when (thing.type) {
+                mobjtype_t.MT_ROCKET, mobjtype_t.MT_PLASMA, mobjtype_t.MT_BFG, mobjtype_t.MT_TROOPSHOT, mobjtype_t.MT_HEADSHOT, mobjtype_t.MT_BRUISERSHOT -> return
+                else -> {}
             }
-
-            ok = false;
-            switch (line.special) {
-                case 39:  // TELEPORT TRIGGER
-                case 97:  // TELEPORT RETRIGGER
-                case 125: // TELEPORT MONSTERONLY TRIGGER
-                case 126: // TELEPORT MONSTERONLY RETRIGGER
-                case 4:   // RAISE DOOR
-                case 10:  // PLAT DOWN-WAIT-UP-STAY TRIGGER
-                case 88: // PLAT DOWN-WAIT-UP-STAY RETRIGGER
-                    ok = true;
-                    break;
+            ok = false
+            when (line.special.toInt()) {
+                39, 97, 125, 126, 4, 10, 88 -> ok = true
             }
             if (!ok) {
-                return;
+                return
             }
         }
-
-        // TODO: enum!
-        // Note: could use some const's here.
-        switch (line.special) {
-            // TRIGGERS.
-            // All from here to RETRIGGERS.
-            case 2:
+        when (line.special.toInt()) {
+            2 -> {
                 // Open Door
-                DoDoor(line, vldoor_e.open);
-                line.special = 0;
-                break;
-
-            case 3:
+                DoDoor(line, vldoor_e.open)
+                line.special = 0
+            }
+            3 -> {
                 // Close Door
-                DoDoor(line, vldoor_e.close);
-                line.special = 0;
-                break;
-
-            case 4:
+                DoDoor(line, vldoor_e.close)
+                line.special = 0
+            }
+            4 -> {
                 // Raise Door
-                DoDoor(line, vldoor_e.normal);
-                line.special = 0;
-                break;
-
-            case 5:
+                DoDoor(line, vldoor_e.normal)
+                line.special = 0
+            }
+            5 -> {
                 // Raise Floor
-                DoFloor(line, floor_e.raiseFloor);
-                line.special = 0;
-                break;
-
-            case 6:
+                DoFloor(line, floor_e.raiseFloor)
+                line.special = 0
+            }
+            6 -> {
                 // Fast Ceiling Crush & Raise
-                DoCeiling(line, ceiling_e.fastCrushAndRaise);
-                line.special = 0;
-                break;
-
-            case 8:
+                DoCeiling(line, ceiling_e.fastCrushAndRaise)
+                line.special = 0
+            }
+            8 -> {
                 // Build Stairs
-                BuildStairs(line, stair_e.build8);
-                line.special = 0;
-                break;
-
-            case 10:
+                BuildStairs(line, stair_e.build8)
+                line.special = 0
+            }
+            10 -> {
                 // PlatDownWaitUp
-                DoPlat(line, plattype_e.downWaitUpStay, 0);
-                line.special = 0;
-                break;
-
-            case 12:
+                DoPlat(line, plattype_e.downWaitUpStay, 0)
+                line.special = 0
+            }
+            12 -> {
                 // Light Turn On - brightest near
-                LightTurnOn(line, 0);
-                line.special = 0;
-                break;
-
-            case 13:
+                LightTurnOn(line, 0)
+                line.special = 0
+            }
+            13 -> {
                 // Light Turn On 255
-                LightTurnOn(line, 255);
-                line.special = 0;
-                break;
-
-            case 16:
+                LightTurnOn(line, 255)
+                line.special = 0
+            }
+            16 -> {
                 // Close Door 30
-                DoDoor(line, vldoor_e.close30ThenOpen);
-                line.special = 0;
-                break;
-
-            case 17:
+                DoDoor(line, vldoor_e.close30ThenOpen)
+                line.special = 0
+            }
+            17 -> {
                 // Start Light Strobing
-                StartLightStrobing(line);
-                line.special = 0;
-                break;
-
-            case 19:
+                StartLightStrobing(line)
+                line.special = 0
+            }
+            19 -> {
                 // Lower Floor
-                DoFloor(line, floor_e.lowerFloor);
-                line.special = 0;
-                break;
-
-            case 22:
+                DoFloor(line, floor_e.lowerFloor)
+                line.special = 0
+            }
+            22 -> {
                 // Raise floor to nearest height and change texture
-                DoPlat(line, plattype_e.raiseToNearestAndChange, 0);
-                line.special = 0;
-                break;
-
-            case 25:
+                DoPlat(line, plattype_e.raiseToNearestAndChange, 0)
+                line.special = 0
+            }
+            25 -> {
                 // Ceiling Crush and Raise
-                DoCeiling(line, ceiling_e.crushAndRaise);
-                line.special = 0;
-                break;
-
-            case 30:
+                DoCeiling(line, ceiling_e.crushAndRaise)
+                line.special = 0
+            }
+            30 -> {
                 // Raise floor to shortest texture height
                 //  on either side of lines.
-                DoFloor(line, floor_e.raiseToTexture);
-                line.special = 0;
-                break;
-
-            case 35:
+                DoFloor(line, floor_e.raiseToTexture)
+                line.special = 0
+            }
+            35 -> {
                 // Lights Very Dark
-                LightTurnOn(line, 35);
-                line.special = 0;
-                break;
-
-            case 36:
+                LightTurnOn(line, 35)
+                line.special = 0
+            }
+            36 -> {
                 // Lower Floor (TURBO)
-                DoFloor(line, floor_e.turboLower);
-                line.special = 0;
-                break;
-
-            case 37:
+                DoFloor(line, floor_e.turboLower)
+                line.special = 0
+            }
+            37 -> {
                 // LowerAndChange
-                DoFloor(line, floor_e.lowerAndChange);
-                line.special = 0;
-                break;
-
-            case 38:
+                DoFloor(line, floor_e.lowerAndChange)
+                line.special = 0
+            }
+            38 -> {
                 // Lower Floor To Lowest
-                DoFloor(line, floor_e.lowerFloorToLowest);
-                line.special = 0;
-                break;
-
-            case 39:
+                DoFloor(line, floor_e.lowerFloorToLowest)
+                line.special = 0
+            }
+            39 -> {
                 // TELEPORT!
-                Teleport(line, side, thing);
-                line.special = 0;
-                break;
-
-            case 40:
+                Teleport(line, side, thing)
+                line.special = 0
+            }
+            40 -> {
                 // RaiseCeilingLowerFloor
-                DoCeiling(line, ceiling_e.raiseToHighest);
-                DoFloor(line, floor_e.lowerFloorToLowest);
-                line.special = 0;
-                break;
-
-            case 44:
+                DoCeiling(line, ceiling_e.raiseToHighest)
+                DoFloor(line, floor_e.lowerFloorToLowest)
+                line.special = 0
+            }
+            44 -> {
                 // Ceiling Crush
-                DoCeiling(line, ceiling_e.lowerAndCrush);
-                line.special = 0;
-                break;
-
-            case 52:
-                // EXIT!
-                DOOM().ExitLevel();
-                break;
-
-            case 53:
+                DoCeiling(line, ceiling_e.lowerAndCrush)
+                line.special = 0
+            }
+            52 ->                 // EXIT!
+                DOOM().ExitLevel()
+            53 -> {
                 // Perpetual Platform Raise
-                DoPlat(line, plattype_e.perpetualRaise, 0);
-                line.special = 0;
-                break;
-
-            case 54:
+                DoPlat(line, plattype_e.perpetualRaise, 0)
+                line.special = 0
+            }
+            54 -> {
                 // Platform Stop
-                StopPlat(line);
-                line.special = 0;
-                break;
-
-            case 56:
+                StopPlat(line)
+                line.special = 0
+            }
+            56 -> {
                 // Raise Floor Crush
-                DoFloor(line, floor_e.raiseFloorCrush);
-                line.special = 0;
-                break;
-
-            case 57:
+                DoFloor(line, floor_e.raiseFloorCrush)
+                line.special = 0
+            }
+            57 -> {
                 // Ceiling Crush Stop
-                CeilingCrushStop(line);
-                line.special = 0;
-                break;
-
-            case 58:
+                CeilingCrushStop(line)
+                line.special = 0
+            }
+            58 -> {
                 // Raise Floor 24
-                DoFloor(line, floor_e.raiseFloor24);
-                line.special = 0;
-                break;
-
-            case 59:
+                DoFloor(line, floor_e.raiseFloor24)
+                line.special = 0
+            }
+            59 -> {
                 // Raise Floor 24 And Change
-                DoFloor(line, floor_e.raiseFloor24AndChange);
-                line.special = 0;
-                break;
-
-            case 104:
+                DoFloor(line, floor_e.raiseFloor24AndChange)
+                line.special = 0
+            }
+            104 -> {
                 // Turn lights off in sector(tag)
-                TurnTagLightsOff(line);
-                line.special = 0;
-                break;
-
-            case 108:
+                TurnTagLightsOff(line)
+                line.special = 0
+            }
+            108 -> {
                 // Blazing Door Raise (faster than TURBO!)
-                DoDoor(line, vldoor_e.blazeRaise);
-                line.special = 0;
-                break;
-
-            case 109:
+                DoDoor(line, vldoor_e.blazeRaise)
+                line.special = 0
+            }
+            109 -> {
                 // Blazing Door Open (faster than TURBO!)
-                DoDoor(line, vldoor_e.blazeOpen);
-                line.special = 0;
-                break;
-
-            case 100:
+                DoDoor(line, vldoor_e.blazeOpen)
+                line.special = 0
+            }
+            100 -> {
                 // Build Stairs Turbo 16
-                BuildStairs(line, stair_e.turbo16);
-                line.special = 0;
-                break;
-
-            case 110:
+                BuildStairs(line, stair_e.turbo16)
+                line.special = 0
+            }
+            110 -> {
                 // Blazing Door Close (faster than TURBO!)
-                DoDoor(line, vldoor_e.blazeClose);
-                line.special = 0;
-                break;
-
-            case 119:
+                DoDoor(line, vldoor_e.blazeClose)
+                line.special = 0
+            }
+            119 -> {
                 // Raise floor to nearest surr. floor
-                DoFloor(line, floor_e.raiseFloorToNearest);
-                line.special = 0;
-                break;
-
-            case 121:
+                DoFloor(line, floor_e.raiseFloorToNearest)
+                line.special = 0
+            }
+            121 -> {
                 // Blazing PlatDownWaitUpStay
-                DoPlat(line, plattype_e.blazeDWUS, 0);
-                line.special = 0;
-                break;
-
-            case 124:
-                // Secret EXIT
-                DOOM().SecretExitLevel();
-                break;
-
-            case 125:
-                // TELEPORT MonsterONLY
+                DoPlat(line, plattype_e.blazeDWUS, 0)
+                line.special = 0
+            }
+            124 ->                 // Secret EXIT
+                DOOM().SecretExitLevel()
+            125 ->                 // TELEPORT MonsterONLY
                 if (thing.player == null) {
-                    Teleport(line, side, thing);
-                    line.special = 0;
+                    Teleport(line, side, thing)
+                    line.special = 0
                 }
-                break;
-
-            case 130:
+            130 -> {
                 // Raise Floor Turbo
-                DoFloor(line, floor_e.raiseFloorTurbo);
-                line.special = 0;
-                break;
-
-            case 141:
+                DoFloor(line, floor_e.raiseFloorTurbo)
+                line.special = 0
+            }
+            141 -> {
                 // Silent Ceiling Crush & Raise
-                DoCeiling(line, ceiling_e.silentCrushAndRaise);
-                line.special = 0;
-                break;
-
-            // RETRIGGERS.  All from here till end.
-            case 72:
-                // Ceiling Crush
-                DoCeiling(line, ceiling_e.lowerAndCrush);
-                break;
-
-            case 73:
-                // Ceiling Crush and Raise
-                DoCeiling(line, ceiling_e.crushAndRaise);
-                break;
-
-            case 74:
-                // Ceiling Crush Stop
-                CeilingCrushStop(line);
-                break;
-
-            case 75:
-                // Close Door
-                DoDoor(line, vldoor_e.close);
-                break;
-
-            case 76:
-                // Close Door 30
-                DoDoor(line, vldoor_e.close30ThenOpen);
-                break;
-
-            case 77:
-                // Fast Ceiling Crush & Raise
-                DoCeiling(line, ceiling_e.fastCrushAndRaise);
-                break;
-
-            case 79:
-                // Lights Very Dark
-                LightTurnOn(line, 35);
-                break;
-
-            case 80:
-                // Light Turn On - brightest near
-                LightTurnOn(line, 0);
-                break;
-
-            case 81:
-                // Light Turn On 255
-                LightTurnOn(line, 255);
-                break;
-
-            case 82:
-                // Lower Floor To Lowest
-                DoFloor(line, floor_e.lowerFloorToLowest);
-                break;
-
-            case 83:
-                // Lower Floor
-                DoFloor(line, floor_e.lowerFloor);
-                break;
-
-            case 84:
-                // LowerAndChange
-                DoFloor(line, floor_e.lowerAndChange);
-                break;
-
-            case 86:
-                // Open Door
-                DoDoor(line, vldoor_e.open);
-                break;
-
-            case 87:
-                // Perpetual Platform Raise
-                DoPlat(line, plattype_e.perpetualRaise, 0);
-                break;
-
-            case 88:
-                // PlatDownWaitUp
-                DoPlat(line, plattype_e.downWaitUpStay, 0);
-                break;
-
-            case 89:
-                // Platform Stop
-                StopPlat(line);
-                break;
-
-            case 90:
-                // Raise Door
-                DoDoor(line, vldoor_e.normal);
-                break;
-
-            case 91:
-                // Raise Floor
-                DoFloor(line, floor_e.raiseFloor);
-                break;
-
-            case 92:
-                // Raise Floor 24
-                DoFloor(line, floor_e.raiseFloor24);
-                break;
-
-            case 93:
-                // Raise Floor 24 And Change
-                DoFloor(line, floor_e.raiseFloor24AndChange);
-                break;
-
-            case 94:
-                // Raise Floor Crush
-                DoFloor(line, floor_e.raiseFloorCrush);
-                break;
-
-            case 95:
-                // Raise floor to nearest height
+                DoCeiling(line, ceiling_e.silentCrushAndRaise)
+                line.special = 0
+            }
+            72 ->                 // Ceiling Crush
+                DoCeiling(line, ceiling_e.lowerAndCrush)
+            73 ->                 // Ceiling Crush and Raise
+                DoCeiling(line, ceiling_e.crushAndRaise)
+            74 ->                 // Ceiling Crush Stop
+                CeilingCrushStop(line)
+            75 ->                 // Close Door
+                DoDoor(line, vldoor_e.close)
+            76 ->                 // Close Door 30
+                DoDoor(line, vldoor_e.close30ThenOpen)
+            77 ->                 // Fast Ceiling Crush & Raise
+                DoCeiling(line, ceiling_e.fastCrushAndRaise)
+            79 ->                 // Lights Very Dark
+                LightTurnOn(line, 35)
+            80 ->                 // Light Turn On - brightest near
+                LightTurnOn(line, 0)
+            81 ->                 // Light Turn On 255
+                LightTurnOn(line, 255)
+            82 ->                 // Lower Floor To Lowest
+                DoFloor(line, floor_e.lowerFloorToLowest)
+            83 ->                 // Lower Floor
+                DoFloor(line, floor_e.lowerFloor)
+            84 ->                 // LowerAndChange
+                DoFloor(line, floor_e.lowerAndChange)
+            86 ->                 // Open Door
+                DoDoor(line, vldoor_e.open)
+            87 ->                 // Perpetual Platform Raise
+                DoPlat(line, plattype_e.perpetualRaise, 0)
+            88 ->                 // PlatDownWaitUp
+                DoPlat(line, plattype_e.downWaitUpStay, 0)
+            89 ->                 // Platform Stop
+                StopPlat(line)
+            90 ->                 // Raise Door
+                DoDoor(line, vldoor_e.normal)
+            91 ->                 // Raise Floor
+                DoFloor(line, floor_e.raiseFloor)
+            92 ->                 // Raise Floor 24
+                DoFloor(line, floor_e.raiseFloor24)
+            93 ->                 // Raise Floor 24 And Change
+                DoFloor(line, floor_e.raiseFloor24AndChange)
+            94 ->                 // Raise Floor Crush
+                DoFloor(line, floor_e.raiseFloorCrush)
+            95 ->                 // Raise floor to nearest height
                 // and change texture.
-                DoPlat(line, plattype_e.raiseToNearestAndChange, 0);
-                break;
-
-            case 96:
-                // Raise floor to shortest texture height
+                DoPlat(line, plattype_e.raiseToNearestAndChange, 0)
+            96 ->                 // Raise floor to shortest texture height
                 // on either side of lines.
-                DoFloor(line, floor_e.raiseToTexture);
-                break;
-
-            case 97:
-                // TELEPORT!
-                Teleport(line, side, thing);
-                break;
-
-            case 98:
-                // Lower Floor (TURBO)
-                DoFloor(line, floor_e.turboLower);
-                break;
-
-            case 105:
-                // Blazing Door Raise (faster than TURBO!)
-                DoDoor(line, vldoor_e.blazeRaise);
-                break;
-
-            case 106:
-                // Blazing Door Open (faster than TURBO!)
-                DoDoor(line, vldoor_e.blazeOpen);
-                break;
-
-            case 107:
-                // Blazing Door Close (faster than TURBO!)
-                DoDoor(line, vldoor_e.blazeClose);
-                break;
-
-            case 120:
-                // Blazing PlatDownWaitUpStay.
-                DoPlat(line, plattype_e.blazeDWUS, 0);
-                break;
-
-            case 126:
-                // TELEPORT MonsterONLY.
+                DoFloor(line, floor_e.raiseToTexture)
+            97 ->                 // TELEPORT!
+                Teleport(line, side, thing)
+            98 ->                 // Lower Floor (TURBO)
+                DoFloor(line, floor_e.turboLower)
+            105 ->                 // Blazing Door Raise (faster than TURBO!)
+                DoDoor(line, vldoor_e.blazeRaise)
+            106 ->                 // Blazing Door Open (faster than TURBO!)
+                DoDoor(line, vldoor_e.blazeOpen)
+            107 ->                 // Blazing Door Close (faster than TURBO!)
+                DoDoor(line, vldoor_e.blazeClose)
+            120 ->                 // Blazing PlatDownWaitUpStay.
+                DoPlat(line, plattype_e.blazeDWUS, 0)
+            126 ->                 // TELEPORT MonsterONLY.
                 if (thing.player == null) {
-                    Teleport(line, side, thing);
+                    Teleport(line, side, thing)
                 }
-                break;
-
-            case 128:
-                // Raise To Nearest Floor
-                DoFloor(line, floor_e.raiseFloorToNearest);
-                break;
-
-            case 129:
-                // Raise Floor Turbo
-                DoFloor(line, floor_e.raiseFloorTurbo);
-                break;
+            128 ->                 // Raise To Nearest Floor
+                DoFloor(line, floor_e.raiseFloorToNearest)
+            129 ->                 // Raise Floor Turbo
+                DoFloor(line, floor_e.raiseFloorTurbo)
         }
     }
-
 }

@@ -1,160 +1,117 @@
-package p.Actions;
+package p.Actions
 
-import doom.thinker_t;
-import java.util.logging.Level;
-import mochadoom.Loggers;
-import p.AbstractLevelLoader;
-import static p.ActiveStates.T_SlidingDoor;
-import p.mobj_t;
-import p.sd_e;
-import p.sdt_e;
-import p.slidedoor_t;
-import p.slideframe_t;
-import p.slidename_t;
-import rr.TextureManager;
-import rr.line_t;
-import static rr.line_t.ML_BLOCKING;
-import rr.sector_t;
-import static utils.GenericCopy.malloc;
-import utils.TraitFactory.ContextKey;
+import doom.thinker_t
+import mochadoom.Loggers
+import p.*
+import rr.line_t
+import rr.sector_t
+import utils.GenericCopy
+import utils.TraitFactory.ContextKey
+import java.util.function.Supplier
+import java.util.logging.Level
 
-public interface ActionsSlideDoors extends ActionTrait {
 
-    ContextKey<SlideDoors> KEY_SLIDEDOORS = ACTION_KEY_CHAIN.newKey(ActionsSlideDoors.class, SlideDoors::new);
-
-    void RemoveThinker(thinker_t t);
-
-    // UNUSED
-    // Separate into p_slidoor.c?
-    // ABANDONED TO THE MISTS OF TIME!!!
-    //
-    // EV_SlidingDoor : slide a door horizontally
-    // (animate midtexture, then set noblocking line)
-    //
-    int MAXSLIDEDOORS = 5;
-    // how many frames of animation
-    int SNUMFRAMES = 4;
-
-    int SDOORWAIT = 35 * 3;
-    int SWAITTICS = 4;
-
-    slidename_t[] slideFrameNames = {
-        new slidename_t(
-        "GDOORF1", "GDOORF2", "GDOORF3", "GDOORF4", // front
-        "GDOORB1", "GDOORB2", "GDOORB3", "GDOORB4" // back
-        ),
-        new slidename_t(), new slidename_t(), new slidename_t(), new slidename_t()
-    };
-
-    final class SlideDoors {
-        slideframe_t[] slideFrames = malloc(slideframe_t::new, slideframe_t[]::new, MAXSLIDEDOORS);
+interface ActionsSlideDoors : ActionTrait {
+    override fun RemoveThinker(t: thinker_t)
+    class SlideDoors {
+        var slideFrames =
+            GenericCopy.malloc({ slideframe_t() }, ActionsSlideDoors.MAXSLIDEDOORS)
     }
 
-    default void SlidingDoor(slidedoor_t door) {
-        final AbstractLevelLoader ll = levelLoader();
-        final SlideDoors sd = contextRequire(KEY_SLIDEDOORS);
-        switch (door.status) {
-            case sd_opening:
-                if (door.timer-- == 0) {
-                    if (++door.frame == ActionsSlideDoors.SNUMFRAMES) {
-                        // IF DOOR IS DONE OPENING...
-                        ll.sides[door.line.sidenum[0]].midtexture = 0;
-                        ll.sides[door.line.sidenum[1]].midtexture = 0;
-                        door.line.flags &= ML_BLOCKING ^ 0xff;
-
-                        if (door.type == sdt_e.sdt_openOnly) {
-                            door.frontsector.specialdata = null;
-                            RemoveThinker(door);
-                            break;
-                        }
-
-                        door.timer = ActionsSlideDoors.SDOORWAIT;
-                        door.status = sd_e.sd_waiting;
+    fun SlidingDoor(door: slidedoor_t) {
+        val ll = levelLoader()
+        val sd = contextRequire<SlideDoors>(ActionsSlideDoors.KEY_SLIDEDOORS)
+        val line = door.line!!
+        when (door.status) {
+            sd_e.sd_opening -> if (door.timer-- == 0) {
+                if (++door.frame == ActionsSlideDoors.SNUMFRAMES) {
+                    // IF DOOR IS DONE OPENING...
+                    ll.sides[line.sidenum[0].code].midtexture = 0
+                    ll.sides[line.sidenum[1].code].midtexture = 0
+                    line.flags = (line.flags.toInt() and (line_t.ML_BLOCKING xor 0xff)).toShort()
+                    if (door.type == sdt_e.sdt_openOnly) {
+                        door.frontsector!!.specialdata = null
+                        RemoveThinker(door)
                     } else {
-                        // IF DOOR NEEDS TO ANIMATE TO NEXT FRAME...
-                        door.timer = ActionsSlideDoors.SWAITTICS;
-
-                        ll.sides[door.line.sidenum[0]].midtexture = (short) sd.slideFrames[door.whichDoorIndex].frontFrames[door.frame];
-                        ll.sides[door.line.sidenum[1]].midtexture = (short) sd.slideFrames[door.whichDoorIndex].backFrames[door.frame];
+                        door.timer = ActionsSlideDoors.SDOORWAIT
+                        door.status = sd_e.sd_waiting
                     }
+                } else {
+                    // IF DOOR NEEDS TO ANIMATE TO NEXT FRAME...
+                    door.timer = ActionsSlideDoors.SWAITTICS
+                    ll.sides[line.sidenum[0].code].midtexture =
+                        sd.slideFrames[door.whichDoorIndex].frontFrames[door.frame].toShort()
+                    ll.sides[line.sidenum[1].code].midtexture =
+                        sd.slideFrames[door.whichDoorIndex].backFrames[door.frame].toShort()
                 }
-                break;
-
-            case sd_waiting:
-                // IF DOOR IS DONE WAITING...
+            }
+            sd_e.sd_waiting ->                 // IF DOOR IS DONE WAITING...
                 if (door.timer-- == 0) {
                     // CAN DOOR CLOSE?
-                    if (door.frontsector.thinglist != null
-                        || door.backsector.thinglist != null) {
-                        door.timer = ActionsSlideDoors.SDOORWAIT;
-                        break;
+                    if (door.frontsector!!.thinglist != null
+                        || door.backsector!!.thinglist != null)
+                    {
+                        door.timer = ActionsSlideDoors.SDOORWAIT
                     }
-
-                    // door.frame = SNUMFRAMES-1;
-                    door.status = sd_e.sd_closing;
-                    door.timer = ActionsSlideDoors.SWAITTICS;
-                }
-                break;
-
-            case sd_closing:
-                if (door.timer-- == 0) {
-                    if (--door.frame < 0) {
-                        // IF DOOR IS DONE CLOSING...
-                        door.line.flags |= ML_BLOCKING;
-                        door.frontsector.specialdata = null;
-                        RemoveThinker(door);
-                        break;
-                    } else {
-                        // IF DOOR NEEDS TO ANIMATE TO NEXT FRAME...
-                        door.timer = ActionsSlideDoors.SWAITTICS;
-
-                        ll.sides[door.line.sidenum[0]].midtexture = (short) sd.slideFrames[door.whichDoorIndex].frontFrames[door.frame];
-                        ll.sides[door.line.sidenum[1]].midtexture = (short) sd.slideFrames[door.whichDoorIndex].backFrames[door.frame];
+                    else {
+                        // door.frame = SNUMFRAMES-1;
+                        door.status = sd_e.sd_closing
+                        door.timer = ActionsSlideDoors.SWAITTICS
                     }
                 }
-                break;
+            sd_e.sd_closing -> if (door.timer-- == 0) {
+                if (--door.frame < 0) {
+                    // IF DOOR IS DONE CLOSING...
+                    line.flags = (line.flags.toInt() or line_t.ML_BLOCKING).toShort()
+                    door.frontsector!!.specialdata = null
+                    RemoveThinker(door)
+                } else {
+                    // IF DOOR NEEDS TO ANIMATE TO NEXT FRAME...
+                    door.timer = ActionsSlideDoors.SWAITTICS
+                    ll.sides[line.sidenum[0].code].midtexture =
+                        sd.slideFrames[door.whichDoorIndex].frontFrames[door.frame].toShort()
+                    ll.sides[line.sidenum[1].code].midtexture =
+                        sd.slideFrames[door.whichDoorIndex].backFrames[door.frame].toShort()
+                }
+            }
         }
     }
 
-    default void P_InitSlidingDoorFrames() {
-        final TextureManager<?> tm = DOOM().textureManager;
-        final SlideDoors sd = contextRequire(KEY_SLIDEDOORS);
-
-        int i;
-        int f1;
-        int f2;
-        int f3;
-        int f4;
+    fun P_InitSlidingDoorFrames() {
+        val tm = DOOM().textureManager
+        val sd = contextRequire<SlideDoors>(ActionsSlideDoors.KEY_SLIDEDOORS)
+        var i: Int
+        var f1: Int
+        var f2: Int
+        var f3: Int
+        var f4: Int
 
         // DOOM II ONLY...
         if (!DOOM().isCommercial()) {
-            return;
+            return
         }
-
-        for (i = 0; i < MAXSLIDEDOORS; i++) {
-            if (slideFrameNames[i].frontFrame1 == null) {
-                break;
+        i = 0
+        while (i < ActionsSlideDoors.MAXSLIDEDOORS) {
+            if (ActionsSlideDoors.slideFrameNames.get(i).frontFrame1 == null) {
+                break
             }
-
-            f1 = tm.TextureNumForName(slideFrameNames[i].frontFrame1);
-            f2 = tm.TextureNumForName(slideFrameNames[i].frontFrame2);
-            f3 = tm.TextureNumForName(slideFrameNames[i].frontFrame3);
-            f4 = tm.TextureNumForName(slideFrameNames[i].frontFrame4);
-
-            sd.slideFrames[i].frontFrames[0] = f1;
-            sd.slideFrames[i].frontFrames[1] = f2;
-            sd.slideFrames[i].frontFrames[2] = f3;
-            sd.slideFrames[i].frontFrames[3] = f4;
-
-            f1 = tm.TextureNumForName(slideFrameNames[i].backFrame1);
-            f2 = tm.TextureNumForName(slideFrameNames[i].backFrame2);
-            f3 = tm.TextureNumForName(slideFrameNames[i].backFrame3);
-            f4 = tm.TextureNumForName(slideFrameNames[i].backFrame4);
-
-            sd.slideFrames[i].backFrames[0] = f1;
-            sd.slideFrames[i].backFrames[1] = f2;
-            sd.slideFrames[i].backFrames[2] = f3;
-            sd.slideFrames[i].backFrames[3] = f4;
+            f1 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).frontFrame1!!)
+            f2 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).frontFrame2!!)
+            f3 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).frontFrame3!!)
+            f4 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).frontFrame4!!)
+            sd.slideFrames[i].frontFrames[0] = f1
+            sd.slideFrames[i].frontFrames[1] = f2
+            sd.slideFrames[i].frontFrames[2] = f3
+            sd.slideFrames[i].frontFrames[3] = f4
+            f1 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).backFrame1!!)
+            f2 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).backFrame2!!)
+            f3 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).backFrame3!!)
+            f4 = tm.TextureNumForName(ActionsSlideDoors.slideFrameNames.get(i).backFrame4!!)
+            sd.slideFrames[i].backFrames[0] = f1
+            sd.slideFrames[i].backFrames[1] = f2
+            sd.slideFrames[i].backFrames[2] = f3
+            sd.slideFrames[i].backFrames[3] = f4
+            i++
         }
     }
 
@@ -162,69 +119,88 @@ public interface ActionsSlideDoors extends ActionTrait {
     // Return index into "slideFrames" array
     // for which door type to use
     //
-    default int P_FindSlidingDoorType(line_t line) {
-        final AbstractLevelLoader ll = levelLoader();
-        final SlideDoors sd = contextRequire(KEY_SLIDEDOORS);
-
-        for (int i = 0; i < MAXSLIDEDOORS; i++) {
-            int val = ll.sides[line.sidenum[0]].midtexture;
-            if (val == sd.slideFrames[i].frontFrames[0]) {
-                return i;
+    fun P_FindSlidingDoorType(line: line_t): Int {
+        val ll = levelLoader()
+        val sd = contextRequire<SlideDoors>(ActionsSlideDoors.KEY_SLIDEDOORS)
+        for (i in 0 until ActionsSlideDoors.MAXSLIDEDOORS) {
+            val `val` = ll.sides[line.sidenum[0].code].midtexture.toInt()
+            if (`val` == sd.slideFrames[i].frontFrames[0]) {
+                return i
             }
         }
-
-        return -1;
+        return -1
     }
 
-    default void EV_SlidingDoor(line_t line, mobj_t thing) {
-        sector_t sec;
-        slidedoor_t door;
+    fun EV_SlidingDoor(line: line_t, thing: mobj_t) {
+        val sec: sector_t
+        var door: slidedoor_t?
 
         // DOOM II ONLY...
         if (!DOOM().isCommercial()) {
-            return;
+            return
         }
-
-        Loggers.getLogger(ActionsSlideDoors.class.getName()).log(Level.WARNING, "EV_SlidingDoor");
+        Loggers.getLogger(ActionsSlideDoors::class.java.name).log(Level.WARNING, "EV_SlidingDoor")
 
         // Make sure door isn't already being animated
-        sec = line.frontsector;
-        door = null;
+        sec = line.frontsector!!
+        door = null
         if (sec.specialdata != null) {
             if (thing.player == null) {
-                return;
+                return
             }
-
-            door = (slidedoor_t) sec.specialdata;
-            if (door.type == sdt_e.sdt_openAndClose) {
+            door = sec.specialdata as slidedoor_t
+            if (door!!.type == sdt_e.sdt_openAndClose) {
                 if (door.status == sd_e.sd_waiting) {
-                    door.status = sd_e.sd_closing;
+                    door.status = sd_e.sd_closing
                 }
             } else {
-                return;
+                return
             }
         }
 
         // Init sliding door vars
         if (door == null) {
-            door = new slidedoor_t();
-            AddThinker(door);
-            sec.specialdata = door;
-
-            door.type = sdt_e.sdt_openAndClose;
-            door.status = sd_e.sd_opening;
-            door.whichDoorIndex = P_FindSlidingDoorType(line);
-
+            door = slidedoor_t()
+            AddThinker(door)
+            sec.specialdata = door
+            door.type = sdt_e.sdt_openAndClose
+            door.status = sd_e.sd_opening
+            door.whichDoorIndex = P_FindSlidingDoorType(line)
             if (door.whichDoorIndex < 0) {
-                doomSystem().Error("EV_SlidingDoor: Can't use texture for sliding door!");
+                doomSystem()?.Error("EV_SlidingDoor: Can't use texture for sliding door!")
             }
-
-            door.frontsector = sec;
-            door.backsector = line.backsector;
-            door.thinkerFunction = T_SlidingDoor;
-            door.timer = SWAITTICS;
-            door.frame = 0;
-            door.line = line;
+            door.frontsector = sec
+            door.backsector = line.backsector
+            door.thinkerFunction = ActiveStates.T_SlidingDoor
+            door.timer = ActionsSlideDoors.SWAITTICS
+            door.frame = 0
+            door.line = line
         }
+    }
+
+    companion object {
+        val KEY_SLIDEDOORS: ContextKey<SlideDoors> = ActionTrait.ACTION_KEY_CHAIN.newKey<SlideDoors>(
+            ActionsSlideDoors::class.java, Supplier { SlideDoors() })
+
+        // UNUSED
+        // Separate into p_slidoor.c?
+        // ABANDONED TO THE MISTS OF TIME!!!
+        //
+        // EV_SlidingDoor : slide a door horizontally
+        // (animate midtexture, then set noblocking line)
+        //
+        const val MAXSLIDEDOORS = 5
+
+        // how many frames of animation
+        const val SNUMFRAMES = 4
+        const val SDOORWAIT = 35 * 3
+        const val SWAITTICS = 4
+        val slideFrameNames = arrayOf(
+            slidename_t(
+                "GDOORF1", "GDOORF2", "GDOORF3", "GDOORF4",  // front
+                "GDOORB1", "GDOORB2", "GDOORB3", "GDOORB4" // back
+            ),
+            slidename_t(), slidename_t(), slidename_t(), slidename_t()
+        )
     }
 }

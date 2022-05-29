@@ -1,21 +1,18 @@
-package rr;
+package rr
 
-public class cliprange_t {
 
-    public cliprange_t(int first, int last) {
-        this.first = first;
-        this.last = last;
+class cliprange_t {
+    constructor(first: Int, last: Int) {
+        this.first = first
+        this.last = last
     }
 
-    public cliprange_t(){
-        
-    }
-    
-    public int first;
-    public int last;
-    
-    public void copy(cliprange_t from){
-        this.first=from.first;
-        this.last=from.last;
+    constructor() {}
+
+    var first = 0
+    var last = 0
+    fun copy(from: cliprange_t) {
+        first = from.first
+        last = from.last
     }
 }

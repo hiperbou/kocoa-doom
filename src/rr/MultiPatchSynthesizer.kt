@@ -1,154 +1,121 @@
-package rr;
+package rr
 
-import java.io.ByteArrayOutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import rr.patch_t
+import java.io.ByteArrayOutputStream
+import java.util.*
 
 /**
  * Utilities to synthesize patch_t format images from multiple patches
  * (with transparency).
- * 
- * 
- * @author velktron
  *
+ *
+ * @author velktron
  */
+object MultiPatchSynthesizer {
+    fun synthesizePatchFromFlat(name: String?, flat: ByteArray, width: Int, height: Int): patch_t {
+        val expected = ByteArray(width * height)
+        val pixels = Array(width) { ByteArray(height) }
+        val solid = Array(width) { BooleanArray(height) }
 
-public class MultiPatchSynthesizer {
-
-    
-    static class PixelRange {
-        public PixelRange(int start, int end) {
-            this.start=start;
-            this.end=end;
-        }
-        
-        public int getLength(){
-            return (end-start+1);
-        }
-        
-        public int start;
-        public int end;
-    }
-    
-    public static patch_t synthesizePatchFromFlat(String name,byte[] flat, int width, int height){
-        
-        byte[] expected=new byte[width *height];        
-        byte[][] pixels=new byte[width][height];
-        boolean[][] solid=new boolean[width][height];
-        
         // Copy as much data as possible.
-        System.arraycopy(flat,0,expected,0,Math.min(flat.length,expected.length));
-
-        for (int i=0;i<width;i++){           
-            Arrays.fill(solid[i],true);
-            for (int j=0;j<height;j++){
-                pixels[i][j]=expected[i+j*width];
+        System.arraycopy(flat, 0, expected, 0, Math.min(flat.size, expected.size))
+        for (i in 0 until width) {
+            Arrays.fill(solid[i], true)
+            for (j in 0 until height) {
+                pixels[i][j] = expected[i + j * width]
             }
         }
-        
-        patch_t result=new patch_t(name,width,height,0,0);
-        column_t[] columns=new column_t[width];
-        
-        for (int x=0;x<width;x++)
-            columns[x]=getColumnStream(pixels[x],solid[x],height);
-        
-       result.columns=columns;
-        return result;
-    }
-    
-    public static patch_t synthesize(String name,byte[][] pixels, boolean[][] solid, int width, int height){
-        
-        patch_t result=new patch_t(name,width,height,0,0);
-        column_t[] columns=new column_t[width];
-        
-        for (int x=0;x<width;x++)
-            columns[x]=getColumnStream(pixels[x],solid[x],height);
-        
-       result.columns=columns;
-        return result;
+        val result = patch_t(name, width, height, 0, 0)
+        val columns = arrayOfNulls<column_t>(width)
+        for (x in 0 until width) columns[x] = MultiPatchSynthesizer.getColumnStream(pixels[x], solid[x], height)
+        result.columns = columns
+        return result
     }
 
-    public static column_t getColumnStream(byte[] pixels, boolean[] solid, int height){
-    
-        column_t result=new column_t();
-        int start=-1;
-        int end=-1;
-        
-        List<PixelRange> ranges=new ArrayList<PixelRange>();
-        
+    fun synthesize(
+        name: String?,
+        pixels: Array<ByteArray>,
+        solid: Array<BooleanArray>,
+        width: Int,
+        height: Int
+    ): patch_t {
+        val result = patch_t(name, width, height, 0, 0)
+        val columns = arrayOfNulls<column_t>(width)
+        for (x in 0 until width) columns[x] = MultiPatchSynthesizer.getColumnStream(pixels[x], solid[x]!!, height)
+        result.columns = columns
+        return result
+    }
+
+    fun getColumnStream(pixels: ByteArray?, solid: BooleanArray, height: Int): column_t {
+        val result = column_t()
+        var start = -1
+        var end = -1
+        val ranges: MutableList<PixelRange> = ArrayList()
+
         // Scan column for continuous pixel ranges                
-        for (int i=0;i<height;i++){
-            
+        for (i in 0 until height) {
+
             // Encountered solid start.
-            if (solid[i] && start==-1){
-                start=i; // mark start
+            if (solid[i] && start == -1) {
+                start = i // mark start
             }
-                
+
             // Last solid pixel
-            if (solid[i] && i==height-1 && start!=-1 ){
-                end=i;
-                ranges.add(new PixelRange(start,end));
-                start=end=-1; // reset start/end
+            if (solid[i] && i == height - 1 && start != -1) {
+                end = i
+                ranges.add(PixelRange(start, end))
+                end = -1
+                start = end // reset start/end
             }
-               
+
             // Start defined and ending not yet detected
-            if (!solid[i] && start!=-1 && end ==-1){
-                end=i-1; // Single-pixel runs would be e.g. 1-2 -> 1-1
-            }            
-
-            if (start!=-1 && end!=-1){
+            if (!solid[i] && start != -1 && end == -1) {
+                end = i - 1 // Single-pixel runs would be e.g. 1-2 -> 1-1
+            }
+            if (start != -1 && end != -1) {
                 // Range complete.
-                ranges.add(new PixelRange(start,end));
-                start=end=-1; // reset start/end
+                ranges.add(PixelRange(start, end))
+                end = -1
+                start = end // reset start/end
             }
         }
-        
-        // There should be at least an empty post
-        if (ranges.size()==0){
-            ranges.add(new PixelRange(0,-1));
-        }
-        
-        // Ideal for this use, since we don't know how big the patch is going to be a-priori
-        ByteArrayOutputStream file=new ByteArrayOutputStream();
-        int topdelta=0;
-        int n=ranges.size();
-        short topdeltas[]=new short[n];
-        int postofs[]=new int[n];
-        short postlens[]=new short[n];
-        
 
-        
-        for (int i=0;i<n;i++){
-            PixelRange pr=ranges.get(i);
-            topdelta=pr.start; // cumulative top delta  
-            
+        // There should be at least an empty post
+        if (ranges.size == 0) {
+            ranges.add(PixelRange(0, -1))
+        }
+
+        // Ideal for this use, since we don't know how big the patch is going to be a-priori
+        val file = ByteArrayOutputStream()
+        var topdelta = 0
+        val n = ranges.size
+        val topdeltas = ShortArray(n)
+        val postofs = IntArray(n)
+        val postlens = ShortArray(n)
+        for (i in 0 until n) {
+            val pr = ranges[i]
+            topdelta = pr.start // cumulative top delta  
+
             // Precomputed column data
-            postofs[i]=(short) file.size()+3; // Last written post +3, pointing at first pixel of data.
-            topdeltas[i]=(short) topdelta;
-            postlens[i]=(short) (pr.getLength()); // Post lengths are at net of padding  
-                      
-            file.write(topdeltas[i]);
-            file.write(postlens[i]);
-            file.write(0); // padding
-            file.write(pixels,pr.start,pr.getLength()); // data
-            file.write(0); // padding
-            }
-    
-        file.write(0xFF); // Terminator
-        
-        result.data=file.toByteArray();
-        result.postdeltas=topdeltas;
-        result.postlen=postlens;
-        result.postofs=postofs;
-        result.posts=ranges.size();
-        
+            postofs[i] = file.size().toShort() + 3 // Last written post +3, pointing at first pixel of data.
+            topdeltas[i] = topdelta.toShort()
+            postlens[i] = pr.getLength().toShort() // Post lengths are at net of padding  
+            file.write(topdeltas[i].toInt())
+            file.write(postlens[i].toInt())
+            file.write(0) // padding
+            file.write(pixels, pr.start, pr.getLength()) // data
+            file.write(0) // padding
+        }
+        file.write(0xFF) // Terminator
+        result.data = file.toByteArray()
+        result.postdeltas = topdeltas
+        result.postlen = postlens
+        result.postofs = postofs
+        result.posts = ranges.size
+
         // The ranges tell us where continuous posts
-        
-        return result;
-    }
-    
-    /*
+        return result
+    } /*
     public static patch_t synthesize(byte[][] pixels, boolean[][] solid, int width, int height, int picture_top, int picture_left){
         // Ideal for this use, since we don't know how big the patch is going to be a-priori
         ByteArrayOutputStream file=new ByteArrayOutputStream();
@@ -257,5 +224,10 @@ public class MultiPatchSynthesizer {
         write memory buffer to file
     }
     } */
-    
+
+    internal class PixelRange(var start: Int, var end: Int) {
+        fun getLength(): Int {
+            return end - start + 1
+        }
+    }
 }

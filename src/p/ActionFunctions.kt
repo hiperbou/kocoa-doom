@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,204 +16,166 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p;
+package p
 
-import automap.IAutoMap;
-import data.sounds;
-import defines.skill_t;
-import doom.DoomMain;
-import doom.player_t;
-import hu.IHeadsUp;
-import i.IDoomSystem;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import p.Actions.ActionsAttacks;
-import p.Actions.ActionsEnemies;
-import p.Actions.ActionsThinkers;
-import p.Actions.ActiveStates.Ai;
-import p.Actions.ActiveStates.Attacks;
-import p.Actions.ActiveStates.Thinkers;
-import p.Actions.ActiveStates.Weapons;
-import rr.SceneRenderer;
-import s.ISoundOrigin;
-import st.IDoomStatusBar;
-import utils.TraitFactory;
-import utils.TraitFactory.SharedContext;
+import automap.IAutoMap
+import data.sounds.sfxenum_t
+import defines.skill_t
+import doom.DoomMain
+import doom.player_t
+import hu.IHeadsUp
+import i.IDoomSystem
+import p.Actions.ActionTrait
+import p.Actions.ActionsAttacks
+import p.Actions.ActionsEnemies
+import p.Actions.ActionsThinkers
+import p.Actions.ActiveStates.Ai
+import p.Actions.ActiveStates.Weapons
+import p.Actions.ActiveStates.Attacks
+import p.Actions.ActiveStatesimport.Thinkers
+import p.mobj_t
+import rr.SceneRenderer
+import s.ISoundOrigin
+import st.IDoomStatusBar
+import utils.TraitFactory
+import utils.TraitFactory.SharedContext
+import java.util.logging.Level
+import java.util.logging.Logger
 
-public class ActionFunctions extends UnifiedGameMap implements
-    ActionsThinkers, ActionsEnemies, ActionsAttacks, Ai, Attacks, Thinkers, Weapons
-{
-    private final SharedContext traitsSharedContext;
-    
-    public ActionFunctions(final DoomMain<?, ?> DOOM) {
-        super(DOOM);
-        this.traitsSharedContext = buildContext();
-    }
-    
-    private SharedContext buildContext() {
-        try {
-            return TraitFactory.build(this, ACTION_KEY_CHAIN);
-        } catch (IllegalArgumentException | IllegalAccessException ex) {
-            Logger.getLogger(ActionFunctions.class.getName()).log(Level.SEVERE, null, ex);
-            throw new RuntimeException(ex);
+class ActionFunctions(DOOM: DoomMain<*, *>) : UnifiedGameMap(DOOM), ActionsThinkers, ActionsEnemies, ActionsAttacks,
+    Ai, Attacks, Thinkers, Weapons {
+    private val traitsSharedContext: SharedContext = buildContext()
+
+    private fun buildContext(): SharedContext {
+        return try {
+            TraitFactory.build<ActionFunctions>(this, ActionTrait.ACTION_KEY_CHAIN)
+        } catch (ex: IllegalArgumentException) {
+            Logger.getLogger(ActionFunctions::class.java.name).log(Level.SEVERE, null, ex)
+            throw RuntimeException(ex)
+        } catch (ex: IllegalAccessException) {
+            Logger.getLogger(ActionFunctions::class.java.name).log(Level.SEVERE, null, ex)
+            throw RuntimeException(ex)
         }
     }
-    
-    @Override
-    public AbstractLevelLoader levelLoader() {
-        return DOOM.levelLoader;
+
+    override fun levelLoader(): AbstractLevelLoader {
+        return DOOM.levelLoader
     }
 
-    @Override
-    public IHeadsUp headsUp() {
-        return DOOM.headsUp;
+    override fun headsUp(): IHeadsUp {
+        return DOOM.headsUp
     }
 
-    @Override
-    public IDoomSystem doomSystem() {
-        return DOOM.doomSystem;
+    override fun doomSystem(): IDoomSystem {
+        return DOOM.doomSystem
     }
 
-    @Override
-    public IDoomStatusBar statusBar() {
-        return DOOM.statusBar;
+    override fun statusBar(): IDoomStatusBar {
+        return DOOM.statusBar
     }
 
-    @Override
-    public IAutoMap<?, ?> autoMap() {
-        return DOOM.autoMap;
+    override fun autoMap(): IAutoMap<*, *> {
+        return DOOM.autoMap
     }
 
-    @Override
-    public SceneRenderer<?, ?> sceneRenderer() {
-        return DOOM.sceneRenderer;
+    override fun sceneRenderer(): SceneRenderer<*, *> {
+        return DOOM.sceneRenderer
     }
 
-    @Override
-    public UnifiedGameMap.Specials getSpecials() {
-        return SPECS;
+    override val specials: Specials
+        get() = SPECS
+
+    override val switches: Switches
+        get() = SW
+
+    override fun StopSound(origin: ISoundOrigin?) {
+        DOOM.doomSound.StopSound(origin)
     }
 
-    @Override
-    public UnifiedGameMap.Switches getSwitches() {
-        return SW;
+    override fun StartSound(origin: ISoundOrigin?, s: sfxenum_t?) {
+        DOOM.doomSound.StartSound(origin, s)
     }
 
-    @Override
-    public void StopSound(ISoundOrigin origin) {
-        DOOM.doomSound.StopSound(origin);
+    override fun StartSound(origin: ISoundOrigin?, s: Int) {
+        DOOM.doomSound.StartSound(origin, s)
     }
 
-    @Override
-    public void StartSound(ISoundOrigin origin, sounds.sfxenum_t s) {
-        DOOM.doomSound.StartSound(origin, s);
+    override fun getPlayer(number: Int): player_t? {
+        return DOOM.players[number]
     }
 
-    @Override
-    public void StartSound(ISoundOrigin origin, int s) {
-        DOOM.doomSound.StartSound(origin, s);
+    override val gameSkill: skill_t?
+        get() = DOOM.gameskill
+
+    override fun createMobj(): mobj_t {
+        return mobj_t.createOn(DOOM)
     }
 
-    @Override
-    public player_t getPlayer(int number) {
-        return DOOM.players[number];
+    override fun LevelTime(): Int {
+        return DOOM.leveltime
     }
 
-    @Override
-    public skill_t getGameSkill() {
-        return DOOM.gameskill;
+    override fun P_Random(): Int {
+        return DOOM.random.P_Random()
     }
 
-    @Override
-    public mobj_t createMobj() {
-        return mobj_t.createOn(DOOM);
+    override fun ConsolePlayerNumber(): Int {
+        return DOOM.consoleplayer
     }
 
-    @Override
-    public int LevelTime() {
-        return DOOM.leveltime;
+    override fun MapNumber(): Int {
+        return DOOM.gamemap
     }
 
-    @Override
-    public int P_Random() {
-        return DOOM.random.P_Random();
+    override fun PlayerInGame(number: Int): Boolean {
+        return DOOM.playeringame[number]
     }
 
-    @Override
-    public int ConsolePlayerNumber() {
-        return DOOM.consoleplayer;
+    override fun IsFastParm(): Boolean {
+        return DOOM.fastparm
     }
 
-    @Override
-    public int MapNumber() {
-        return DOOM.gamemap;
+    override fun IsPaused(): Boolean {
+        return DOOM.getPaused()
     }
 
-    @Override
-    public boolean PlayerInGame(int number) {
-        return DOOM.playeringame[number];
+    override fun IsNetGame(): Boolean {
+        return DOOM.netgame
     }
 
-    @Override
-    public boolean IsFastParm() {
-        return DOOM.fastparm;
+    override fun IsDemoPlayback(): Boolean {
+        return DOOM.demoplayback
     }
 
-    @Override
-    public boolean IsPaused() {
-        return DOOM.paused;
+    override fun IsDeathMatch(): Boolean {
+        return DOOM.deathmatch
     }
 
-    @Override
-    public boolean IsNetGame() {
-        return DOOM.netgame;
+    override fun IsAutoMapActive(): Boolean {
+        return DOOM.automapactive
     }
 
-    @Override
-    public boolean IsDemoPlayback() {
-        return DOOM.demoplayback;
-    }
-
-    @Override
-    public boolean IsDeathMatch() {
-        return DOOM.deathmatch;
-    }
-
-    @Override
-    public boolean IsAutoMapActive() {
-        return DOOM.automapactive;
-    }
-
-    @Override
-    public boolean IsMenuActive() {
-        return DOOM.menuactive;
+    override fun IsMenuActive(): Boolean {
+        return DOOM.menuactive
     }
 
     /**
      * TODO: avoid, deprecate
      */
-    @Override
-    public DoomMain<?, ?> DOOM() {
-        return DOOM;
+    override fun DOOM(): DoomMain<*, *> {
+        return DOOM
     }
 
-    @Override
-    public SharedContext getContext() {
-        return traitsSharedContext;
+    override fun getContext(): SharedContext {
+        return traitsSharedContext
     }
 
-    @Override
-    public ActionsThinkers getThinkers() {
-        return this;
-    }
+    override val thinkers: ActionsThinkers
+        get() = this
 
-    @Override
-    public ActionsEnemies getEnemies() {
-        return this;
-    }
+    override val enemies: ActionsEnemies
+        get() = this
 
-    @Override
-    public ActionsAttacks getAttacks() {
-        return this;
-    }
+    override val attacks: ActionsAttacks
+        get() = this
 }

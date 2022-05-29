@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,126 +16,105 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import static data.Limits.CEILSPEED;
-import static data.Limits.MAXCEILINGS;
-import data.sounds;
-import doom.SourceCode.P_Ceiling;
-import static doom.SourceCode.P_Ceiling.EV_DoCeiling;
-import doom.thinker_t;
-import static m.fixed_t.FRACUNIT;
-import p.ActiveStates;
-import p.ceiling_e;
-import p.ceiling_t;
-import p.result_e;
-import rr.line_t;
-import rr.sector_t;
-import utils.C2JUtils;
-import static utils.C2JUtils.eval;
-import utils.TraitFactory.ContextKey;
 
-public interface ActionsCeilings extends ActionsMoveEvents, ActionsUseEvents {
+import data.Limits
+import data.sounds.sfxenum_t
+import doom.SourceCode.P_Ceiling
+import doom.thinker_t
+import m.fixed_t.Companion.FRACUNIT
+import p.ActiveStates
+import p.ceiling_e
+import p.ceiling_t
+import p.result_e
+import rr.line_t
+import rr.sector_t
+import utils.C2JUtils
+import utils.TraitFactory.ContextKey
+import java.util.function.Supplier
 
-    ContextKey<Ceilings> KEY_CEILINGS = ACTION_KEY_CHAIN.newKey(ActionsCeilings.class, Ceilings::new);
-
-    void RemoveThinker(thinker_t activeCeiling);
-    result_e MovePlane(sector_t sector, int speed, int bottomheight, boolean crush, int i, int direction);
-    int FindSectorFromLineTag(line_t line, int secnum);
-
-    final class Ceilings {
-
-        ceiling_t[] activeceilings = new ceiling_t[MAXCEILINGS];
+interface ActionsCeilings : ActionsMoveEvents, ActionsUseEvents {
+    override fun RemoveThinker(activeCeiling: thinker_t)
+    fun MovePlane(sector: sector_t, speed: Int, bottomheight: Int, crush: Boolean, i: Int, direction: Int): result_e
+    fun FindSectorFromLineTag(line: line_t, secnum: Int): Int
+    class Ceilings {
+        var activeCeilings = arrayOfNulls<ceiling_t>(Limits.MAXCEILINGS)
+            //get() = contextRequire<Ceilings>(ActionsCeilings.KEY_CEILINGS).field //TODO: wrong code generated
     }
 
     /**
      * This needs to be called before loading, otherwise crushers won't be able to be restarted.
      */
-    default void ClearCeilingsBeforeLoading() {
-        contextRequire(KEY_CEILINGS).activeceilings = new ceiling_t[MAXCEILINGS];
+    fun ClearCeilingsBeforeLoading() {
+        contextRequire<Ceilings>(ActionsCeilings.KEY_CEILINGS).activeCeilings =
+            arrayOfNulls(Limits.MAXCEILINGS)
     }
 
     /**
      * T_MoveCeiling
      */
-    default void MoveCeiling(ceiling_t ceiling) {
-        result_e res;
-
-        switch (ceiling.direction) {
-            case 0:
-                // IN STASIS
-                break;
-            case 1:
+    fun MoveCeiling(ceiling: ceiling_t) {
+        val res: result_e
+        val sector = ceiling.sector!!
+        when (ceiling.direction) {
+            0 -> {}
+            1 -> {
                 // UP
-                res = MovePlane(ceiling.sector, ceiling.speed, ceiling.topheight, false, 1, ceiling.direction);
-
-                if (!eval(LevelTime() & 7)) {
-                    switch (ceiling.type) {
-                        case silentCrushAndRaise:
-                            break;
-                        default:
-                            StartSound(ceiling.sector.soundorg, sounds.sfxenum_t.sfx_stnmov);
+                res = MovePlane(sector, ceiling.speed, ceiling.topheight, false, 1, ceiling.direction)
+                if (!C2JUtils.eval(LevelTime() and 7)) {
+                    when (ceiling.type) {
+                        ceiling_e.silentCrushAndRaise -> {}
+                        else -> StartSound(sector.soundorg, sfxenum_t.sfx_stnmov)
                     }
                 }
-
                 if (res == result_e.pastdest) {
-                    switch (ceiling.type) {
-                        case raiseToHighest:
-                            this.RemoveActiveCeiling(ceiling);
-                            break;
-                        case silentCrushAndRaise:
-                            StartSound(ceiling.sector.soundorg, sounds.sfxenum_t.sfx_pstop);
-                        case fastCrushAndRaise:
-                        case crushAndRaise:
-                            ceiling.direction = -1;
-                        default:
-                        	break;
+                    when (ceiling.type) {
+                        ceiling_e.raiseToHighest -> RemoveActiveCeiling(ceiling)
+                        ceiling_e.silentCrushAndRaise -> {
+                            StartSound(sector.soundorg, sfxenum_t.sfx_pstop)
+                            ceiling.direction = -1
+                        }
+                        ceiling_e.fastCrushAndRaise, ceiling_e.crushAndRaise -> ceiling.direction = -1
+                        else -> {}
                     }
                 }
-                break;
-
-            case -1:
+            }
+            -1 -> {
                 // DOWN
-                res = MovePlane(ceiling.sector, ceiling.speed, ceiling.bottomheight, ceiling.crush, 1, ceiling.direction);
-
-                if (!eval(LevelTime() & 7)) {
-                    switch (ceiling.type) {
-                        case silentCrushAndRaise:
-                            break;
-                        default:
-                            StartSound(ceiling.sector.soundorg, sounds.sfxenum_t.sfx_stnmov);
+                res =
+                    MovePlane(sector, ceiling.speed, ceiling.bottomheight, ceiling.crush, 1, ceiling.direction)
+                if (!C2JUtils.eval(LevelTime() and 7)) {
+                    when (ceiling.type) {
+                        ceiling_e.silentCrushAndRaise -> {}
+                        else -> StartSound(sector.soundorg, sfxenum_t.sfx_stnmov)
                     }
                 }
-
                 if (res == result_e.pastdest) {
-                    switch (ceiling.type) {
-                        case silentCrushAndRaise:
-                            StartSound(ceiling.sector.soundorg, sounds.sfxenum_t.sfx_pstop);
-                        case crushAndRaise:
-                            ceiling.speed = CEILSPEED;
-                        case fastCrushAndRaise:
-                            ceiling.direction = 1;
-                            break;
-                        case lowerAndCrush:
-                        case lowerToFloor:
-                            RemoveActiveCeiling(ceiling);
-                            break;
-                        default:
-                            break;
+                    when (ceiling.type) {
+                        ceiling_e.silentCrushAndRaise -> {
+                            StartSound(sector.soundorg, sfxenum_t.sfx_pstop)
+                            ceiling.speed = Limits.CEILSPEED
+                            ceiling.direction = 1
+                        }
+                        ceiling_e.crushAndRaise -> {
+                            ceiling.speed = Limits.CEILSPEED
+                            ceiling.direction = 1
+                        }
+                        ceiling_e.fastCrushAndRaise -> ceiling.direction = 1
+                        ceiling_e.lowerAndCrush, ceiling_e.lowerToFloor -> RemoveActiveCeiling(ceiling)
+                        else -> {}
                     }
                 } else { // ( res != result_e.pastdest )
                     if (res == result_e.crushed) {
-                        switch (ceiling.type) {
-                            case silentCrushAndRaise:
-                            case crushAndRaise:
-                            case lowerAndCrush:
-                                ceiling.speed = CEILSPEED / 8;
-                                break;
-                            default:
-                                break;
+                        when (ceiling.type) {
+                            ceiling_e.silentCrushAndRaise, ceiling_e.crushAndRaise, ceiling_e.lowerAndCrush -> ceiling.speed =
+                                Limits.CEILSPEED / 8
+                            else -> {}
                         }
                     }
                 }
+            }
         }
     }
 
@@ -142,102 +122,97 @@ public interface ActionsCeilings extends ActionsMoveEvents, ActionsUseEvents {
     // EV.DoCeiling
     // Move a ceiling up/down and all around!
     //
-    @Override
-    @P_Ceiling.C(EV_DoCeiling)
-    default boolean DoCeiling(line_t line, ceiling_e type) {
-        int secnum = -1;
-        boolean rtn = false;
-        sector_t sec;
-        ceiling_t ceiling;
-
-        //  Reactivate in-stasis ceilings...for certain types.
-        switch (type) {
-            case fastCrushAndRaise:
-            case silentCrushAndRaise:
-            case crushAndRaise:
-                ActivateInStasisCeiling(line);
-            default:
-                break;
+    @P_Ceiling.C(P_Ceiling.EV_DoCeiling)
+    override fun DoCeiling(line: line_t, type: ceiling_e): Boolean {
+        var secnum = -1
+        var rtn = false
+        var sec: sector_t
+        var ceiling: ceiling_t
+        when (type) {
+            ceiling_e.fastCrushAndRaise, ceiling_e.silentCrushAndRaise, ceiling_e.crushAndRaise -> ActivateInStasisCeiling(
+                line
+            )
+            else -> {}
         }
-
-        while ((secnum = FindSectorFromLineTag(line, secnum)) >= 0) {
-            sec = levelLoader().sectors[secnum];
+        while (FindSectorFromLineTag(line, secnum).also { secnum = it } >= 0) {
+            sec = levelLoader().sectors[secnum]
             if (sec.specialdata != null) {
-                continue;
+                continue
             }
 
             // new door thinker
-            rtn = true;
-            ceiling = new ceiling_t();
-            sec.specialdata = ceiling;
-            ceiling.thinkerFunction = ActiveStates.T_MoveCeiling;
-            AddThinker(ceiling);
-            ceiling.sector = sec;
-            ceiling.crush = false;
-
-            switch (type) {
-                case fastCrushAndRaise:
-                    ceiling.crush = true;
-                    ceiling.topheight = sec.ceilingheight;
-                    ceiling.bottomheight = sec.floorheight + (8 * FRACUNIT);
-                    ceiling.direction = -1;
-                    ceiling.speed = CEILSPEED * 2;
-                    break;
-
-                case silentCrushAndRaise:
-                case crushAndRaise:
-                    ceiling.crush = true;
-                    ceiling.topheight = sec.ceilingheight;
-                case lowerAndCrush:
-                case lowerToFloor:
-                    ceiling.bottomheight = sec.floorheight;
+            rtn = true
+            ceiling = ceiling_t()
+            sec.specialdata = ceiling
+            ceiling.thinkerFunction = ActiveStates.T_MoveCeiling
+            AddThinker(ceiling)
+            ceiling.sector = sec
+            ceiling.crush = false
+            when (type) {
+                ceiling_e.fastCrushAndRaise -> {
+                    ceiling.crush = true
+                    ceiling.topheight = sec.ceilingheight
+                    ceiling.bottomheight = sec.floorheight + 8 * FRACUNIT
+                    ceiling.direction = -1
+                    ceiling.speed = Limits.CEILSPEED * 2
+                }
+                ceiling_e.silentCrushAndRaise, ceiling_e.crushAndRaise -> {
+                    ceiling.crush = true
+                    ceiling.topheight = sec.ceilingheight
+                    ceiling.bottomheight = sec.floorheight
                     if (type != ceiling_e.lowerToFloor) {
-                        ceiling.bottomheight += 8 * FRACUNIT;
+                        ceiling.bottomheight += 8 * FRACUNIT
                     }
-                    ceiling.direction = -1;
-                    ceiling.speed = CEILSPEED;
-                    break;
-
-                case raiseToHighest:
-                    ceiling.topheight = sec.FindHighestCeilingSurrounding();
-                    ceiling.direction = 1;
-                    ceiling.speed = CEILSPEED;
-                    break;
+                    ceiling.direction = -1
+                    ceiling.speed = Limits.CEILSPEED
+                }
+                ceiling_e.lowerAndCrush, ceiling_e.lowerToFloor -> {
+                    ceiling.bottomheight = sec.floorheight
+                    if (type != ceiling_e.lowerToFloor) {
+                        ceiling.bottomheight += 8 * FRACUNIT
+                    }
+                    ceiling.direction = -1
+                    ceiling.speed = Limits.CEILSPEED
+                }
+                ceiling_e.raiseToHighest -> {
+                    ceiling.topheight = sec.FindHighestCeilingSurrounding()
+                    ceiling.direction = 1
+                    ceiling.speed = Limits.CEILSPEED
+                }
             }
-
-            ceiling.tag = sec.tag;
-            ceiling.type = type;
-            AddActiveCeiling(ceiling);
+            ceiling.tag = sec.tag.toInt()
+            ceiling.type = type
+            AddActiveCeiling(ceiling)
         }
-        return rtn;
+        return rtn
     }
 
     //
     // Add an active ceiling
     //
-    default void AddActiveCeiling(ceiling_t c) {
-        final ceiling_t[] activeCeilings = getActiveCeilings();
-        for (int i = 0; i < activeCeilings.length; ++i) {
+    fun AddActiveCeiling(c: ceiling_t?) {
+        val activeCeilings: Array<ceiling_t?> = this.getActiveCeilings()
+        for (i in activeCeilings.indices) {
             if (activeCeilings[i] == null) {
-                activeCeilings[i] = c;
-                return;
+                activeCeilings[i] = c
+                return
             }
         }
         // Needs rezising
-        setActiveceilings(C2JUtils.resize(c, activeCeilings, 2 * activeCeilings.length));
+        setActiveceilings(C2JUtils.resize(c, activeCeilings, 2 * activeCeilings.size))
     }
 
     //
     // Remove a ceiling's thinker
     //
-    default void RemoveActiveCeiling(ceiling_t c) {
-        final ceiling_t[] activeCeilings = getActiveCeilings();
-        for (int i = 0; i < activeCeilings.length; ++i) {
-            if (activeCeilings[i] == c) {
-                activeCeilings[i].sector.specialdata = null;
-                RemoveThinker(activeCeilings[i]);
-                activeCeilings[i] = null;
-                break;
+    fun RemoveActiveCeiling(c: ceiling_t) {
+        val activeCeilings: Array<ceiling_t?> = this.getActiveCeilings()
+        for (i in activeCeilings.indices) {
+            if (activeCeilings[i] === c) {
+                activeCeilings[i]!!.sector!!.specialdata = null
+                RemoveThinker(activeCeilings[i]!!)
+                activeCeilings[i] = null
+                break
             }
         }
     }
@@ -245,14 +220,12 @@ public interface ActionsCeilings extends ActionsMoveEvents, ActionsUseEvents {
     //
     // Restart a ceiling that's in-stasis
     //
-    default void ActivateInStasisCeiling(line_t line) {
-        final ceiling_t[] activeCeilings = getActiveCeilings();
-        for (int i = 0; i < activeCeilings.length; ++i) {
-            if (activeCeilings[i] != null
-                && (activeCeilings[i].tag == line.tag)
-                && (activeCeilings[i].direction == 0)) {
-                activeCeilings[i].direction = activeCeilings[i].olddirection;
-                activeCeilings[i].thinkerFunction = ActiveStates.T_MoveCeiling;
+    fun ActivateInStasisCeiling(line: line_t) {
+        val activeCeilings: Array<ceiling_t?> = this.getActiveCeilings()
+        for (i in activeCeilings.indices) {
+            if (activeCeilings[i] != null && activeCeilings[i]!!.tag == line.tag.toInt() && activeCeilings[i]!!.direction == 0) {
+                activeCeilings[i]!!.direction = activeCeilings[i]!!.olddirection
+                activeCeilings[i]!!.thinkerFunction = ActiveStates.T_MoveCeiling
             }
         }
     }
@@ -261,38 +234,41 @@ public interface ActionsCeilings extends ActionsMoveEvents, ActionsUseEvents {
     // EV_CeilingCrushStop
     // Stop a ceiling from crushing!
     //
-    @Override
-    default int CeilingCrushStop(line_t line) {
-        int i;
-        int rtn;
-
-        rtn = 0;
-        final ceiling_t[] activeCeilings = getActiveCeilings();
-        for (i = 0; i < activeCeilings.length; ++i) {
-            if (activeCeilings[i] != null
-                && (activeCeilings[i].tag == line.tag)
-                && (activeCeilings[i].direction != 0)) {
-                activeCeilings[i].olddirection = activeCeilings[i].direction;
+    override fun CeilingCrushStop(line: line_t): Int {
+        var i: Int
+        var rtn: Int
+        rtn = 0
+        val activeCeilings: Array<ceiling_t?> = this.getActiveCeilings()
+        i = 0
+        while (i < activeCeilings.size) {
+            if (activeCeilings[i] != null && activeCeilings[i]!!.tag == line.tag.toInt() && activeCeilings[i]!!.direction != 0) {
+                activeCeilings[i]!!.olddirection = activeCeilings[i]!!.direction
                 // MAES: don't set it to NOP here, otherwise its thinker will be
                 // removed and it won't be possible to restart it.
-                activeCeilings[i].thinkerFunction = null;
-                activeCeilings[i].direction = 0;       // in-stasis
-                rtn = 1;
+                activeCeilings[i]!!.thinkerFunction = null
+                activeCeilings[i]!!.direction = 0 // in-stasis
+                rtn = 1
             }
+            ++i
         }
-
-        return rtn;
+        return rtn
     }
 
-    default void setActiveceilings(ceiling_t[] activeceilings) {
-        contextRequire(KEY_CEILINGS).activeceilings = activeceilings;
+    fun setActiveceilings(activeceilings: Array<ceiling_t?>) {
+        contextRequire<Ceilings>(ActionsCeilings.KEY_CEILINGS).activeCeilings = activeceilings
     }
 
-    default ceiling_t[] getActiveCeilings() {
-        return contextRequire(KEY_CEILINGS).activeceilings;
+    fun getMaxCeilings(): Int {
+        return contextRequire<Ceilings>(ActionsCeilings.KEY_CEILINGS).activeCeilings.size
     }
 
-    default int getMaxCeilings() {
-        return contextRequire(KEY_CEILINGS).activeceilings.length;
+    fun getActiveCeilings(): Array<ceiling_t?> {
+        return contextRequire(KEY_CEILINGS).activeCeilings
+    }
+
+    companion object {
+        val KEY_CEILINGS: ContextKey<Ceilings> = ActionTrait.ACTION_KEY_CHAIN.newKey<Ceilings>(
+            ActionsCeilings::class.java
+        ) { Ceilings() }
     }
 }

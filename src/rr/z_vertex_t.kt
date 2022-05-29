@@ -1,28 +1,21 @@
-package rr;
+package rr
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
-public class z_vertex_t
-        extends vertex_t {
+class z_vertex_t : vertex_t() {
+    /** Notice how we auto-expand to fixed_t  */
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        x = buf.int
+        y = buf.int
+    }
 
-    public z_vertex_t(){
-        super();
+    companion object {
+        fun sizeOf(): Int {
+            return 8
+        }
     }
-    
-    /** Notice how we auto-expand to fixed_t */
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        this.x=buf.getInt();
-        this.y=buf.getInt();
-        
-    }
-    
-    public final static int sizeOf() {
-        return 8;
-    }
-    
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,35 +15,33 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package timing;
+package timing
 
 /**
  *
  * @author Good Sign
  */
-public class DelegateTicker implements ITicker {
-    private final FastTicker ft = new FastTicker();
-    private final MilliTicker mt = new MilliTicker();
-    private final NanoTicker nt = new NanoTicker();
-    private ITicker currentTicker = ft;
-
-    @Override
-    public int GetTime() {
-        return currentTicker.GetTime();
+class DelegateTicker : ITicker {
+    private val ft = FastTicker()
+    private val mt = MilliTicker()
+    private val nt = NanoTicker()
+    private var currentTicker: ITicker = ft
+    override fun GetTime(): Int {
+        return currentTicker.GetTime()
     }
-    
-    public void changeTicker() {
-        if (currentTicker == nt) {
-            currentTicker = mt;
-            ((MilliTicker) currentTicker).basetime = 0;
-            ((MilliTicker) currentTicker).oldtics = 0;
-        } else if (currentTicker == mt) {
-            currentTicker = ft;
-            ((FastTicker) currentTicker).fasttic = 0;
+
+    fun changeTicker() {
+        if (currentTicker === nt) {
+            currentTicker = mt
+            (currentTicker as MilliTicker).basetime = 0
+            (currentTicker as MilliTicker).oldtics = 0
+        } else if (currentTicker === mt) {
+            currentTicker = ft
+            (currentTicker as FastTicker).fasttic = 0
         } else {
-            currentTicker = nt;
-            ((NanoTicker) currentTicker).basetime = 0;
-            ((NanoTicker) currentTicker).oldtics = 0;
+            currentTicker = nt
+            (currentTicker as NanoTicker).basetime = 0
+            (currentTicker as NanoTicker).oldtics = 0
         }
     }
 }

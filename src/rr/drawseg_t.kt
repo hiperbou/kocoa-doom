@@ -1,114 +1,112 @@
-package rr;
+package rr
 
 //
 // ?
 //
+class drawseg_t {
+    /** MAES: was pointer. Not array?  */
+    var curline: seg_t? = null
+    var x1 = 0
+    var x2 = 0
 
-public class drawseg_t {
-	
-	public drawseg_t(){
-		
-	}
+    /** fixed_t  */
+    var scale1 = 0
+    var scale2 = 0
+    var scalestep = 0
 
-     /** MAES: was pointer. Not array? */
-     public  seg_t      curline;
-     public int         x1, x2;
+    /** 0=none, 1=bottom, 2=top, 3=both  */
+    var silhouette = 0
 
-     /** fixed_t */
-     public int     scale1,  scale2,  scalestep;
+    /** do not clip sprites above this (fixed_t)  */
+    var bsilheight = 0
 
-     /** 0=none, 1=bottom, 2=top, 3=both */
-     public  int         silhouette;
+    /** do not clip sprites below this (fixed_t)  */
+    var tsilheight = 0
 
-     /** do not clip sprites above this (fixed_t) */
-     public int     bsilheight;
+    /** Indexes to lists for sprite clipping,
+     * all three adjusted so [x1] is first value.  */
+    private var psprtopclip = 0
+    private var psprbottomclip = 0
+    private var pmaskedtexturecol = 0
 
-     /** do not clip sprites below this (fixed_t) */
-     public int     tsilheight;
-     
-     /** Indexes to lists for sprite clipping, 
-        all three adjusted so [x1] is first value. */
-     private int      psprtopclip, psprbottomclip, pmaskedtexturecol;
+    /** Pointers to the actual lists   */
+    private var sprtopclip: ShortArray? = null
+    private var sprbottomclip: ShortArray? = null
+    private var maskedtexturecol: ShortArray? = null
 
-     /** Pointers to the actual lists  */
+    ///////////////// Accessor methods to simulate mid-array pointers ///////////
+    fun setSprTopClip(array: ShortArray?, index: Int) {
+        sprtopclip = array
+        psprtopclip = index
+    }
 
-     private short[]      sprtopclip, sprbottomclip, maskedtexturecol;
-     
-     ///////////////// Accessor methods to simulate mid-array pointers ///////////
-     
-     public void setSprTopClip(short[] array, int index){
-         this.sprtopclip=array;
-         this.psprtopclip=index;         
-     }
-     
-     public void setSprBottomClip(short[] array, int index){
-         this.sprbottomclip=array;
-         this.psprbottomclip=index;         
-     }
-     
-     public void setMaskedTextureCol(short[] array, int index){
-         this.maskedtexturecol=array;
-         this.pmaskedtexturecol=index;         
-     }
-     
-     public short getSprTopClip(int index){
-         return this.sprtopclip[this.psprtopclip+index];
-     }
-     
-     public short getSprBottomClip( int index){
-         return this.sprbottomclip[this.psprbottomclip+index];     
-         }
-     
-     public short getMaskedTextureCol(int index){
-         return this.maskedtexturecol[this.pmaskedtexturecol+index];         
-     }
-     
-     public short[] getSprTopClipList(){
-         return this.sprtopclip;
-     }
-     
-     public short[] getSprBottomClipList(){
-         return this.sprbottomclip;
-     }
-     
-     public short[] getMaskedTextureColList(){
-         return this.maskedtexturecol;
-     }
-     
-     public int getSprTopClipPointer(){
-         return this.psprtopclip;
-     }
-     
-     public int getSprBottomClipPointer(){
-         return this.psprbottomclip;
-     }
-     
-     public int getMaskedTextureColPointer(){
-         return this.pmaskedtexturecol;
-     }
-     
-     public void setSprTopClipPointer(int index){
-         this.psprtopclip=index;
-     }
-     
-     public void setSprBottomClipPointer(int index){
-         this.psprbottomclip=index;
-     }
-     
-     public void setMaskedTextureColPointer(int index){
-         this.pmaskedtexturecol=index;
-     }     
-     
-     public boolean nullSprTopClip(){
-         return this.sprtopclip==null;
-     }
-     
-     public boolean nullSprBottomClip(){
-         return this.sprbottomclip==null;
-     }
-     
-     public boolean nullMaskedTextureCol(){
-         return this.maskedtexturecol==null;
-     }
-     
+    fun setSprBottomClip(array: ShortArray?, index: Int) {
+        sprbottomclip = array
+        psprbottomclip = index
+    }
+
+    fun setMaskedTextureCol(array: ShortArray?, index: Int) {
+        maskedtexturecol = array
+        pmaskedtexturecol = index
+    }
+
+    fun getSprTopClip(index: Int): Short {
+        return sprtopclip!![psprtopclip + index]
+    }
+
+    fun getSprBottomClip(index: Int): Short {
+        return sprbottomclip!![psprbottomclip + index]
+    }
+
+    fun getMaskedTextureCol(index: Int): Short {
+        return maskedtexturecol!![pmaskedtexturecol + index]
+    }
+
+    fun getSprTopClipList(): ShortArray? {
+        return sprtopclip
+    }
+
+    fun getSprBottomClipList(): ShortArray? {
+        return sprbottomclip
+    }
+
+    fun getMaskedTextureColList(): ShortArray? {
+        return maskedtexturecol
+    }
+
+    fun getSprTopClipPointer(): Int {
+        return psprtopclip
+    }
+
+    fun getSprBottomClipPointer(): Int {
+        return psprbottomclip
+    }
+
+    fun getMaskedTextureColPointer(): Int {
+        return pmaskedtexturecol
+    }
+
+    fun setSprTopClipPointer(index: Int) {
+        psprtopclip = index
+    }
+
+    fun setSprBottomClipPointer(index: Int) {
+        psprbottomclip = index
+    }
+
+    fun setMaskedTextureColPointer(index: Int) {
+        pmaskedtexturecol = index
+    }
+
+    fun nullSprTopClip(): Boolean {
+        return sprtopclip == null
+    }
+
+    fun nullSprBottomClip(): Boolean {
+        return sprbottomclip == null
+    }
+
+    fun nullMaskedTextureCol(): Boolean {
+        return maskedtexturecol == null
+    }
 }

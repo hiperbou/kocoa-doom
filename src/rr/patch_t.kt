@@ -1,60 +1,60 @@
-package rr;
+package rr
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Hashtable;
-
-import utils.C2JUtils;
-import w.CacheableDoomObject;
-import w.DoomBuffer;
+import rr.column_t
+import utils.C2JUtils
+import w.CacheableDoomObject
+import w.DoomBuffer
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.*
 
 //Patches.
 //A patch holds one or more columns.
 //Patches are used for sprites and all masked pictures,
 //and we compose textures from the TEXTURE1/2 lists
 //of patches.
+class patch_t : CacheableDoomObject {
+    /** bounding box size  */
+    var width: Short = 0
+    var height: Short = 0
 
-public class patch_t implements /*IReadableDoomObject,*/CacheableDoomObject{
+    /** pixels to the left of origin  */
+    var leftoffset: Short = 0
 
-    /** bounding box size */ 
-    public short       width,   height;  
-    /** pixels to the left of origin */
-    public short       leftoffset;  
-    /** pixels below the origin */
-    public short       topoffset;   
-    /** This used to be an implicit array pointing to raw posts of data. 
+    /** pixels below the origin  */
+    var topoffset: Short = 0
+
+    /** This used to be an implicit array pointing to raw posts of data.
      * TODO: get rid of it? It's never used
-     * only [width] used the [0] is &columnofs[width] */
-    public int[]         columnofs;     
-    /** The ACTUAL data is here, nicely deserialized (well, almost) */
-    public column_t[] columns;
-    
-    /** Added for debug aid purposes */
-    public String name;
-    
+     * only [width] used the [0] is &columnofs[width]  */
+    lateinit var columnofs: IntArray
+
+    /** The ACTUAL data is here, nicely deserialized (well, almost)  */
+    lateinit var columns: Array<column_t?>
+
+    /** Added for debug aid purposes  */
+    var name: String? = null
+
     /** Synthesizing constructor.
      * You have to provide the columns yourself, a-posteriori.
-     * 
+     *
      * @param name
      * @param width
      * @param height
      * @param leftoffset
      * @param topoffset
      */
-    public patch_t(String name, int width, int height, int leftoffset, int topoffset){
-        this.name=name;
-        this.width=(short) width;
-        this.height=(short) height;
-        this.leftoffset=(short) leftoffset;
-        this.columns=new column_t[width];
+    constructor(name: String?, width: Int, height: Int, leftoffset: Int, topoffset: Int) {
+        this.name = name
+        this.width = width.toShort()
+        this.height = height.toShort()
+        this.leftoffset = leftoffset.toShort()
+        columns = arrayOfNulls(width)
     }
-    
-    public patch_t(){
-        
-    }
-    
-  /*  @Override
+
+    constructor() {}
+    /*  @Override
     public void read(DoomFile f) throws IOException{
 
         long pos=f.getFilePointer();
@@ -76,87 +76,71 @@ public class patch_t implements /*IReadableDoomObject,*/CacheableDoomObject{
         }
         
     }*/
-    
     /** In the C code, reading is "aided", aka they know how long the header + all
-     *  posts/columns actually are on disk, and only "deserialize" them when using them.
-     *  Here, we strive to keep stuff as elegant and OO as possible, so each column will get 
-     *  deserialized one by one. I thought about reading ALL column data as raw data, but
-     *  IMO that's shit in the C code, and would be utter shite here too. Ergo, I cleanly 
-     *  separate columns at the patch level (an advantage is that it's now easy to address
-     *  individual columns). However, column data is still read "raw".
+     * posts/columns actually are on disk, and only "deserialize" them when using them.
+     * Here, we strive to keep stuff as elegant and OO as possible, so each column will get
+     * deserialized one by one. I thought about reading ALL column data as raw data, but
+     * IMO that's shit in the C code, and would be utter shite here too. Ergo, I cleanly
+     * separate columns at the patch level (an advantage is that it's now easy to address
+     * individual columns). However, column data is still read "raw".
      */
-    
-    @Override
-    public void unpack(ByteBuffer b)
-            throws IOException {
+    @Throws(IOException::class)
+    override fun unpack(b: ByteBuffer) {
         // Remember to reset the ByteBuffer position each time.
-        b.position(0);
+        b.position(0)
         // In ByteBuffers, the order can be conveniently set beforehand :-o
-        b.order(ByteOrder.LITTLE_ENDIAN);
-        
-        this.width=b.getShort();
-        
-        this.height=b.getShort();
-        this.leftoffset=b.getShort();
-        this.topoffset=b.getShort();
+        b.order(ByteOrder.LITTLE_ENDIAN)
+        width = b.short
+        height = b.short
+        leftoffset = b.short
+        topoffset = b.short
         // As many columns as width...right???
-        this.columnofs=new int[this.width];
-        this.columns=new column_t[this.width];
-        C2JUtils.initArrayOfObjects( this.columns, column_t.class);
-        
+        columnofs = IntArray(width.toInt())
+        columns = arrayOfNulls(width.toInt())
+        C2JUtils.initArrayOfObjects(columns, column_t::class.java)
+
         // Compute the ACTUAL full-column sizes.
-        int[] actualsizes=new int[columns.length];
-        
-        for (int i=0;i<actualsizes.length-1;i++){
-            actualsizes[i]=columnofs[i+1]-columnofs[i];
+        val actualsizes = IntArray(columns.size)
+        for (i in 0 until actualsizes.size - 1) {
+            actualsizes[i] = columnofs[i + 1] - columnofs[i]
         }
-        
+
         // The offsets.
-        DoomBuffer.readIntArray(b, this.columnofs, this.columnofs.length);
-        for (int i=0;i<this.width;i++){
-        	// Go to offset.
-        	b.position(this.columnofs[i]);
-        	
-        	try {
-        	this.columns[i].unpack(b);
-        	} catch (Exception e){
-        		// Error during loading of column.
-        		// If first column (too bad..) set to special error column.
-        		if (i==0)
-        			this.columns[i]=getBadColumn(this.height);
-        		// Else duplicate previous column. Saves memory, too!
-        		else this.columns[i]=this.columns[i-1];
-        	}
+        DoomBuffer.readIntArray(b, columnofs, columnofs.size)
+        for (i in 0 until width) {
+            // Go to offset.
+            b.position(columnofs[i])
+            try {
+                columns[i]!!.unpack(b)
+            } catch (e: Exception) {
+                // Error during loading of column.
+                // If first column (too bad..) set to special error column.
+                if (i == 0) columns[i] = patch_t.getBadColumn(height.toInt()) else columns[i] = columns[i - 1]
+            }
         }
-
     }
-    
-    
-    // Special safeguard against badly computed columns. Now they can be any size.
-    private static Hashtable<Integer,column_t> badColumns=new Hashtable<Integer,column_t>();
 
-    private static column_t getBadColumn(int size){
-    	
-    	if (badColumns.get(size)==null){
-            column_t tmp=new column_t();
-            tmp.data=new byte[size+5];
-        for (int i=3;i<size+3;i++){
-        	tmp.data[i]=(byte) (i-3);
+    companion object {
+        // Special safeguard against badly computed columns. Now they can be any size.
+        private val badColumns = Hashtable<Int, column_t>()
+        private fun getBadColumn(size: Int): column_t {
+            if (patch_t.badColumns.get(size) == null) {
+                val tmp = column_t()
+                tmp.data = ByteArray(size + 5)
+                for (i in 3 until size + 3) {
+                    tmp.data[i] = (i - 3).toByte()
+                }
+                tmp.data[size + 4] = 0xFF.toByte()
+                tmp.posts = 1
+                //tmp.length=(short) size;
+                //tmp.topdelta=0;
+                tmp.postofs = intArrayOf(3)
+                tmp.postdeltas = shortArrayOf(0)
+                tmp.postlen = shortArrayOf((size % 256).toShort())
+                //tmp.setData();
+                patch_t.badColumns.put(size, tmp)
+            }
+            return patch_t.badColumns.get(size)!!
         }
-        
-        tmp.data[size+4]=(byte) 0xFF;
-        tmp.posts=1;
-        //tmp.length=(short) size;
-        //tmp.topdelta=0;
-        tmp.postofs=new int[]{3};        
-        tmp.postdeltas=new short[]{0};
-        tmp.postlen=new short[]{(short) (size%256)};
-        //tmp.setData();
-        badColumns.put(size, tmp);
-    	}
-    	
-    	return badColumns.get(size);
-    	
     }
-    
 }

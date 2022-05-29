@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,25 +15,30 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.renderers;
+package v.renderers
 
-import java.lang.reflect.Array;
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.Map;
+import v.renderers.DoomScreen
+import java.util.*
+
 
 /**
  *
  * @author Good Sign
  */
-public enum DoomScreen {
+enum class DoomScreen {
     FG, BG, WS, WE, SB;
-    
-    @SuppressWarnings("unchecked")
-    static <V> Map<DoomScreen, V> mapScreensToBuffers(Class<V> bufferType, int bufferLen) {
-        return Arrays.stream(values())
-            .collect(() -> new EnumMap<>(DoomScreen.class),
-                (map, screen) -> map.put(screen, (V) Array.newInstance(bufferType.getComponentType(), bufferLen)),
-                EnumMap::putAll);
+
+    companion object {
+        fun <V> mapScreensToBuffers(bufferType: Class<V>, bufferLen: Int): Map<DoomScreen, V> {
+            return Arrays.stream(DoomScreen.values())
+                .collect({ EnumMap(DoomScreen::class.java) },
+                    { map: EnumMap<DoomScreen, V>, screen: DoomScreen? ->
+                        map[screen] = java.lang.reflect.Array.newInstance(bufferType.componentType, bufferLen) as V
+                    }) { obj: EnumMap<DoomScreen, V>, m: EnumMap<DoomScreen, V> ->
+                    obj.putAll(
+                        m!!
+                    )
+                }
+        }
     }
 }

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,186 +16,183 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates.MonsterStates;
+package p.Actions.ActiveStates.MonsterStatesimport
 
-import data.Limits;
-import data.mobjtype_t;
-import data.sounds;
+
+import data.Limits
+import data.mobjtype_t
+import data.sounds.sfxenum_t
+import m.fixed_t.Companion.FRACUNIT
+import p.Actions.ActionTrait
+import p.Actions.ActiveStates.Sounds
+import p.ActiveStates
+import p.mobj_t
+import utils.TraitFactory.ContextKey
+import java.util.function.Supplier
+
 import defines.skill_t;
 import defines.statenum_t;
-import doom.thinker_t;
-import static m.fixed_t.FRACUNIT;
-import p.Actions.ActiveStates.Sounds;
-import p.ActiveStates;
-import p.mobj_t;
-import utils.TraitFactory.ContextKey;
 
-public interface HorrendousVisages extends Sounds {
-    ContextKey<Brain> KEY_BRAIN = ACTION_KEY_CHAIN.newKey(HorrendousVisages.class, Brain::new);
 
-    final class Brain {
+interface HorrendousVisages : Sounds, ActionTrait { //TODO: Added ActionTrait because contextRequire?
+    class Brain {
         // Brain status
-        mobj_t[] braintargets = new mobj_t[Limits.NUMBRAINTARGETS];
-        int numbraintargets;
-        int braintargeton;
-        int easy = 0;
+        var braintargets = arrayOfNulls<mobj_t>(Limits.NUMBRAINTARGETS)
+        var numbraintargets = 0
+        var braintargeton = 0
+        var easy = 0
     }
-    
-    default void A_BrainAwake(mobj_t mo) {
-        final Brain brain = contextRequire(KEY_BRAIN);
-        thinker_t thinker;
-        mobj_t m;
+
+    fun A_BrainAwake(mo: mobj_t?) {
+        val brain = contextRequire<Brain>(HorrendousVisages.KEY_BRAIN)
+        var m: mobj_t
 
         // find all the target spots
-        brain.numbraintargets = 0;
-        brain.braintargeton = 0;
+        brain.numbraintargets = 0
+        brain.braintargeton = 0
 
         //thinker = obs.thinkercap.next;
-        for (thinker = getThinkerCap().next; thinker != getThinkerCap(); thinker = thinker.next) {
-            if (thinker.thinkerFunction != ActiveStates.P_MobjThinker) {
-                continue;   // not a mobj
+        var thinker = getThinkerCap().next
+        while (thinker !== getThinkerCap()) {
+            if (thinker!!.thinkerFunction != ActiveStates.P_MobjThinker) {
+                thinker = thinker.next
+                continue  // not a mobj
             }
-            m = (mobj_t) thinker;
-
+            m = thinker as mobj_t
             if (m.type == mobjtype_t.MT_BOSSTARGET) {
-                brain.braintargets[brain.numbraintargets] = m;
-                brain.numbraintargets++;
+                brain.braintargets[brain.numbraintargets] = m
+                brain.numbraintargets++
             }
+            thinker = thinker.next
         }
-
-        StartSound(null, sounds.sfxenum_t.sfx_bossit);
+        StartSound(null, sfxenum_t.sfx_bossit)
     }
 
-    default void A_BrainScream(mobj_t mo) {
-        int x;
-        int y;
-        int z;
-        mobj_t th;
-
-        for (x = mo.x - 196 * FRACUNIT; x < mo.x + 320 * FRACUNIT; x += FRACUNIT * 8) {
-            y = mo.y - 320 * FRACUNIT;
-            z = 128 + P_Random() * 2 * FRACUNIT;
-            th = getEnemies().SpawnMobj(x, y, z, mobjtype_t.MT_ROCKET);
-            th.momz = P_Random() * 512;
-
-            th.SetMobjState(statenum_t.S_BRAINEXPLODE1);
-
-            th.mobj_tics -= P_Random() & 7;
+    fun A_BrainScream(mo: mobj_t) {
+        var x: Int
+        var y: Int
+        var z: Int
+        var th: mobj_t
+        x = mo._x - 196 * FRACUNIT
+        while (x < mo._x + 320 * FRACUNIT) {
+            y = mo._y - 320 * FRACUNIT
+            z = 128 + P_Random() * 2 * FRACUNIT
+            th = enemies.SpawnMobj(x, y, z, mobjtype_t.MT_ROCKET)
+            th.momz = P_Random() * 512
+            th.SetMobjState(statenum_t.S_BRAINEXPLODE1)
+            th.mobj_tics -= (P_Random() and 7).toLong()
             if (th.mobj_tics < 1) {
-                th.mobj_tics = 1;
+                th.mobj_tics = 1
             }
+            x += FRACUNIT * 8
         }
-
-        StartSound(null, sounds.sfxenum_t.sfx_bosdth);
+        StartSound(null, sfxenum_t.sfx_bosdth)
     }
 
-    default void A_BrainExplode(mobj_t mo) {
-        int x;
-        int y;
-        int z;
-        mobj_t th;
-
-        x = mo.x + (P_Random() - P_Random()) * 2048;
-        y = mo.y;
-        z = 128 + P_Random() * 2 * FRACUNIT;
-        th = getEnemies().SpawnMobj(x, y, z, mobjtype_t.MT_ROCKET);
-        th.momz = P_Random() * 512;
-
-        th.SetMobjState(statenum_t.S_BRAINEXPLODE1);
-
-        th.mobj_tics -= P_Random() & 7;
+    fun A_BrainExplode(mo: mobj_t) {
+        val x: Int
+        val y: Int
+        val z: Int
+        val th: mobj_t
+        x = mo._x + (P_Random() - P_Random()) * 2048
+        y = mo._y
+        z = 128 + P_Random() * 2 * FRACUNIT
+        th = enemies.SpawnMobj(x, y, z, mobjtype_t.MT_ROCKET)
+        th.momz = P_Random() * 512
+        th.SetMobjState(statenum_t.S_BRAINEXPLODE1)
+        th.mobj_tics -= (P_Random() and 7).toLong()
         if (th.mobj_tics < 1) {
-            th.mobj_tics = 1;
+            th.mobj_tics = 1
         }
     }
 
-    default void A_BrainDie(mobj_t mo) {
-        DOOM().ExitLevel();
+    fun A_BrainDie(mo: mobj_t?) {
+        DOOM().ExitLevel()
     }
 
-    default void A_BrainSpit(mobj_t mo) {
-        final Brain brain = contextRequire(KEY_BRAIN);
-        mobj_t targ;
-        mobj_t newmobj;
-
-        brain.easy ^= 1;
-        if (getGameSkill().ordinal() <= skill_t.sk_easy.ordinal() && (brain.easy == 0)) {
-            return;
+    fun A_BrainSpit(mo: mobj_t) {
+        val brain = contextRequire<Brain>(HorrendousVisages.KEY_BRAIN)
+        val targ: mobj_t?
+        val newmobj: mobj_t
+        brain.easy = brain.easy xor 1
+        if (gameSkill!!.ordinal <= skill_t.sk_easy.ordinal && brain.easy == 0) {
+            return
         }
 
         // shoot a cube at current target
-        targ = brain.braintargets[brain.braintargeton];
+        targ = brain.braintargets[brain.braintargeton]
 
         // Load-time fix: awake on zero numbrain targets, if A_BrainSpit is called.
         if (brain.numbraintargets == 0) {
-            A_BrainAwake(mo);
-            return;
+            A_BrainAwake(mo)
+            return
         }
-        brain.braintargeton = (brain.braintargeton + 1) % brain.numbraintargets;
+        brain.braintargeton = (brain.braintargeton + 1) % brain.numbraintargets
 
         // spawn brain missile
-        newmobj = getAttacks().SpawnMissile(mo, targ, mobjtype_t.MT_SPAWNSHOT);
-        newmobj.target = targ;
-        newmobj.reactiontime = ((targ.y - mo.y) / newmobj.momy) / newmobj.mobj_state.tics;
-
-        StartSound(null, sounds.sfxenum_t.sfx_bospit);
+        newmobj = attacks.SpawnMissile(mo, targ!!, mobjtype_t.MT_SPAWNSHOT)!!
+        newmobj.target = targ
+        newmobj.reactiontime = (targ!!._y - mo._y) / newmobj.momy / newmobj.mobj_state!!.tics
+        StartSound(null, sfxenum_t.sfx_bospit)
     }
 
-    @Override
-    default void A_SpawnFly(mobj_t mo) {
-        mobj_t newmobj;
-        mobj_t fog;
-        mobj_t targ;
-        int r;
-        mobjtype_t type;
-
+    override fun A_SpawnFly(mo: mobj_t) {
+        val newmobj: mobj_t
+        val fog: mobj_t
+        val targ: mobj_t
+        val r: Int
+        val type: mobjtype_t
         if (--mo.reactiontime != 0) {
-            return; // still flying
+            return  // still flying
         }
-        targ = mo.target;
+        targ = mo.target!!
 
         // First spawn teleport fog.
-        fog = getEnemies().SpawnMobj(targ.x, targ.y, targ.z, mobjtype_t.MT_SPAWNFIRE);
-        StartSound(fog, sounds.sfxenum_t.sfx_telept);
+        fog = enemies.SpawnMobj(targ._x, targ._y, targ._z, mobjtype_t.MT_SPAWNFIRE)
+        StartSound(fog, sfxenum_t.sfx_telept)
 
         // Randomly select monster to spawn.
-        r = P_Random();
+        r = P_Random()
 
         // Probability distribution (kind of :),
         // decreasing likelihood.
-        if (r < 50) {
-            type = mobjtype_t.MT_TROOP;
+        type = if (r < 50) {
+            mobjtype_t.MT_TROOP
         } else if (r < 90) {
-            type = mobjtype_t.MT_SERGEANT;
+            mobjtype_t.MT_SERGEANT
         } else if (r < 120) {
-            type = mobjtype_t.MT_SHADOWS;
+            mobjtype_t.MT_SHADOWS
         } else if (r < 130) {
-            type = mobjtype_t.MT_PAIN;
+            mobjtype_t.MT_PAIN
         } else if (r < 160) {
-            type = mobjtype_t.MT_HEAD;
+            mobjtype_t.MT_HEAD
         } else if (r < 162) {
-            type = mobjtype_t.MT_VILE;
+            mobjtype_t.MT_VILE
         } else if (r < 172) {
-            type = mobjtype_t.MT_UNDEAD;
+            mobjtype_t.MT_UNDEAD
         } else if (r < 192) {
-            type = mobjtype_t.MT_BABY;
+            mobjtype_t.MT_BABY
         } else if (r < 222) {
-            type = mobjtype_t.MT_FATSO;
+            mobjtype_t.MT_FATSO
         } else if (r < 246) {
-            type = mobjtype_t.MT_KNIGHT;
+            mobjtype_t.MT_KNIGHT
         } else {
-            type = mobjtype_t.MT_BRUISER;
+            mobjtype_t.MT_BRUISER
         }
-
-        newmobj = getEnemies().SpawnMobj(targ.x, targ.y, targ.z, type);
-        if (getEnemies().LookForPlayers(newmobj, true)) {
-            newmobj.SetMobjState(newmobj.info.seestate);
+        newmobj = enemies.SpawnMobj(targ._x, targ._y, targ._z, type)
+        if (enemies.LookForPlayers(newmobj, true)) {
+            newmobj.SetMobjState(newmobj.info!!.seestate)
         }
 
         // telefrag anything in this spot
-        getAttacks().TeleportMove(newmobj, newmobj.x, newmobj.y);
+        attacks.TeleportMove(newmobj, newmobj._x, newmobj._y)
 
         // remove self (i.e., cube).
-        getEnemies().RemoveMobj(mo);
+        enemies.RemoveMobj(mo)
+    }
+
+    companion object {
+        val KEY_BRAIN: ContextKey<Brain> =
+            ActionTrait.ACTION_KEY_CHAIN.newKey<Brain>(HorrendousVisages::class.java, Supplier { Brain() })
     }
 }

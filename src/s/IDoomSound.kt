@@ -1,12 +1,13 @@
-package s;
+package s
 
-import data.sfxinfo_t;
-import data.sounds.musicenum_t;
-import data.sounds.sfxenum_t;
-import doom.CVarManager;
-import doom.CommandVariable;
-import doom.DoomMain;
-import p.mobj_t;
+import data.sfxinfo_t
+import data.sounds.musicenum_t
+import data.sounds.sfxenum_t
+import doom.CVarManager
+import doom.CommandVariable
+import doom.DoomMain
+import m.fixed_t.Companion.FRACBITS
+import p.mobj_t
 
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
@@ -14,6 +15,7 @@ import p.mobj_t;
 // $Id: IDoomSound.java,v 1.5 2011/08/24 15:55:12 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -34,149 +36,88 @@ import p.mobj_t;
 // with separate concerns for SFX and MUSIC.
 //
 //-----------------------------------------------------------------------------
+interface IDoomSound {
+    class channel_t {
+        // sound information (if null, channel avail.)
+        var sfxinfo: sfxinfo_t? = null
 
-public interface IDoomSound {
+        // origin of sound
+        var origin: ISoundOrigin? = null
 
-    static IDoomSound chooseSoundIsPresent(DoomMain<?, ?> DM, CVarManager CVM, ISoundDriver ISND) {
-        if (!CVM.bool(CommandVariable.NOSOUND) || (ISND instanceof DummySFX && DM.music instanceof DummyMusic)) {
-            return new AbstractDoomAudio(DM, DM.numChannels);
-        } else {
-            /**
-             * Saves a lot of distance calculations,
-             * if we're not to output any sound at all.
-             * TODO: create a Dummy that can handle music alone.
-             */
-            return new DummySoundDriver();
-        }
+        // handle of the sound being played
+        var handle = 0
     }
 
-	class channel_t{
+    /**
+     * Initializes sound stuff, including volume Sets channels, SFX and music
+     * volume, allocates channel buffer, sets S_sfx lookup.
+     */
+    fun Init(sfxVolume: Int, musicVolume: Int)
 
-		    // sound information (if null, channel avail.)
-		    sfxinfo_t	sfxinfo;
+    /**
+     * Per level startup code. Kills playing sounds at start of level,
+     * determines music if any, changes music.
+     */
+    fun Start()
 
-		    // origin of sound
-		    ISoundOrigin	origin;
+    /**
+     * Start sound for thing at <origin> using <sound_id> from sounds.h
+    </sound_id></origin> */
+    fun StartSound(origin: ISoundOrigin?, sound_id: Int)
 
-		    // handle of the sound being played
-		    int		handle;
-			}
-	
-	/** Convenience hack */
-	public static final int NUMSFX=sfxenum_t.NUMSFX.ordinal();
-	
-	// Purpose?
-	public static final char snd_prefixen[]
-	                                      = { 'P', 'P', 'A', 'S', 'S', 'S', 'M', 'M', 'M', 'S', 'S', 'S' };
+    /**
+     * Start sound for thing at <origin> using <sound_id> from sounds.h
+     * Convenience method using sfxenum_t instead. Delegated to int version.
+     *
+    </sound_id></origin> */
+    fun StartSound(origin: ISoundOrigin?, sound_id: sfxenum_t?)
 
-	public static final int S_MAX_VOLUME=127;
+    /** Will start a sound at a given volume.  */
+    fun StartSoundAtVolume(origin: ISoundOrigin?, sound_id: Int, volume: Int)
 
-	// when to clip out sounds
-	// Does not fit the large outdoor areas.
-	public static final int S_CLIPPING_DIST	=	(1200*0x10000);
+    /** Stop sound for thing at <origin> </origin> */
+    fun StopSound(origin: ISoundOrigin?)
 
-	// Distance tp origin when sounds should be maxed out.
-	// This should relate to movement clipping resolution
-	// (see BLOCKMAP handling).
-	// Originally: (200*0x10000).
-	public static final int S_CLOSE_DIST	=(160*0x10000);
+    /**
+     * Start music using <music_id> from sounds.h, and set whether looping
+     *
+     * @param musicnum
+     * @param looping
+    </music_id> */
+    fun ChangeMusic(musicnum: Int, looping: Boolean)
+    fun ChangeMusic(musicnum: musicenum_t, looping: Boolean)
 
-	public static final int S_ATTENUATOR	=((S_CLIPPING_DIST-S_CLOSE_DIST)>>m.fixed_t.FRACBITS);
+    /** Stops the music fer sure.  */
+    fun StopMusic()
 
-	// Adjustable by menu.
-	//protected final int NORM_VOLUME    		snd_MaxVolume
+    /** Stop and resume music, during game PAUSE.  */
+    fun PauseSound()
+    fun ResumeSound()
 
-	public static final int NORM_PITCH    = 		128;
-	public final static int NORM_PRIORITY	=	64;
-	public final static int NORM_SEP		=128;
+    /**
+     * Updates music & sounds
+     *
+     * @param listener
+     */
+    fun UpdateSounds(listener: mobj_t)
+    fun SetMusicVolume(volume: Int)
+    fun SetSfxVolume(volume: Int)
 
-	public final static int S_PITCH_PERTURB	=	1;
-	public final static int S_STEREO_SWING	=	(96*0x10000);
+    /** Start music using <music_id> from sounds.h </music_id> */
+    fun StartMusic(music_id: Int)
 
-	// percent attenuation from front to back
-	public final static int S_IFRACVOL	=	30;
+    /** Start music using <music_id> from sounds.h
+     * Convenience method using musicenum_t.
+    </music_id> */
+    fun StartMusic(music_id: musicenum_t) //
 
-	public final static int NA	=		0;
-	public final static int S_NUMCHANNELS=		2;
-
-	/**
-	 * Initializes sound stuff, including volume Sets channels, SFX and music
-	 * volume, allocates channel buffer, sets S_sfx lookup.
-	 */
-
-	void Init(int sfxVolume, int musicVolume);
-
-	/**
-	 * Per level startup code. Kills playing sounds at start of level,
-	 * determines music if any, changes music.
-	 */
-	public void Start();
-
-	/**
-	 * Start sound for thing at <origin> using <sound_id> from sounds.h
-	 */
-	public void StartSound(ISoundOrigin origin, int sound_id);
-
-	/**
-	 * Start sound for thing at <origin> using <sound_id> from sounds.h
-	 * Convenience method using sfxenum_t instead. Delegated to int version.
-	 * 
-	 */
-	public void StartSound(ISoundOrigin origin, sfxenum_t sound_id);
-	
-	/** Will start a sound at a given volume. */
-	public void StartSoundAtVolume(ISoundOrigin origin, int sound_id, int volume);
-
-	/** Stop sound for thing at <origin> */
-	public void StopSound(ISoundOrigin origin);
-
-	/**
-	 * Start music using <music_id> from sounds.h, and set whether looping
-	 * 
-	 * @param musicnum
-	 * @param looping
-	 */
-	public void ChangeMusic(int musicnum, boolean looping);
-	
-	public void ChangeMusic(musicenum_t musicnum, boolean looping);
-
-	/** Stops the music fer sure. */
-	public void StopMusic();
-
-	/** Stop and resume music, during game PAUSE. */
-	public void PauseSound();
-
-	public void ResumeSound();
-
-	/**
-	 * Updates music & sounds
-	 * 
-	 * @param listener
-	 */
-	public void UpdateSounds(mobj_t listener);
-
-	public void SetMusicVolume(int volume);
-
-	public void SetSfxVolume(int volume);
-
-
-	/** Start music using <music_id> from sounds.h */
-	public void StartMusic(int music_id);
-	
-	/** Start music using <music_id> from sounds.h 
-	 *  Convenience method using musicenum_t.
-	 */
-	public void StartMusic(musicenum_t music_id);
-	
-	//
-	// Internals. 
-	// 
-	// MAES: these appear to be only of value for internal implementation,
-	// and are never called externally. Thus, they might as well
-	// not be part of the interface, even though it's convenient to reuse them.
-	//
-	
-	/*
+    // Internals. 
+    // 
+    // MAES: these appear to be only of value for internal implementation,
+    // and are never called externally. Thus, they might as well
+    // not be part of the interface, even though it's convenient to reuse them.
+    //
+    /*
 	int
 	S_getChannel
 	( mobj_t		origin,
@@ -193,5 +134,50 @@ public interface IDoomSound {
 
 	void S_StopChannel(int cnum);
 	*/
+    companion object {
+        fun chooseSoundIsPresent(DM: DoomMain<*, *>, CVM: CVarManager, ISND: ISoundDriver?): IDoomSound {
+            return if (!CVM.bool(CommandVariable.NOSOUND) || ISND is DummySFX && DM.music is DummyMusic) {
+                AbstractDoomAudio(DM, DM.numChannels)
+            } else {
+                /**
+                 * Saves a lot of distance calculations,
+                 * if we're not to output any sound at all.
+                 * TODO: create a Dummy that can handle music alone.
+                 */
+                DummySoundDriver()
+            }
+        }
 
+        /** Convenience hack  */
+        val NUMSFX = sfxenum_t.NUMSFX.ordinal
+
+        // Purpose?
+        val snd_prefixen = charArrayOf('P', 'P', 'A', 'S', 'S', 'S', 'M', 'M', 'M', 'S', 'S', 'S')
+        const val S_MAX_VOLUME = 127
+
+        // when to clip out sounds
+        // Does not fit the large outdoor areas.
+        const val S_CLIPPING_DIST = 1200 * 0x10000
+
+        // Distance tp origin when sounds should be maxed out.
+        // This should relate to movement clipping resolution
+        // (see BLOCKMAP handling).
+        // Originally: (200*0x10000).
+        const val S_CLOSE_DIST = 160 * 0x10000
+        val S_ATTENUATOR: Int =
+            IDoomSound.S_CLIPPING_DIST - IDoomSound.S_CLOSE_DIST shr FRACBITS
+
+        // Adjustable by menu.
+        //protected final int NORM_VOLUME    		snd_MaxVolume
+        const val NORM_PITCH = 128
+        const val NORM_PRIORITY = 64
+        const val NORM_SEP = 128
+        const val S_PITCH_PERTURB = 1
+        const val S_STEREO_SWING = 96 * 0x10000
+
+        // percent attenuation from front to back
+        const val S_IFRACVOL = 30
+        const val NA = 0
+        const val S_NUMCHANNELS = 2
+    }
 }

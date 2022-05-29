@@ -1,35 +1,31 @@
-package s;
+package s
 
-public final class degenmobj_t
-        implements ISoundOrigin {
+class degenmobj_t : ISoundOrigin {
+    private val x: Int
+    private val y: Int
+    private val z: Int
 
-    private final int x, y, z;
-
-    public degenmobj_t(int x, int y, int z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+    constructor(x: Int, y: Int, z: Int) {
+        this.x = x
+        this.y = y
+        this.z = z
     }
 
-    public degenmobj_t(int x, int y) {
-        this.x = x;
-        this.y = y;
-        this.z = 0;
+    constructor(x: Int, y: Int) {
+        this.x = x
+        this.y = y
+        z = 0
     }
 
-    @Override
-    public final int getX() {
-        return x;
+    override fun getX(): Int {
+        return x
     }
 
-    @Override
-    public final int getY() {
-        return y;
+    override fun getY(): Int {
+        return y
     }
 
-    @Override
-    public final int getZ() {
-        return z;
+    override fun getZ(): Int {
+        return z
     }
-
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,33 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates;
+package p.Actions.ActiveStatesimportimport
 
-import p.Actions.ActiveStates.MonsterStates.Bosses;
-import p.Actions.ActiveStates.MonsterStates.Demonspawns;
-import p.Actions.ActiveStates.MonsterStates.HorrendousVisages;
-import p.Actions.ActiveStates.MonsterStates.Mancubi;
-import p.Actions.ActiveStates.MonsterStates.PainsSouls;
-import p.Actions.ActiveStates.MonsterStates.Skels;
-import p.Actions.ActiveStates.MonsterStates.Spiders;
-import p.Actions.ActiveStates.MonsterStates.Viles;
-import p.Actions.ActiveStates.MonsterStates.Zombies;
+
+import p.Actions.ActiveStates.MonsterStatesimport.*
+import p.Actions.ActiveStates.MonsterStatesimportimport.Demonspawns
+import p.Actions.ActiveStates.MonsterStatesimportimport.Spiders
+import p.Actions.ActiveStates.MonsterStatesimportimport.Zombies
 
 /**
  * Include all from Monsters package
- * 
+ *
  * @author Good Sign
  */
-public interface Monsters extends
-    Bosses,
-    Demonspawns,
-    HorrendousVisages,
-    Mancubi,
-    PainsSouls,
-    Skels,
-    Spiders,
-    Viles,
-    Zombies
-{
-    
-}
+interface Monsters : Bosses, Demonspawns, HorrendousVisages, Mancubi, PainsSouls, Skels, Spiders, Viles, Zombies

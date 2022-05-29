@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,148 +15,127 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package doom
 
-package doom;
-
-import data.dstrings;
-import mochadoom.Engine;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import m.Settings;
-import utils.OSValidator;
-import utils.ResourceIO;
+import data.dstrings
+import m.Settings
+import mochadoom.Engine
+import utils.OSValidator
+import utils.ResourceIO
+import java.util.*
 
 /**
  * Manages loading different config files from different places
  * (the part about different places is still unfinished)
- * 
+ *
  * @author Good Sign
  */
-public enum ConfigBase {
-    WINDOWS("default.cfg", "USERPROFILE"),
-    UNIX(".doomrc", "HOME");
+enum class ConfigBase(val defaultConfigName: String, val env: String) {
+    WINDOWS("default.cfg", "USERPROFILE"), UNIX(".doomrc", "HOME");
 
-    /**
-     * Early detection of the system and setting this is important to define global config Files
-     */
-    public static final ConfigBase CURRENT = OSValidator.isMac() || OSValidator.isUnix() ? UNIX : WINDOWS;
-
-    /**
-     * Reference these in Settings.java to set which file they will go on by default
-     */
-    public static final Files
-        FILE_DOOM = new Files(CURRENT.defaultConfigName, Enum::compareTo),
-        FILE_MOCHADOOM = new Files("mochadoom.cfg");
-    
-    public final String defaultConfigName;
-    public final String env;
-
-    ConfigBase(final String fileName, final String env) {
-        this.defaultConfigName = fileName;
-        this.env = env;
-    }
-
-    public static class Files {
-        private static String folder;
-
-        public final Comparator<Settings> comparator;
-        public final String fileName;
-        public boolean changed = true;
-        
-        private String[] paths;
-        
-        public Files(String fileName) {
-            this(fileName, Comparator.comparing(Enum::name, String::compareTo));
+    class Files @JvmOverloads constructor(
+        val fileName: String, val comparator: Comparator<Settings> = Comparator.comparing(
+            { obj: Settings -> obj.name }) { obj: String, anotherString: String? ->
+            obj.compareTo(
+                anotherString!!
+            )
         }
-
-        public Files(String fileName, Comparator<Settings> comparator) {
-            this.fileName = fileName;
-            this.comparator = comparator;
-        }
-        
-        public Optional<ResourceIO> firstValidPathIO() {
+    ) {
+        var changed = true
+        private var paths: Array<String>? = null
+        fun firstValidPathIO(): Optional<ResourceIO> {
             return Arrays.stream(getPaths())
-                .map(ResourceIO::new)
-                .filter(ResourceIO::exists)
-                .findFirst();
+                .map { path: String? -> ResourceIO(path) }
+                .filter { obj: ResourceIO -> obj.exists() }
+                .findFirst()
         }
-        
-        public ResourceIO workDirIO() {
-            return new ResourceIO(getFolder() + fileName);
+
+        fun workDirIO(): ResourceIO {
+            return ResourceIO(ConfigBase.Files.getFolder() + fileName)
         }
-        
+
         /**
          * Get file / paths combinations
-         * 
+         *
          * @return a one or more path to the file
          */
-        private String[] getPaths() {
+        private fun getPaths(): Array<String> {
             if (paths != null) {
-                return paths;
+                return paths!!
             }
-            
-            String getPath = null;
-
+            var getPath: String? = null
             try { // get it if have rights to do, otherwise ignore and use only current folder
-                getPath = System.getenv(CURRENT.env);
-            } catch (SecurityException ex) {}
-
-            if (getPath == null || "".equals(getPath)) {
-                return new String[] {folder};
+                getPath = System.getenv(ConfigBase.CURRENT.env)
+            } catch (ex: SecurityException) {
             }
-            
-            getPath += System.getProperty("file.separator");
-            return paths = new String[] {
+            if (getPath == null || "" == getPath) {
+                return arrayOf(ConfigBase.Files.folder!!)
+            }
+            getPath += System.getProperty("file.separator")
+            return arrayOf<String>(
                 /**
                  * Uncomment the next line and it will load default.cfg and mochadoom.cfg from user home dir
                  * I find it undesirable - it can load some unrelated file and even write it at exit
-                 *  - Good Sign 2017/04/19
+                 * - Good Sign 2017/04/19
                  */
-                
                 //getPath + folder + fileName,
-                getFolder() + fileName
-            };
+                ConfigBase.Files.getFolder() + fileName
+            ).also { paths = it }
         }
-        
-        private static String getFolder() {
-            return folder != null ? folder : (folder =
-                Engine.getCVM().bool(CommandVariable.SHDEV) ||
-                Engine.getCVM().bool(CommandVariable.REGDEV) ||
-                Engine.getCVM().bool(CommandVariable.FR1DEV) ||
-                Engine.getCVM().bool(CommandVariable.FRDMDEV) ||
-                Engine.getCVM().bool(CommandVariable.FR2DEV) ||
-                Engine.getCVM().bool(CommandVariable.COMDEV)
-                    ? dstrings.DEVDATA + System.getProperty("file.separator")
-                    : ""
-            );
+
+        companion object {
+            private var folder: String? = null
+            private fun getFolder(): String {
+                return if (ConfigBase.Files.folder != null) ConfigBase.Files.folder!! else if (Engine.getCVM()
+                        .bool(CommandVariable.SHDEV) ||
+                    Engine.getCVM().bool(CommandVariable.REGDEV) ||
+                    Engine.getCVM().bool(CommandVariable.FR1DEV) ||
+                    Engine.getCVM().bool(CommandVariable.FRDMDEV) ||
+                    Engine.getCVM().bool(CommandVariable.FR2DEV) ||
+                    Engine.getCVM().bool(CommandVariable.COMDEV)
+                ) dstrings.DEVDATA + System.getProperty("file.separator") else "".also {
+                    ConfigBase.Files.folder = it
+                }
+            }
         }
     }
-    
-    /**
-     * To be able to look for config in several places
-     * Still unfinished
-     */
-    public static List<Files> getFiles() {
-        final List<Files> ret = new ArrayList<>();
+
+    companion object {
+        /**
+         * Early detection of the system and setting this is important to define global config Files
+         */
+        val CURRENT = if (OSValidator.isMac() || OSValidator.isUnix()) ConfigBase.UNIX else ConfigBase.WINDOWS
 
         /**
-         * If user supplied -config argument, it will only use the values from these files instead of defaults
+         * Reference these in Settings.java to set which file they will go on by default
          */
-        if (!Engine.getCVM()
-            .with(CommandVariable.CONFIG, 0, (String[] fileNames) ->
-                Arrays.stream(fileNames).map(Files::new).forEach(ret::add))
-                
-        /**
-         * If there is no such argument, load default.cfg (or .doomrc) and mochadoom.cfg
-         */
-        ) {
-            ret.add(FILE_DOOM);
-            ret.add(FILE_MOCHADOOM);
+        val FILE_DOOM = ConfigBase.Files(ConfigBase.CURRENT.defaultConfigName) { obj: Settings, o: Settings ->
+            obj.compareTo(o)
         }
-        
-        return ret;
+        val FILE_MOCHADOOM = ConfigBase.Files("mochadoom.cfg")
+
+        /**
+         * To be able to look for config in several places
+         * Still unfinished
+         */
+        fun getFiles(): List<ConfigBase.Files> {
+            val ret: MutableList<ConfigBase.Files> = ArrayList()
+            /**
+             * If user supplied -config argument, it will only use the values from these files instead of defaults
+             */
+            if (!Engine.getCVM()
+                    .with<Array<String>>(CommandVariable.CONFIG, 0) { fileNames ->
+                        Arrays.stream(fileNames).map { fileName -> Files(fileName) }
+                            .forEach { e -> ret.add(e) }
+                    }
+            /**
+             * If there is no such argument, load default.cfg (or .doomrc) and mochadoom.cfg
+             */
+            ) {
+                ret.add(ConfigBase.FILE_DOOM)
+                ret.add(ConfigBase.FILE_MOCHADOOM)
+            }
+            return ret
+        }
     }
 }

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,108 +16,91 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates;
+package p.Actions.ActiveStates
 
 import data.mobjtype_t;
-import data.sounds;
+import data.sounds.sfxenum_t;
 import doom.player_t;
 import p.Actions.ActionTrait;
 import p.mobj_t;
 import p.pspdef_t;
 
-public interface Sounds extends ActionTrait {
-    void A_Chase(mobj_t mo);
-    void A_ReFire(player_t player, pspdef_t psp);
-    void A_SpawnFly(mobj_t mo);
-
-    default void A_Scream(mobj_t actor) {
-        int sound;
-
-        switch (actor.info.deathsound) {
-            case sfx_None:
-                return;
-
-            case sfx_podth1:
-            case sfx_podth2:
-            case sfx_podth3:
-                sound = sounds.sfxenum_t.sfx_podth1.ordinal() + P_Random() % 3;
-                break;
-
-            case sfx_bgdth1:
-            case sfx_bgdth2:
-                sound = sounds.sfxenum_t.sfx_bgdth1.ordinal() + P_Random() % 2;
-                break;
-
-            default:
-                sound = actor.info.deathsound.ordinal();
-                break;
+interface Sounds : ActionTrait {
+    fun A_Chase(mo: mobj_t)
+    fun A_ReFire(player: player_t, psp: pspdef_t?)
+    fun A_SpawnFly(mo: mobj_t)
+    fun A_Scream(actor: mobj_t) {
+        val sound = when (actor.info!!.deathsound) {
+            sfxenum_t.sfx_None -> return
+            sfxenum_t.sfx_podth1, sfxenum_t.sfx_podth2, sfxenum_t.sfx_podth3 -> sfxenum_t.sfx_podth1.ordinal + P_Random() % 3
+            sfxenum_t.sfx_bgdth1, sfxenum_t.sfx_bgdth2 -> sfxenum_t.sfx_bgdth1.ordinal + P_Random() % 2
+            else -> actor.info!!.deathsound.ordinal
         }
 
         // Check for bosses.
         if (actor.type == mobjtype_t.MT_SPIDER
-            || actor.type == mobjtype_t.MT_CYBORG) {
+            || actor.type == mobjtype_t.MT_CYBORG
+        ) {
             // full volume
-            StartSound(null, sound);
+            StartSound(null, sound)
         } else {
-            StartSound(actor, sound);
+            StartSound(actor, sound)
         }
     }
-    default void A_Hoof(mobj_t mo) {
-        StartSound(mo, sounds.sfxenum_t.sfx_hoof);
-        A_Chase(mo);
+
+    fun A_Hoof(mo: mobj_t) {
+        StartSound(mo, sfxenum_t.sfx_hoof)
+        A_Chase(mo)
     }
 
     //
     // A_BFGsound
     //
-    default void A_BFGsound(player_t player, pspdef_t psp) {
-        StartSound(player.mo, sounds.sfxenum_t.sfx_bfg);
+    fun A_BFGsound(player: player_t, psp: pspdef_t?) {
+        StartSound(player.mo, sfxenum_t.sfx_bfg)
     }
 
-    default void A_OpenShotgun2(player_t player, pspdef_t psp) {
-        StartSound(player.mo, sounds.sfxenum_t.sfx_dbopn);
+    fun A_OpenShotgun2(player: player_t, psp: pspdef_t?) {
+        StartSound(player.mo, sfxenum_t.sfx_dbopn)
     }
 
-    default void A_LoadShotgun2(player_t player, pspdef_t psp) {
-        StartSound(player.mo, sounds.sfxenum_t.sfx_dbload);
+    fun A_LoadShotgun2(player: player_t, psp: pspdef_t?) {
+        StartSound(player.mo, sfxenum_t.sfx_dbload)
     }
 
-    default void A_CloseShotgun2(player_t player, pspdef_t psp) {
-        StartSound(player.mo, sounds.sfxenum_t.sfx_dbcls);
-        A_ReFire(player, psp);
+    fun A_CloseShotgun2(player: player_t, psp: pspdef_t?) {
+        StartSound(player.mo, sfxenum_t.sfx_dbcls)
+        A_ReFire(player, psp)
     }
 
-    default void A_BrainPain(mobj_t mo) {
-        StartSound(null, sounds.sfxenum_t.sfx_bospn);
-    }
-    
-    default void A_Metal(mobj_t mo) {
-        StartSound(mo, sounds.sfxenum_t.sfx_metal);
-        A_Chase(mo);
+    fun A_BrainPain(mo: mobj_t?) {
+        StartSound(null, sfxenum_t.sfx_bospn)
     }
 
-    default void A_BabyMetal(mobj_t mo) {
-        StartSound(mo, sounds.sfxenum_t.sfx_bspwlk);
-        A_Chase(mo);
+    fun A_Metal(mo: mobj_t) {
+        StartSound(mo, sfxenum_t.sfx_metal)
+        A_Chase(mo)
     }
-    
+
+    fun A_BabyMetal(mo: mobj_t) {
+        StartSound(mo, sfxenum_t.sfx_bspwlk)
+        A_Chase(mo)
+    }
+
     // travelling cube sound
-    default void A_SpawnSound(mobj_t mo) {
-        StartSound(mo, sounds.sfxenum_t.sfx_boscub);
-        A_SpawnFly(mo);
+    fun A_SpawnSound(mo: mobj_t) {
+        StartSound(mo, sfxenum_t.sfx_boscub)
+        A_SpawnFly(mo)
     }
-    
-    default void A_PlayerScream(mobj_t actor) {
-        // Default death sound.
-        sounds.sfxenum_t sound = sounds.sfxenum_t.sfx_pldeth;
 
-        if (DOOM().isCommercial() && (actor.health < -50)) {
+    fun A_PlayerScream(actor: mobj_t) {
+        // Default death sound.
+        var sound = sfxenum_t.sfx_pldeth
+        if (DOOM().isCommercial() && actor.health < -50) {
             // IF THE PLAYER DIES
             // LESS THAN -50% WITHOUT GIBBING
-            sound = sounds.sfxenum_t.sfx_pdiehi;
+            sound = sfxenum_t.sfx_pdiehi
         }
-
-        StartSound(actor, sound);
+        StartSound(actor, sound)
     }
-
 }

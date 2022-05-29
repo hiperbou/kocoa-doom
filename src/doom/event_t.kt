@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,468 +13,471 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http:></http:>//www.gnu.org/licenses/>.
  */
+package doom
 
-package doom;
+
+import g.Signals.ScanCode
+import utils.C2JUtils
+import java.awt.Point
+import java.awt.Robot
+import java.awt.event.MouseEvent
+import java.util.function.*
+import java.util.function.Function
 
 // Event structure.
+fun interface event_t {
+    fun hasData(): Boolean {
+        return false
+    }
 
-import g.Signals.ScanCode;
-import java.awt.Point;
-import java.awt.Robot;
-import java.awt.event.MouseEvent;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.IntConsumer;
-import java.util.function.IntPredicate;
-import java.util.function.Predicate;
-import utils.C2JUtils;
+    fun isKey(): Boolean {
+        return false
+    }
 
-@FunctionalInterface
-public interface event_t {
-    int MOUSE_LEFT = 1;
-    int MOUSE_RIGHT = 2;
-    int MOUSE_MID = 4;
-    
-    int JOY_1 = 1;
-    int JOY_2 = 2;
-    int JOY_3 = 4;
-    int JOY_4 = 8;
-    
-    // Special FORCED and PAINFUL key and mouse cancel event.
-    event_t EMPTY_EVENT = () -> evtype_t.ev_null;
-    event_t CANCEL_KEYS = () -> evtype_t.ev_clear;
-    event_t CANCEL_MOUSE = new event_t.mouseevent_t(evtype_t.ev_mouse, 0, 0, 0);
+    fun isKey(sc: ScanCode): Boolean {
+        return false
+    }
 
-    default boolean hasData() { return false; }
-    default boolean isKey() { return false; }
-    default boolean isKey(ScanCode sc) { return false; }
-    default <T> T mapByKey(Function<? super ScanCode, ? extends T> scMapper) { return scMapper.apply(null); }
-    default boolean withKey(Consumer<? super ScanCode> scConsumer) { return false; }
-    default boolean ifKey(Predicate<? super ScanCode> scCondition) { return false; }
-    default boolean withKeyChar(IntConsumer scCharConsumer) { return false; }
-    default boolean ifKeyChar(IntPredicate scCharCondition) { return false; }
-    default boolean withKeyAsciiChar(IntConsumer scAsciiCharConsumer) { return false; }
-    default boolean ifKeyAsciiChar(IntPredicate scCharCondition) { return false; }
-    default <T> boolean withKey(Consumer<? super T> scConsumer, Function<? super ScanCode, ? extends T> extractor) { return false; }
-    default <T> boolean ifKey(Predicate<? super T> scCondition, Function<? super ScanCode, ? extends T> extractor) { return false; }
-    default ScanCode getSC() { return ScanCode.SC_NULL; }
-    default boolean isMouse() { return false; }
-    default boolean isMouse(int button) { return false; }
-    default <T> T mapByMouse(Function<? super mouseevent_t, ? extends T> mouseMapper) { return mouseMapper.apply(null); }
-    default boolean withMouse(Consumer<? super mouseevent_t> mouseConsumer) { return false; }
-    default boolean ifMouse(Predicate<? super mouseevent_t> mouseCondition) { return false; }
-    default <T> boolean withMouse(Consumer<? super T> mouseConsumer, Function<? super mouseevent_t, ? extends T> extractor) { return false; }
-    default <T> boolean ifMouse(Predicate<? super T> mouseCondition, Function<? super mouseevent_t, ? extends T> extractor) { return false; }
-    default boolean isJoy() { return false;  }
-    default boolean isJoy(int button) { return false; }
-    default <T> T mapByJoy(Function<? super joyevent_t, ? extends T> joyMapper) { return joyMapper.apply(null); }
-    default boolean withJoy(Consumer<? super joyevent_t> joyConsumer) { return false; }
-    default boolean ifJoy(Predicate<? super joyevent_t> joyCondition) { return false; }
-    default <T> boolean withJoy(Consumer<? super T> joyConsumer, Function<? super joyevent_t, ? extends T> extractor) { return false; }
-    default <T> boolean ifJoy(Predicate<? super T> joyCondition, Function<? super joyevent_t, ? extends T> extractor) { return false; }
-    evtype_t type();
-    
-    default boolean isType(evtype_t type) {
-        return type() == type;
+    fun <T> mapByKey(scMapper: Function<in ScanCode?, out T>): T {
+        return scMapper.apply(null)
     }
-    
-    default boolean isKey(ScanCode sc, evtype_t type) {
-        return type() == type && isKey(sc);
+
+    fun withKey(scConsumer: Consumer<in ScanCode>): Boolean {
+        return false
     }
-    
-    default boolean ifKey(evtype_t type, Predicate<? super ScanCode> scCondition) {
-        if (type() == type) {
-            return ifKey(scCondition);
-        }
-        
-        return false;
+
+    fun ifKey(scCondition: Predicate<in ScanCode>): Boolean {
+        return false
     }
-    
-    default boolean withKey(evtype_t type, Consumer<? super ScanCode> scConsumer) {
-        if (type() == type) {
-            return event_t.this.withKey(scConsumer);
-        }
-        
-        return false;
+
+    fun withKeyChar(scCharConsumer: IntConsumer): Boolean {
+        return false
     }
-    
-    default boolean withKey(ScanCode sc, evtype_t type, Runnable runnable) {
-        if (type() == type) {
-            return withKey(sc, runnable);
-        }
-        
-        return false;
+
+    fun ifKeyChar(scCharCondition: IntPredicate): Boolean {
+        return false
     }
-    
-    default boolean withKey(ScanCode sc, Runnable runnable) {
+
+    fun withKeyAsciiChar(scAsciiCharConsumer: IntConsumer): Boolean {
+        return false
+    }
+
+    fun ifKeyAsciiChar(scCharCondition: IntPredicate): Boolean {
+        return false
+    }
+
+    fun <T> withKey(scConsumer: Consumer<in T?>, extractor: Function<in ScanCode?, out T?>): Boolean {
+        return false
+    }
+
+    fun <T> ifKey(scCondition: Predicate<in T?>, extractor: Function<in ScanCode?, out T?>): Boolean {
+        return false
+    }
+
+    fun getSC(): ScanCode {
+        return ScanCode.SC_NULL
+    }
+
+    fun isMouse(): Boolean {
+        return false
+    }
+
+    fun isMouse(button: Int): Boolean {
+        return false
+    }
+
+    fun <T> mapByMouse(mouseMapper: Function<in mouseevent_t?, out T>): T {
+        return mouseMapper.apply(null)
+    }
+
+    fun withMouse(mouseConsumer: Consumer<mouseevent_t>): Boolean {
+        return false
+    }
+
+    fun ifMouse(mouseCondition: Predicate<in mouseevent_t>): Boolean {
+        return false
+    }
+
+    fun <T> withMouse(mouseConsumer: Consumer<in T?>, extractor: Function<in mouseevent_t?, out T?>): Boolean {
+        return false
+    }
+
+    fun <T> ifMouse(mouseCondition: Predicate<in T?>, extractor: Function<in mouseevent_t?, out T?>): Boolean {
+        return false
+    }
+
+    fun isJoy(): Boolean {
+        return false
+    }
+
+    fun isJoy(button: Int): Boolean {
+        return false
+    }
+
+    fun <T> mapByJoy(joyMapper: Function<in joyevent_t?, out T>): T {
+        return joyMapper.apply(null)
+    }
+
+    fun withJoy(joyConsumer: Consumer<in joyevent_t>): Boolean {
+        return false
+    }
+
+    fun ifJoy(joyCondition: Predicate<in joyevent_t>): Boolean {
+        return false
+    }
+
+    fun <T> withJoy(joyConsumer: Consumer<in T?>, extractor: Function<in joyevent_t?, out T?>): Boolean {
+        return false
+    }
+
+    fun <T> ifJoy(joyCondition: Predicate<in T?>, extractor: Function<in joyevent_t?, out T?>): Boolean {
+        return false
+    }
+
+    fun type(): evtype_t
+    fun isType(type: evtype_t): Boolean {
+        return type() == type
+    }
+
+    fun isKey(sc: ScanCode, type: evtype_t): Boolean {
+        return type() == type && isKey(sc)
+    }
+
+    fun ifKey(type: evtype_t, scCondition: Predicate<in ScanCode?>): Boolean {
+        return if (type() == type) {
+            ifKey(scCondition)
+        } else false
+    }
+
+    fun withKey(type: evtype_t, scConsumer: Consumer<in ScanCode?>): Boolean {
+        return if (type() == type) {
+            this@event_t.withKey(scConsumer)
+        } else false
+    }
+
+    fun withKey(sc: ScanCode, type: evtype_t, runnable: Runnable): Boolean {
+        return if (type() == type) {
+            withKey(sc, runnable)
+        } else false
+    }
+
+    fun withKey(sc: ScanCode, runnable: Runnable): Boolean {
         if (isKey(sc)) {
-            runnable.run();
-            return true;
+            runnable.run()
+            return true
         }
-        
-        return false;
+        return false
     }
-    
-    default boolean isMouse(int button, evtype_t type) {
-        return type() == type && isMouse(button);
+
+    fun isMouse(button: Int, type: evtype_t): Boolean {
+        return type() == type && isMouse(button)
     }
-    
-    default boolean ifMouse(evtype_t type, Predicate<? super mouseevent_t> mouseCondition) {
-        if (type() == type) {
-            return ifMouse(mouseCondition);
-        }
-        
-        return false;
+
+    fun ifMouse(type: evtype_t, mouseCondition: Predicate<in mouseevent_t>): Boolean {
+        return if (type() == type) {
+            ifMouse(mouseCondition)
+        } else false
     }
-    
-    default boolean withMouse(evtype_t type, Consumer<? super mouseevent_t> mouseConsumer) {
-        if (type() == type) {
-            return event_t.this.withMouse(mouseConsumer);
-        }
-        
-        return false;
+
+    fun withMouse(type: evtype_t, mouseConsumer: Consumer<mouseevent_t>): Boolean {
+        return if (type() == type) {
+            this@event_t.withMouse(mouseConsumer)
+        } else false
     }
-    
-    default boolean withMouse(int button, evtype_t type, Runnable runnable) {
-        if (type() == type) {
-            return withMouse(button, runnable);
-        }
-        
-        return false;
+
+    fun withMouse(button: Int, type: evtype_t, runnable: Runnable): Boolean {
+        return if (type() == type) {
+            withMouse(button, runnable)
+        } else false
     }
-    
-    default boolean withMouse(int button, Runnable runnable) {
+
+    fun withMouse(button: Int, runnable: Runnable): Boolean {
         if (isMouse(button)) {
-            runnable.run();
-            return true;
+            runnable.run()
+            return true
         }
-        
-        return false;
+        return false
     }
-    
-    default boolean isJoy(int button, evtype_t type) {
-        return type() == type && isJoy(button);
+
+    fun isJoy(button: Int, type: evtype_t): Boolean {
+        return type() == type && isJoy(button)
     }
-    
-    default boolean ifJoy(evtype_t type, Predicate<? super joyevent_t> joyCondition) {
-        if (type() == type) {
-            return ifJoy(joyCondition);
-        }
-        
-        return false;
+
+    fun ifJoy(type: evtype_t, joyCondition: Predicate<in joyevent_t>): Boolean {
+        return if (type() == type) {
+            ifJoy(joyCondition)
+        } else false
     }
-    
-    default boolean withJoy(evtype_t type, Consumer<? super joyevent_t> joyConsumer) {
-        if (type() == type) {
-            return event_t.this.withJoy(joyConsumer);
-        }
-        
-        return false;
+
+    fun withJoy(type: evtype_t, joyConsumer: Consumer<in joyevent_t?>): Boolean {
+        return if (type() == type) {
+            this@event_t.withJoy(joyConsumer)
+        } else false
     }
-    
-    default boolean withJoy(int button, evtype_t type, Runnable runnable) {
-        if (type() == type) {
-            return withJoy(button, runnable);
-        }
-        
-        return false;
+
+    fun withJoy(button: Int, type: evtype_t, runnable: Runnable): Boolean {
+        return if (type() == type) {
+            withJoy(button, runnable)
+        } else false
     }
-    
-    default boolean withJoy(int button, Runnable runnable) {
+
+    fun withJoy(button: Int, runnable: Runnable): Boolean {
         if (isJoy(button)) {
-            runnable.run();
-            return true;
+            runnable.run()
+            return true
         }
-        
-        return false;
+        return false
     }
-    
-    static int mouseBits(int button) {
-        switch(button) {
-            case MouseEvent.BUTTON1:
-                return MOUSE_LEFT;
-            case MouseEvent.BUTTON2:
-                return MOUSE_RIGHT;
-            case MouseEvent.BUTTON3:
-                return MOUSE_MID;
-        }
-        
-        return 0;
-    }
-    
-    final class keyevent_t implements event_t {
-        public evtype_t type;
-        public ScanCode sc;
 
-        public keyevent_t(evtype_t type, ScanCode sc) {
-            this.type = type;
-            this.sc = sc;
+    class keyevent_t(var type: evtype_t, var sc: ScanCode) : event_t {
+        override fun hasData(): Boolean {
+            return sc != ScanCode.SC_NULL
         }
 
-        @Override
-        public boolean hasData() {
-            return sc != ScanCode.SC_NULL;
+        override fun type(): evtype_t {
+            return type
         }
 
-        @Override
-        public evtype_t type() {
-            return type;
+        override fun isKey(): Boolean {
+            return true
         }
 
-        @Override
-        public boolean isKey() {
-            return true;
+        override fun isKey(sc: ScanCode): Boolean {
+            return this.sc == sc
         }
 
-        @Override
-        public boolean isKey(ScanCode sc) {
-            return this.sc == sc;
+        override fun ifKey(scCondition: Predicate<in ScanCode>): Boolean {
+            return scCondition.test(sc)
         }
 
-        @Override
-        public boolean ifKey(Predicate<? super ScanCode> scCondition) {
-            return scCondition.test(sc);
+        override fun withKey(scConsumer: Consumer<in ScanCode>): Boolean {
+            scConsumer.accept(sc)
+            return true
         }
 
-        @Override
-        public boolean withKey(Consumer<? super ScanCode> scConsumer) {
-            scConsumer.accept(sc);
-            return true;
+        override fun ifKeyChar(scCharCondition: IntPredicate): Boolean {
+            return scCharCondition.test(sc.c.code)
         }
 
-        @Override
-        public boolean ifKeyChar(IntPredicate scCharCondition) {
-            return scCharCondition.test(sc.c);
+        override fun withKeyChar(scCharConsumer: IntConsumer): Boolean {
+            scCharConsumer.accept(sc.c.code)
+            return true
         }
 
-        @Override
-        public boolean withKeyChar(IntConsumer scCharConsumer) {
-            scCharConsumer.accept(sc.c);
-            return true;
+        override fun ifKeyAsciiChar(scAsciiCharCondition: IntPredicate): Boolean {
+            return if (sc.c.code > 255) false else ifKeyChar(scAsciiCharCondition)
         }
 
-        @Override
-        public boolean ifKeyAsciiChar(IntPredicate scAsciiCharCondition) {
-            return sc.c > 255 ? false : ifKeyChar(scAsciiCharCondition);
+        override fun withKeyAsciiChar(scAsciiCharConsumer: IntConsumer): Boolean {
+            return if (sc.c.code > 255) false else withKeyChar(scAsciiCharConsumer)
         }
 
-        @Override
-        public boolean withKeyAsciiChar(IntConsumer scAsciiCharConsumer) {
-            return sc.c > 255 ? false : withKeyChar(scAsciiCharConsumer);
-        }
-        
-        @Override
-        public <T> boolean ifKey(Predicate<? super T> scCondition, Function<? super ScanCode, ? extends T> extractor) {
-            return scCondition.test(extractor.apply(sc));
+        override fun <T> ifKey(scCondition: Predicate<in T?>, extractor: Function<in ScanCode?, out T?>): Boolean {
+            return scCondition.test(extractor.apply(sc))
         }
 
-        @Override
-        public <T> boolean withKey(Consumer<? super T> scConsumer, Function<? super ScanCode, ? extends T> extractor) {
-            scConsumer.accept(extractor.apply(sc));
-            return true;
+        override fun <T> withKey(scConsumer: Consumer<in T?>, extractor: Function<in ScanCode?, out T?>): Boolean {
+            scConsumer.accept(extractor.apply(sc))
+            return true
         }
 
-        @Override
-        public <T> T mapByKey(Function<? super ScanCode, ? extends T> scMapper) {
-            return scMapper.apply(sc);
+        override fun <T> mapByKey(scMapper: Function<in ScanCode?, out T>): T {
+            return scMapper.apply(sc)
         }
 
-        @Override
-        public ScanCode getSC() {
-            return sc;
+        override fun getSC(): ScanCode {
+            return sc
         }
     }
-    
-    final class mouseevent_t implements event_t {
-        public volatile evtype_t type;
-        public volatile boolean robotMove;
-        public volatile boolean processed = true;
-        public volatile int buttons;
-        public volatile int x, y;
 
-        public mouseevent_t(evtype_t type, int buttons, int x, int y) {
-            this.type = type;
-            this.buttons = buttons;
-            this.x = x;
-            this.y = y;
-        }
+    class mouseevent_t(
+        @field:Volatile var type: evtype_t,
+        @field:Volatile var buttons: Int,
+        @field:Volatile var x: Int,
+        @field:Volatile var y: Int
+    ) : event_t {
+        @Volatile
+        var robotMove = false
 
-        @Override
-        public boolean hasData() {
-            return buttons != 0;
-        }
-        
-        public void buttonOn(MouseEvent ev) {
-            buttons |= mouseBits(ev.getButton());
+        @Volatile
+        var processed = true
+        override fun hasData(): Boolean {
+            return buttons != 0
         }
 
-        public void buttonOff(MouseEvent ev) {
-            buttons ^= mouseBits(ev.getButton());
+        fun buttonOn(ev: MouseEvent) {
+            buttons = buttons or event_t.mouseBits(ev.button)
         }
-        
-        public void processedNotify() {
-            this.processed = true;
+
+        fun buttonOff(ev: MouseEvent) {
+            buttons = buttons xor event_t.mouseBits(ev.button)
         }
-        
-        public void resetNotify() {
-            this.processed = false;
+
+        fun processedNotify() {
+            processed = true
         }
-        
-        public void moveIn(MouseEvent ev, int centreX, int centreY, boolean drag) {
-            final int mouseX = ev.getX(), mouseY = ev.getY();
-            
+
+        fun resetNotify() {
+            processed = false
+        }
+
+        fun moveIn(ev: MouseEvent, centreX: Int, centreY: Int, drag: Boolean) {
+            val mouseX = ev.x
+            val mouseY = ev.y
+
             // Mouse haven't left centre of the window
             if (mouseX == centreX && mouseY == centreY) {
-                return;
+                return
             }
-            
+
             // A pure move has no buttons.
             if (!drag) {
-                buttons = 0;
+                buttons = 0
             }
-
             /**
              * Now also fix for -fasttic mode
-             *  - Good Sign 2017/05/07
-             * 
+             * - Good Sign 2017/05/07
+             *
              * Fix bug with processing mouse: the DOOM underlying engine does not
              * react on the event as fast as it came, they are processed in constant time instead.
-             * 
+             *
              * In Mocha Doom, mouse events are not generated in bulks and sent to underlying DOOM engine,
              * instead the one only mouse event reused and resend modified if was consumed.
-             * 
+             *
              * So, if we have event system reacting faster then DOOM underlying engine,
              * mouse will be harder to move because the new move is forgotten earlier then processed.
-             * 
+             *
              * As a workaround, do not replace value in moveIn, and increment it instead,
              * and only when the underlying engine gives signal it has processed event, we clear x and y
-             * 
-             *  - Good Sign 2017/05/06
+             *
+             * - Good Sign 2017/05/06
              */
             if (processed) {
-                this.x = (mouseX - centreX) << 2;
-                this.y = (centreY - mouseY) << 2;
+                x = mouseX - centreX shl 2
+                y = centreY - mouseY shl 2
             } else {
-                this.x += (mouseX - centreX) << 2;
-                this.y += (centreY - mouseY) << 2;
+                x += mouseX - centreX shl 2
+                y += centreY - mouseY shl 2
             }
         }
-        
-        public void moveIn(MouseEvent ev, Robot robot, Point windowOffset, int centreX, int centreY, boolean drag) {
-            moveIn(ev, centreX, centreY, drag);
-            resetIn(robot, windowOffset, centreX, centreY);
+
+        fun moveIn(ev: MouseEvent, robot: Robot, windowOffset: Point, centreX: Int, centreY: Int, drag: Boolean) {
+            moveIn(ev, centreX, centreY, drag)
+            resetIn(robot, windowOffset, centreX, centreY)
         }
 
-        public void resetIn(Robot robot, Point windowOffset, int centreX, int centreY) {
+        fun resetIn(robot: Robot, windowOffset: Point, centreX: Int, centreY: Int) {
             // Mark that the next event will be from robot
-            robotMove = true;
+            robotMove = true
 
             // Move the mouse to the window center
-            robot.mouseMove(windowOffset.x + centreX, windowOffset.y + centreY);
-        }
-        
-        @Override
-        public evtype_t type() {
-            return type;
+            robot.mouseMove(windowOffset.x + centreX, windowOffset.y + centreY)
         }
 
-        @Override
-        public boolean isMouse() {
-            return true;
+        override fun type(): evtype_t {
+            return type
         }
 
-        @Override
-        public boolean isMouse(int button) {
-            return C2JUtils.flags(buttons, button);
+        override fun isMouse(): Boolean {
+            return true
         }
 
-        @Override
-        public boolean ifMouse(Predicate<? super mouseevent_t> mouseCondition) {
-            return mouseCondition.test(this);
+        override fun isMouse(button: Int): Boolean {
+            return C2JUtils.flags(buttons, button)
         }
 
-        @Override
-        public boolean withMouse(Consumer<? super mouseevent_t> mouseConsumer) {
-            mouseConsumer.accept(this);
-            return true;
+        override fun ifMouse(mouseCondition: Predicate<in mouseevent_t>): Boolean {
+            return mouseCondition.test(this)
         }
 
-        @Override
-        public <T> boolean ifMouse(Predicate<? super T> mouseCondition, Function<? super mouseevent_t, ? extends T> extractor) {
-            return mouseCondition.test(extractor.apply(this));
+        override fun withMouse(mouseConsumer: Consumer<mouseevent_t>): Boolean {
+            mouseConsumer.accept(this)
+            return true
         }
 
-        @Override
-        public <T> boolean withMouse(Consumer<? super T> mouseConsumer, Function<? super mouseevent_t, ? extends T> extractor) {
-            mouseConsumer.accept(extractor.apply(this));
-            return true;
+        override fun <T> ifMouse(
+            mouseCondition: Predicate<in T?>,
+            extractor: Function<in mouseevent_t?, out T?>
+        ): Boolean {
+            return mouseCondition.test(extractor.apply(this))
         }
 
-        @Override
-        public <T> T mapByMouse(Function<? super mouseevent_t, ? extends T> mouseMapper) {
-            return mouseMapper.apply(this);
+        override fun <T> withMouse(
+            mouseConsumer: Consumer<in T?>,
+            extractor: Function<in mouseevent_t?, out T?>
+        ): Boolean {
+            mouseConsumer.accept(extractor.apply(this))
+            return true
+        }
+
+        override fun <T> mapByMouse(mouseMapper: Function<in mouseevent_t?, out T>): T {
+            return mouseMapper.apply(this)
         }
     }
-    
-    final class joyevent_t implements event_t {
-        public evtype_t type;
-        public int buttons;
-        public int x, y;
 
-        public joyevent_t(evtype_t type, int buttons, int x, int y) {
-            this.type = type;
-            this.buttons = buttons;
-            this.x = x;
-            this.y = y;
+    class joyevent_t(var type: evtype_t, var buttons: Int, var x: Int, var y: Int) : event_t {
+        override fun hasData(): Boolean {
+            return buttons != 0
         }
 
-        @Override
-        public boolean hasData() {
-            return buttons != 0;
-        }        
-
-        @Override
-        public evtype_t type() {
-            return type;
+        override fun type(): evtype_t {
+            return type
         }
 
-        @Override
-        public boolean isJoy() {
-            return true;
+        override fun isJoy(): Boolean {
+            return true
         }
 
-        @Override
-        public boolean isJoy(int button) {
-            return C2JUtils.flags(buttons, button);
+        override fun isJoy(button: Int): Boolean {
+            return C2JUtils.flags(buttons, button)
         }
 
-        @Override
-        public boolean ifJoy(Predicate<? super joyevent_t> joyCondition) {
-            return joyCondition.test(this);
+        override fun ifJoy(joyCondition: Predicate<in joyevent_t>): Boolean {
+            return joyCondition.test(this)
         }
 
-        @Override
-        public boolean withJoy(Consumer<? super joyevent_t> joyConsumer) {
-            joyConsumer.accept(this);
-            return true;
+        override fun withJoy(joyConsumer: Consumer<in joyevent_t>): Boolean {
+            joyConsumer.accept(this)
+            return true
         }
 
-        @Override
-        public <T> boolean ifJoy(Predicate<? super T> joyCondition, Function<? super joyevent_t, ? extends T> extractor) {
-            return joyCondition.test(extractor.apply(this));
+        override fun <T> ifJoy(joyCondition: Predicate<in T?>, extractor: Function<in joyevent_t?, out T?>): Boolean {
+            return joyCondition.test(extractor.apply(this))
         }
 
-        @Override
-        public <T> boolean withJoy(Consumer<? super T> joyConsumer, Function<? super joyevent_t, ? extends T> extractor) {
-            joyConsumer.accept(extractor.apply(this));
-            return true;
+        override fun <T> withJoy(joyConsumer: Consumer<in T?>, extractor: Function<in joyevent_t?, out T?>): Boolean {
+            joyConsumer.accept(extractor.apply(this))
+            return true
         }
 
-        @Override
-        public <T> T mapByJoy(Function<? super joyevent_t, ? extends T> mouseMapper) {
-            return mouseMapper.apply(this);
+        override fun <T> mapByJoy(mouseMapper: Function<in joyevent_t?, out T>): T {
+            return mouseMapper.apply(this)
         }
     }
-};
+
+    companion object {
+        fun mouseBits(button: Int): Int {
+            when (button) {
+                MouseEvent.BUTTON1 -> return event_t.MOUSE_LEFT
+                MouseEvent.BUTTON2 -> return event_t.MOUSE_RIGHT
+                MouseEvent.BUTTON3 -> return event_t.MOUSE_MID
+            }
+            return 0
+        }
+
+        const val MOUSE_LEFT = 1
+        const val MOUSE_RIGHT = 2
+        const val MOUSE_MID = 4
+        const val JOY_1 = 1
+        const val JOY_2 = 2
+        const val JOY_3 = 4
+        const val JOY_4 = 8
+
+        // Special FORCED and PAINFUL key and mouse cancel event.
+        val EMPTY_EVENT = event_t { evtype_t.ev_null }
+        val CANCEL_KEYS = event_t { evtype_t.ev_clear }
+        val CANCEL_MOUSE: event_t = mouseevent_t(evtype_t.ev_mouse, 0, 0, 0)
+    }
+}

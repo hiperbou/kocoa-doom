@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,236 +16,200 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import static data.Limits.MAXPLATS;
-import static data.Limits.PLATSPEED;
-import static data.Limits.PLATWAIT;
-import data.sounds;
-import doom.thinker_t;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import m.Settings;
-import static m.fixed_t.FRACUNIT;
-import mochadoom.Engine;
-import mochadoom.Loggers;
-import p.AbstractLevelLoader;
-import static p.ActiveStates.T_PlatRaise;
-import p.plat_e;
-import p.plat_t;
-import p.plattype_e;
-import rr.line_t;
-import rr.sector_t;
-import utils.C2JUtils;
-import utils.TraitFactory.ContextKey;
+import data.Limits
+import data.sounds.sfxenum_t
+import doom.thinker_t
+import m.Settings
+import m.fixed_t.Companion.FRACUNIT
+import mochadoom.Engine
+import mochadoom.Loggers
+import p.ActiveStates
+import p.plat_e
+import p.plat_t
+import p.plattype_e
+import rr.line_t
+import rr.sector_t
+import utils.C2JUtils
+import utils.TraitFactory.ContextKey
+import java.util.function.Supplier
+import java.util.logging.Level
 
-public interface ActionsPlats extends ActionsMoveEvents, ActionsUseEvents {
 
-    ContextKey<Plats> KEY_PLATS = ACTION_KEY_CHAIN.newKey(ActionsPlats.class, Plats::new);
-
-    int FindSectorFromLineTag(line_t line, int secnum);
-    void RemoveThinker(thinker_t activeplat);
-
-    final class Plats {
-
-        static final Logger LOGGER = Loggers.getLogger(ActionsPlats.class.getName());
-
+interface ActionsPlats : ActionsMoveEvents, ActionsUseEvents {
+    fun FindSectorFromLineTag(line: line_t, secnum: Int): Int
+    override fun RemoveThinker(activeplat: thinker_t)
+    class Plats {
         // activeplats is just a placeholder. Plat objects aren't
         // actually reused, so we don't need an initialized array.
         // Same rule when resizing.
-        plat_t[] activeplats = new plat_t[MAXPLATS];
+        var activeplats = arrayOfNulls<plat_t>(Limits.MAXPLATS)
+
+        companion object {
+            val LOGGER = Loggers.getLogger(ActionsPlats::class.java.name)
+        }
     }
 
     //
     // Do Platforms
     // "amount" is only used for SOME platforms.
     //
-    @Override
-    default boolean DoPlat(line_t line, plattype_e type, int amount) {
-        final AbstractLevelLoader ll = levelLoader();
-
-        plat_t plat;
-        int secnum = -1;
-        boolean rtn = false;
-        sector_t sec;
-
-        // Activate all <type> plats that are in_stasis
-        switch (type) {
-            case perpetualRaise:
-                ActivateInStasis(line.tag);
-                break;
-
-            default:
-                break;
+    override fun DoPlat(line: line_t, type: plattype_e?, amount: Int): Boolean {
+        val ll = levelLoader()
+        var plat: plat_t
+        var secnum = -1
+        var rtn = false
+        var sec: sector_t
+        when (type) {
+            plattype_e.perpetualRaise -> ActivateInStasis(line.tag.toInt())
+            else -> {}
         }
-
-        while ((secnum = FindSectorFromLineTag(line, secnum)) >= 0) {
-            sec = ll.sectors[secnum];
-
+        while (FindSectorFromLineTag(line, secnum).also { secnum = it } >= 0) {
+            sec = ll.sectors[secnum]
             if (sec.specialdata != null) {
-                continue;
+                continue
             }
 
             // Find lowest & highest floors around sector
-            rtn = true;
-            plat = new plat_t();
-
-            plat.type = type;
-            plat.sector = sec;
-            plat.sector.specialdata = plat;
-            plat.thinkerFunction = T_PlatRaise;
-            AddThinker(plat);
-            plat.crush = false;
-            plat.tag = line.tag;
-
-            switch (type) {
-                case raiseToNearestAndChange:
-                    plat.speed = PLATSPEED / 2;
-                    sec.floorpic = ll.sides[line.sidenum[0]].sector.floorpic;
-                    plat.high = sec.FindNextHighestFloor(sec.floorheight);
-                    plat.wait = 0;
-                    plat.status = plat_e.up;
+            rtn = true
+            plat = plat_t()
+            plat.type = type
+            plat.sector = sec
+            plat.sector!!.specialdata = plat
+            plat.thinkerFunction = ActiveStates.T_PlatRaise
+            AddThinker(plat)
+            plat.crush = false
+            plat.tag = line.tag.toInt()
+            when (type) {
+                plattype_e.raiseToNearestAndChange -> {
+                    plat.speed = Limits.PLATSPEED / 2
+                    sec.floorpic = ll.sides[line.sidenum[0].code].sector!!.floorpic
+                    plat.high = sec.FindNextHighestFloor(sec.floorheight)
+                    plat.wait = 0
+                    plat.status = plat_e.up
                     // NO MORE DAMAGE, IF APPLICABLE
-                    sec.special = 0;
-
-                    StartSound(sec.soundorg, sounds.sfxenum_t.sfx_stnmov);
-                    break;
-
-                case raiseAndChange:
-                    plat.speed = PLATSPEED / 2;
-                    sec.floorpic = ll.sides[line.sidenum[0]].sector.floorpic;
-                    plat.high = sec.floorheight + amount * FRACUNIT;
-                    plat.wait = 0;
-                    plat.status = plat_e.up;
-
-                    StartSound(sec.soundorg, sounds.sfxenum_t.sfx_stnmov);
-                    break;
-
-                case downWaitUpStay:
-                    plat.speed = PLATSPEED * 4;
-                    plat.low = sec.FindLowestFloorSurrounding();
-
+                    sec.special = 0
+                    StartSound(sec.soundorg, sfxenum_t.sfx_stnmov)
+                }
+                plattype_e.raiseAndChange -> {
+                    plat.speed = Limits.PLATSPEED / 2
+                    sec.floorpic = ll.sides[line.sidenum[0].code].sector!!.floorpic
+                    plat.high = sec.floorheight + amount * FRACUNIT
+                    plat.wait = 0
+                    plat.status = plat_e.up
+                    StartSound(sec.soundorg, sfxenum_t.sfx_stnmov)
+                }
+                plattype_e.downWaitUpStay -> {
+                    plat.speed = Limits.PLATSPEED * 4
+                    plat.low = sec.FindLowestFloorSurrounding()
                     if (plat.low > sec.floorheight) {
-                        plat.low = sec.floorheight;
+                        plat.low = sec.floorheight
                     }
-
-                    plat.high = sec.floorheight;
-                    plat.wait = 35 * PLATWAIT;
-                    plat.status = plat_e.down;
-                    StartSound(sec.soundorg, sounds.sfxenum_t.sfx_pstart);
-                    break;
-
-                case blazeDWUS:
-                    plat.speed = PLATSPEED * 8;
-                    plat.low = sec.FindLowestFloorSurrounding();
-
+                    plat.high = sec.floorheight
+                    plat.wait = 35 * Limits.PLATWAIT
+                    plat.status = plat_e.down
+                    StartSound(sec.soundorg, sfxenum_t.sfx_pstart)
+                }
+                plattype_e.blazeDWUS -> {
+                    plat.speed = Limits.PLATSPEED * 8
+                    plat.low = sec.FindLowestFloorSurrounding()
                     if (plat.low > sec.floorheight) {
-                        plat.low = sec.floorheight;
+                        plat.low = sec.floorheight
                     }
-
-                    plat.high = sec.floorheight;
-                    plat.wait = 35 * PLATWAIT;
-                    plat.status = plat_e.down;
-                    StartSound(sec.soundorg, sounds.sfxenum_t.sfx_pstart);
-                    break;
-
-                case perpetualRaise:
-                    plat.speed = PLATSPEED;
-                    plat.low = sec.FindLowestFloorSurrounding();
-
+                    plat.high = sec.floorheight
+                    plat.wait = 35 * Limits.PLATWAIT
+                    plat.status = plat_e.down
+                    StartSound(sec.soundorg, sfxenum_t.sfx_pstart)
+                }
+                plattype_e.perpetualRaise -> {
+                    plat.speed = Limits.PLATSPEED
+                    plat.low = sec.FindLowestFloorSurrounding()
                     if (plat.low > sec.floorheight) {
-                        plat.low = sec.floorheight;
+                        plat.low = sec.floorheight
                     }
-
-                    plat.high = sec.FindHighestFloorSurrounding();
-
+                    plat.high = sec.FindHighestFloorSurrounding()
                     if (plat.high < sec.floorheight) {
-                        plat.high = sec.floorheight;
+                        plat.high = sec.floorheight
                     }
-
-                    plat.wait = 35 * PLATWAIT;
+                    plat.wait = 35 * Limits.PLATWAIT
                     // Guaranteed to be 0 or 1.
-                    plat.status = plat_e.values()[P_Random() & 1];
-
-                    StartSound(sec.soundorg, sounds.sfxenum_t.sfx_pstart);
-                    break;
+                    plat.status = plat_e.values()[P_Random() and 1]
+                    StartSound(sec.soundorg, sfxenum_t.sfx_pstart)
+                }
             }
-            AddActivePlat(plat);
+            AddActivePlat(plat)
         }
-        return rtn;
+        return rtn
     }
 
-    default void ActivateInStasis(int tag) {
-        final Plats plats = contextRequire(KEY_PLATS);
-
-        for (final plat_t activeplat : plats.activeplats) {
+    fun ActivateInStasis(tag: Int) {
+        val plats = contextRequire<Plats>(ActionsPlats.KEY_PLATS)
+        for (activeplat in plats.activeplats) {
             if (activeplat != null && activeplat.tag == tag && activeplat.status == plat_e.in_stasis) {
-                activeplat.status = activeplat.oldstatus;
-                activeplat.thinkerFunction = T_PlatRaise;
+                activeplat.status = activeplat.oldstatus
+                activeplat.thinkerFunction = ActiveStates.T_PlatRaise
             }
         }
     }
 
-    @Override
-    default void StopPlat(line_t line) {
-        final Plats plats = contextRequire(KEY_PLATS);
-
-        for (final plat_t activeplat : plats.activeplats) {
-            if (activeplat != null && activeplat.status != plat_e.in_stasis && activeplat.tag == line.tag) {
-                activeplat.oldstatus = (activeplat).status;
-                activeplat.status = plat_e.in_stasis;
-                activeplat.thinkerFunction = null;
+    override fun StopPlat(line: line_t) {
+        val plats = contextRequire<Plats>(ActionsPlats.KEY_PLATS)
+        for (activeplat in plats.activeplats) {
+            if (activeplat != null && activeplat.status != plat_e.in_stasis && activeplat.tag == line.tag.toInt()) {
+                activeplat.oldstatus = activeplat.status
+                activeplat.status = plat_e.in_stasis
+                activeplat.thinkerFunction = null
             }
         }
     }
 
-    default void AddActivePlat(plat_t plat) {
-        final Plats plats = contextRequire(KEY_PLATS);
-
-        for (int i = 0; i < plats.activeplats.length; i++) {
+    fun AddActivePlat(plat: plat_t?) {
+        val plats = contextRequire<Plats>(ActionsPlats.KEY_PLATS)
+        for (i in plats.activeplats.indices) {
             if (plats.activeplats[i] == null) {
-                plats.activeplats[i] = plat;
-                return;
+                plats.activeplats[i] = plat
+                return
             }
         }
-
         /**
          * Added option to turn off the resize
          * - Good Sign 2017/04/26
          */
         // Uhh... lemme guess. Needs to resize?
         // Resize but leave extra items empty.
-        if (Engine.getConfig().equals(Settings.extend_plats_limit, Boolean.TRUE)) {
-            plats.activeplats = C2JUtils.resizeNoAutoInit(plats.activeplats, 2 * plats.activeplats.length);
-            AddActivePlat(plat);
+        if (Engine.getConfig().equals(Settings.extend_plats_limit, java.lang.Boolean.TRUE)) {
+            plats.activeplats = C2JUtils.resizeNoAutoInit(plats.activeplats, 2 * plats.activeplats.size)
+            AddActivePlat(plat)
         } else {
-            Plats.LOGGER.log(Level.SEVERE, "P_AddActivePlat: no more plats!");
-            System.exit(1);
+            Plats.LOGGER.log(Level.SEVERE, "P_AddActivePlat: no more plats!")
+            System.exit(1)
         }
     }
 
-    default void RemoveActivePlat(plat_t plat) {
-        final Plats plats = contextRequire(KEY_PLATS);
-
-        for (int i = 0; i < plats.activeplats.length; i++) {
-            if (plat == plats.activeplats[i]) {
-                (plats.activeplats[i]).sector.specialdata = null;
-                RemoveThinker(plats.activeplats[i]);
-                plats.activeplats[i] = null;
-
-                return;
+    fun RemoveActivePlat(plat: plat_t) {
+        val plats = contextRequire<Plats>(ActionsPlats.KEY_PLATS)
+        for (i in plats.activeplats.indices) {
+            if (plat === plats.activeplats[i]) {
+                plats.activeplats[i]!!.sector!!.specialdata = null
+                RemoveThinker(plats.activeplats[i]!!)
+                plats.activeplats[i] = null
+                return
             }
         }
-
-        Plats.LOGGER.log(Level.SEVERE, "P_RemoveActivePlat: can't find plat!");
-        System.exit(1);
+        Plats.LOGGER.log(Level.SEVERE, "P_RemoveActivePlat: can't find plat!")
+        System.exit(1)
     }
 
-    default void ClearPlatsBeforeLoading() {
-        final Plats plats = contextRequire(KEY_PLATS);
-
-        for (int i = 0; i < plats.activeplats.length; i++) {
-            plats.activeplats[i] = null;
+    fun ClearPlatsBeforeLoading() {
+        val plats = contextRequire<Plats>(ActionsPlats.KEY_PLATS)
+        for (i in plats.activeplats.indices) {
+            plats.activeplats[i] = null
         }
+    }
+
+    companion object {
+        val KEY_PLATS: ContextKey<Plats> =
+            ActionTrait.ACTION_KEY_CHAIN.newKey<Plats>(ActionsPlats::class.java, Supplier { Plats() })
     }
 }

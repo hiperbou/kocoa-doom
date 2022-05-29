@@ -1,29 +1,25 @@
-package p;
+package p
 
-import rr.line_t;
-import s.degenmobj_t;
 
-public class button_t implements Resettable{
+import rr.line_t
+import s.degenmobj_t
 
-        public line_t line;
-        public bwhere_e    where;
-        public int     btexture;
-        public int     btimer;
-        public degenmobj_t soundorg;
-        
-        public button_t(){	
-        	this.btexture=0;
-        	this.btimer=0;
-        	this.where=bwhere_e.top;
-        }
- 
-        public void reset(){
-            this.line=null;
-            this.where=bwhere_e.top;
-            this.btexture=0;
-            this.btimer=0;
-            this.soundorg=null;
-            
-        }
+class button_t : Resettable {
+    var line: line_t? = null
+    var where: bwhere_e
+    var btexture = 0
+    var btimer = 0
+    var soundorg: degenmobj_t? = null
 
+    init {
+        where = bwhere_e.top
     }
+
+    override fun reset() {
+        line = null
+        where = bwhere_e.top
+        btexture = 0
+        btimer = 0
+        soundorg = null
+    }
+}

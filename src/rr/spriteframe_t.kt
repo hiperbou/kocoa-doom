@@ -1,4 +1,4 @@
-package rr;
+package rr
 
 /** Sprites are patches with a special naming convention
  * so they can be recognized by R_InitSprites.
@@ -14,38 +14,34 @@ package rr;
  * Some sprites will only have one picture used
  * for all views: NNNNF0
  */
-public class spriteframe_t implements Cloneable{
+class spriteframe_t : Cloneable {
+    /** If false use 0 for any position.
+     * Note: as eight entries are available,
+     * we might as well insert the same name eight times.
+     *
+     * FIXME: this is used as a tri-state.
+     * 0= false
+     * 1= true
+     * -1= cleared/indeterminate, which should not evaluate to either true or false.
+     */
+    var rotate = 0
 
- public spriteframe_t(){
-     lump=new int[8];
-     flip=new byte[8];
- }
+    /** Lump to use for view angles 0-7.  */
+    var lump: IntArray
 
- /** If false use 0 for any position.
-  * Note: as eight entries are available,
-  * we might as well insert the same name eight times. 
-  * 
-  * FIXME: this is used as a tri-state.
-  * 0= false
-  * 1= true
-  * -1= cleared/indeterminate, which should not evaluate to either true or false.
-  * */
- public int rotate;
+    /** Flip bit (1 = flip) to use for view angles 0-7.  */
+    var flip: ByteArray
 
- /** Lump to use for view angles 0-7. */
- public int[]    lump;
+    init {
+        lump = IntArray(8)
+        flip = ByteArray(8)
+    }
 
- /** Flip bit (1 = flip) to use for view angles 0-7. */
- public byte[]    flip;
- 
- public spriteframe_t clone(){
-     spriteframe_t response=new spriteframe_t();
-     response.rotate=rotate;     
-     System.arraycopy(this.lump, 0, response.lump, 0, lump.length);
-     System.arraycopy(this.flip, 0, response.flip, 0, flip.length);
-     return response;
-     
- }
- 
-
+    public override fun clone(): spriteframe_t {
+        val response = spriteframe_t()
+        response.rotate = rotate
+        System.arraycopy(lump, 0, response.lump, 0, lump.size)
+        System.arraycopy(flip, 0, response.flip, 0, flip.size)
+        return response
+    }
 }

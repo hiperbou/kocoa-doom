@@ -1,10 +1,13 @@
-package data;
-// Emacs style mode select   -*- C++ -*- 
+package data
+
+
+// Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
 // $Id: doomtype.java,v 1.3 2011/02/11 00:11:13 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -21,21 +24,18 @@ package data;
 //	 separating modules.
 //    
 //-----------------------------------------------------------------------------
+object doomtype {
+    // C's "chars" are actually Java signed bytes.
+    var MAXCHAR = 0x7f.toByte()
+    var MAXSHORT = 0x7fff.toShort()
 
+    // Max pos 32-bit int.
+    var MAXINT = 0x7fffffff
+    var MAXLONG = 0x7fffffffL
+    var MINCHAR = 0x80.toByte()
+    var MINSHORT = 0x8000.toShort()
 
-public class doomtype {
-
-// C's "chars" are actually Java signed bytes.
-public static byte MAXCHAR =((byte)0x7f);
-public static short MAXSHORT=	((short)0x7fff);
-
-// Max pos 32-bit int.
-public static int MAXINT=((int)0x7fffffff);	
-public static long MAXLONG=((long)0x7fffffff);
-public static byte MINCHAR=((byte)0x80);
-public static short MINSHORT=((short)0x8000);
-
-// Max negative 32-bit integer.
-public static int MININT=((int)0x80000000);
-public static long MINLONG=((long)0x80000000);
+    // Max negative 32-bit integer.
+    var MININT = -0x80000000
+    var MINLONG = 0x80000000L
 }

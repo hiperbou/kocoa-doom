@@ -1,52 +1,38 @@
-package i;
+package i
 
-import doom.DoomMain;
-import rr.patch_t;
-import static v.renderers.DoomScreen.FG;
 
-public class DiskDrawer implements IDiskDrawer {
+import doom.DoomMain
+import rr.patch_t
+import v.renderers.DoomScreen
 
-    private DoomMain<?,?> DOOM;
-	private patch_t disk;
-	private int timer=0;
-	private String diskname;
-	
-	public static final String STDISK="STDISK";
-	public static final String STCDROM="STCDROM";
-	
-	public DiskDrawer(DoomMain<?,?> DOOM, String icon){		
-		this.DOOM = DOOM;
-		this.diskname=icon;
-	}
+class DiskDrawer(private val DOOM: DoomMain<*, *>, private val diskname: String) : IDiskDrawer {
+    private var disk: patch_t? = null
+    private var timer = 0
+    override fun Init() {
+        disk = DOOM.wadLoader.CachePatchName(diskname)
+    }
 
-	@Override
-	public void Init(){
-		this.disk=DOOM.wadLoader.CachePatchName(diskname);
-	}
-	
-	@Override
-	public void Drawer() {
-		if (timer>0){
-			if (timer%2==0)
-                DOOM.graphicSystem.DrawPatchScaled(FG, disk, DOOM.vs, 304, 184);
-		}
-		if (timer>=0)
-			timer--;
-	}
+    override fun Drawer() {
+        if (timer > 0) {
+            if (timer % 2 == 0) DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, disk!!, DOOM.vs, 304, 184)
+        }
+        if (timer >= 0) timer--
+    }
 
-	@Override
-	public void setReading(int reading) {
-		timer=reading;
-	}
+    override fun setReading(reading: Int) {
+        timer = reading
+    }
 
-	@Override
-	public boolean isReading() {
-		return timer>0;
-	}
+    override fun isReading(): Boolean {
+        return timer > 0
+    }
 
-	@Override
-	public boolean justDoneReading() {
-		return timer==0;
-	}
-	
+    override fun justDoneReading(): Boolean {
+        return timer == 0
+    }
+
+    companion object {
+        const val STDISK = "STDISK"
+        const val STCDROM = "STCDROM"
+    }
 }

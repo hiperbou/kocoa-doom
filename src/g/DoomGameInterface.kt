@@ -1,9 +1,9 @@
+package g
 
-package g;
 
-import defines.*;
-import doom.event_t;
-import doom.gameaction_t;
+import defines.skill_t
+import doom.event_t
+import doom.gameaction_t
 
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
@@ -11,6 +11,7 @@ import doom.gameaction_t;
 // $Id: DoomGameInterface.java,v 1.4 2010/12/20 17:15:08 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -26,58 +27,39 @@ import doom.gameaction_t;
 //   Duh.
 // 
 //-----------------------------------------------------------------------------
+interface DoomGameInterface {
+    //
+    // GAME
+    //
+    fun DeathMatchSpawnPlayer(playernum: Int)
+    fun InitNew(skill: skill_t?, episode: Int, map: Int)
 
-public interface DoomGameInterface {
+    /** Can be called by the startup code or M_Responder.
+     * A normal game starts at map 1,
+     * but a warp test can start elsewhere  */
+    fun DeferedInitNew(skill: skill_t?, episode: Int, map: Int)
+    fun DeferedPlayDemo(demo: String?)
 
+    /** Can be called by the startup code or M_Responder,
+     * calls P_SetupLevel or W_EnterWorld.  */
+    fun LoadGame(name: String?)
+    fun DoLoadGame()
 
-//
-// GAME
-//
-public void DeathMatchSpawnPlayer (int playernum);
+    /** Called by M_Responder.  */
+    fun SaveGame(slot: Int, description: String?)
 
-public void InitNew (skill_t skill, int episode, int map);
-
-/** Can be called by the startup code or M_Responder.
-    A normal game starts at map 1,
-    but a warp test can start elsewhere */
-public void DeferedInitNew (skill_t skill, int episode, int map);
-
-public void DeferedPlayDemo (String demo);
-
-/** Can be called by the startup code or M_Responder,
-  calls P_SetupLevel or W_EnterWorld. */
-public void LoadGame (String name);
-
-public void DoLoadGame ();
-
-/** Called by M_Responder. */
-public void SaveGame (int slot, String description);
-
-/** Only called by startup code. */
-public void RecordDemo (String name);
-
-public void BeginRecording ();
-
-public void PlayDemo (String name);
-public void TimeDemo (String name);
-public boolean CheckDemoStatus ();
-
-public void ExitLevel ();
-public void SecretExitLevel() ;
-
-public void WorldDone() ;
-
-public void Ticker() ;
-public boolean Responder (event_t	ev);
-
-public void ScreenShot() ;
-
-public gameaction_t getGameAction();
-
-public void setGameAction(gameaction_t ga);
-
-public boolean getPaused();
-
-public void setPaused(boolean on);
-    
+    /** Only called by startup code.  */
+    fun RecordDemo(name: String?)
+    fun BeginRecording()
+    fun PlayDemo(name: String?)
+    fun TimeDemo(name: String?)
+    fun CheckDemoStatus(): Boolean
+    fun ExitLevel()
+    fun SecretExitLevel()
+    fun WorldDone()
+    fun Ticker()
+    fun Responder(ev: event_t?): Boolean
+    fun ScreenShot()
+    var gameAction: gameaction_t?
+    var paused: Boolean
 }

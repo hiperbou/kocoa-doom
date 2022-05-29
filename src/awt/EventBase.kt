@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,442 +15,455 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package awt
 
-package awt;
 
-import g.Signals;
-import java.awt.AWTEvent;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.function.IntFunction;
-import java.util.function.IntSupplier;
+
+import g.Signals.ScanCode
+import java.awt.*
+import java.util.*
+import java.util.function.Function
+import java.util.function.IntFunction
+import java.util.function.IntSupplier
 
 /**
  * The base for construction of Event handling dictionaries
  * EventHandler is a reference implementation of this base
- * 
+ *
  * Note the type safety with generics. It could be a complex task, but you can avoid
  * unchecked casts and warnings suppression. Whoa... Make my head swirl around!
- *  - Good Sign 2017/04/24
- * 
+ * - Good Sign 2017/04/24
+ *
  * @author Good Sign
  */
-public interface EventBase<Handler extends Enum<Handler> & EventBase<Handler>> extends IntSupplier {
-    static final Comparator<IntSupplier> EVENT_SORT = Comparator.comparingInt(IntSupplier::getAsInt);
-    
-    static <H extends Enum<H> & EventBase<H>> H[] sortHandlers(H[] values) {
-        Arrays.sort(values, EVENT_SORT);
-        return values;
-    }
-    
-    static <H extends Enum<H> & EventBase<H>> Optional<H> findById(H[] values, int eventId) {
-        final int index = Arrays.binarySearch(values, (IntSupplier) () -> eventId, EVENT_SORT);
-        if (index < 0) {
-            return Optional.empty();
-        }
-        
-        return Optional.of(values[index]);
-    }
-    
-    @SafeVarargs
-    static <H extends Enum<H> & EventBase<H>> Relation<H>[] Relate(H src, H... dests) {
-        final IntFunction<Relation<H>[]> arrayer = Relation[]::new;
-        return Arrays.stream(dests)
-            .map(dest -> new Relation<>(src, dest))
-            .toArray(arrayer);
-    }
-    
-    Set<ActionMode> defaultEnabledActions();
-    Map<ActionMode, EventAction<Handler>> allActions();
-    Map<RelationType, Set<Handler>> cooperations();
-    Map<RelationType, Set<Handler>> adjustments();
-
-    default boolean hasActions(final ActionMode... modes) {
-        final Set<ActionMode> actions = defaultEnabledActions();
+interface EventBase<Handler> : IntSupplier where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+    fun defaultEnabledActions(): Set<ActionMode>
+    fun allActions(): Map<ActionMode, EventAction<Handler>>
+    fun cooperations(): Map<EventBase.RelationType, Set<Handler>>
+    fun adjustments(): Map<EventBase.RelationType, Set<Handler>>
+    fun hasActions(vararg modes: ActionMode): Boolean {
+        val actions = defaultEnabledActions()
         if (actions.isEmpty()) {
-            return false;
+            return false
         }
-        
-        for (final ActionMode m: modes) {
+        for (m in modes) {
             if (!actions.contains(m)) {
-                return false;
+                return false
             }
         }
-        
-        return true;
+        return true
     }
-    
-    enum KeyStateSatisfaction {
-        SATISFIED_ATE,
-        GENEOROUS_PASS,
-        WANTS_MORE_ATE,
-        WANTS_MORE_PASS
+
+    enum class KeyStateSatisfaction {
+        SATISFIED_ATE, GENEOROUS_PASS, WANTS_MORE_ATE, WANTS_MORE_PASS
     }
-    
-    enum ActionMode {
-        PERFORM, DEPEND, CAUSE, REVERT;
+
+    enum class ActionMode {
+        PERFORM, DEPEND, CAUSE, REVERT
     }
-    
-    enum RelationAffection {
-        ENABLES, DISABLES, COOPERATES;
+
+    enum class RelationAffection {
+        ENABLES, DISABLES, COOPERATES
     }
-    
-    enum RelationType {
-        ENABLE(RelationAffection.ENABLES, ActionMode.PERFORM),
-        ENABLE_DEPEND(RelationAffection.ENABLES, ActionMode.DEPEND),
-        ENABLE_CAUSE(RelationAffection.ENABLES, ActionMode.CAUSE),
-        ENABLE_REVERT(RelationAffection.ENABLES, ActionMode.REVERT),
-        
-        DISABLE(RelationAffection.DISABLES, ActionMode.PERFORM),
-        DISABLE_DEPEND(RelationAffection.DISABLES, ActionMode.DEPEND),
-        DISABLE_CAUSE(RelationAffection.DISABLES, ActionMode.CAUSE),
-        DISABLE_REVERT(RelationAffection.DISABLES, ActionMode.REVERT),
-        
-        DEPEND(RelationAffection.COOPERATES, ActionMode.DEPEND),
-        CAUSE(RelationAffection.COOPERATES, ActionMode.CAUSE),
+
+    enum class RelationType(val affection: RelationAffection, val affectedMode: ActionMode) {
+        ENABLE(RelationAffection.ENABLES, ActionMode.PERFORM), ENABLE_DEPEND(
+            RelationAffection.ENABLES,
+            ActionMode.DEPEND
+        ),
+        ENABLE_CAUSE(RelationAffection.ENABLES, ActionMode.CAUSE), ENABLE_REVERT(
+            RelationAffection.ENABLES,
+            ActionMode.REVERT
+        ),
+        DISABLE(RelationAffection.DISABLES, ActionMode.PERFORM), DISABLE_DEPEND(
+            RelationAffection.DISABLES,
+            ActionMode.DEPEND
+        ),
+        DISABLE_CAUSE(RelationAffection.DISABLES, ActionMode.CAUSE), DISABLE_REVERT(
+            RelationAffection.DISABLES,
+            ActionMode.REVERT
+        ),
+        DEPEND(RelationAffection.COOPERATES, ActionMode.DEPEND), CAUSE(
+            RelationAffection.COOPERATES,
+            ActionMode.CAUSE
+        ),
         REVERT(RelationAffection.COOPERATES, ActionMode.REVERT);
-        
-        final RelationAffection affection;
-        final ActionMode affectedMode;
 
-        private RelationType(RelationAffection affection, ActionMode affectedMode) {
-            this.affection = affection;
-            this.affectedMode = affectedMode;
+        override fun toString(): String {
+            return String.format("%s on [%s]", affection, affectedMode)
+        }
+    }
+
+    fun interface ActionMapper<Handler> where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+        fun map(mode: ActionMode?, action: EventAction<Handler>)
+    }
+
+    fun interface RelationMapper<Handler> where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+        fun map(type: EventBase.RelationType?, relations: Array<EventBase.Relation<Handler>>)
+    }
+
+    fun interface EventAction<Handler> where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+        fun act(obs: EventObserver<Handler>?, ev: AWTEvent)
+    }
+
+    fun interface KeyStateCallback<Handler> where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+        fun call(observer: EventObserver<Handler>): KeyStateSatisfaction?
+    }
+
+    class KeyStateInterest<Handler>(
+        satisfiedCallback: KeyStateCallback<Handler>,
+        interestFirstKey: ScanCode,
+        vararg interestKeyChain: ScanCode?
+    ) where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+        val interestSet: Set<ScanCode>
+        val satisfiedCallback: KeyStateCallback<Handler>
+
+        init {
+            interestSet = EnumSet.of(interestFirstKey, *interestKeyChain)
+            this.satisfiedCallback = satisfiedCallback
+        }
+    }
+
+    class KeyStateHolder<Handler> where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+        private val holdingSet: MutableSet<ScanCode>
+        private val keyInterests: LinkedHashSet<KeyStateInterest<Handler>>
+        private val generator = IntFunction { arrayOfNulls<KeyStateInterest<Handler>>(it) }
+
+        init {
+            holdingSet = EnumSet.noneOf(ScanCode::class.java)
+            keyInterests = LinkedHashSet()
         }
 
-        @Override
-        public String toString() {
-            return String.format("%s on [%s]", affection, affectedMode);
+        fun removeAllKeys() {
+            holdingSet.clear()
         }
-    }
-    
-    @FunctionalInterface
-    interface ActionMapper<Handler extends Enum<Handler> & EventBase<Handler>> {
-        void map(ActionMode mode, EventAction<Handler> action);
-    }
-    
-    @FunctionalInterface
-    interface RelationMapper<Handler extends Enum<Handler> & EventBase<Handler>> {
-        void map(RelationType type, Relation<Handler>[] relations);
-    }
-    
-    @FunctionalInterface
-    interface EventAction<Handler extends Enum<Handler> & EventBase<Handler>> {
-        void act(EventObserver<Handler> obs, AWTEvent ev);
-    }
-    
-    interface KeyStateCallback<Handler extends Enum<Handler> & EventBase<Handler>>  {
-        KeyStateSatisfaction call(EventObserver<Handler> observer);
-    }
-    
-    final class KeyStateInterest<Handler extends Enum<Handler> & EventBase<Handler>> {
-        private final Set<Signals.ScanCode> interestSet;
-        private final KeyStateCallback<Handler> satisfiedCallback;
 
-        public KeyStateInterest(
-            final KeyStateCallback<Handler> satisfiedCallback,
-            final Signals.ScanCode interestFirstKey,
-            Signals.ScanCode... interestKeyChain
-        ) {
-            this.interestSet = EnumSet.of(interestFirstKey, interestKeyChain);
-            this.satisfiedCallback = satisfiedCallback;
+        operator fun contains(sc: ScanCode): Boolean {
+            return holdingSet.contains(sc)
         }
-    }
-    
-    final class KeyStateHolder<Handler extends Enum<Handler> & EventBase<Handler>> {
-        private final Set<Signals.ScanCode> holdingSet;
-        private final LinkedHashSet<KeyStateInterest<Handler>> keyInterests;
-        private final IntFunction<KeyStateInterest<Handler>[]> generator = KeyStateInterest[]::new;
 
-        public KeyStateHolder() {
-            this.holdingSet = EnumSet.noneOf(Signals.ScanCode.class);
-            this.keyInterests = new LinkedHashSet<>();
+        fun addInterest(interest: KeyStateInterest<Handler>) {
+            keyInterests.add(interest)
         }
-        
-        public void removeAllKeys() {
-            holdingSet.clear();
+
+        fun removeInterest(interest: KeyStateInterest<Handler>) {
+            keyInterests.remove(interest)
         }
-        
-        public boolean contains(Signals.ScanCode sc) {
-            return holdingSet.contains(sc);
+
+        fun matchInterest(check: KeyStateInterest<Handler>): Boolean {
+            return holdingSet.containsAll(check.interestSet)
         }
-        
-        public void addInterest(KeyStateInterest<Handler> interest) {
-            this.keyInterests.add(interest);
-        }
-        
-        public void removeInterest(KeyStateInterest<Handler> interest) {
-            this.keyInterests.remove(interest);
-        }
-        
-        public boolean matchInterest(final KeyStateInterest<Handler> check) {
-            return holdingSet.containsAll(check.interestSet);
-        }
-        
-        public boolean notifyKeyChange(EventObserver<Handler> observer, Signals.ScanCode code, boolean press) {
-            if (press) {
-                holdingSet.add(code);
-                
-                final KeyStateInterest<Handler>[] matched = keyInterests.stream()
-                    .filter(this::matchInterest)
-                    .toArray(this.generator);
-                
-                boolean ret = false;
-                for (int i = 0; i < matched.length; ++i) {
-                    switch (matched[i].satisfiedCallback.call(observer)) {
-                        case SATISFIED_ATE:
-                            ret = true;
-                        case GENEOROUS_PASS:
-                            keyInterests.remove(matched[i]);
-                            break;
-                        case WANTS_MORE_ATE:
-                            ret = true;
-                        case WANTS_MORE_PASS:
-                            break;
+
+        fun notifyKeyChange(observer: EventObserver<Handler>, code: ScanCode?, press: Boolean): Boolean {
+            return if (press) {
+                holdingSet.add(code!!)
+                val matched = keyInterests.stream()
+                    .filter { check: KeyStateInterest<Handler> -> matchInterest(check) }
+                    .toArray(generator)
+                var ret = false
+                for (i in matched.indices) {
+                    when (matched[i]!!.satisfiedCallback.call(observer)) {
+                        KeyStateSatisfaction.SATISFIED_ATE -> {
+                            ret = true
+                            keyInterests.remove(matched[i])
+                        }
+                        KeyStateSatisfaction.GENEOROUS_PASS -> keyInterests.remove(matched[i])
+                        KeyStateSatisfaction.WANTS_MORE_ATE -> ret = true
+                        KeyStateSatisfaction.WANTS_MORE_PASS -> {}
                     }
                 }
-                
-                return ret;
+                ret
             } else {
-                holdingSet.remove(code);
-                return false;
+                holdingSet.remove(code)
+                false
             }
         }
     }
-    
+
     /**
      * Enable/disable and remaps of actions is actually reflected here. It is only initial template in the Handler
      */
-    final class ActionStateHolder<Handler extends Enum<Handler> & EventBase<Handler>> {
-        private final Map<Handler, Set<ActionMode>> enabledActions;
-        private final Map<Handler, Map<ActionMode, EventAction<Handler>>> actionsMap;
-        private final Map<Handler, Map<RelationType, Set<Handler>>> cooperationMap;
-        private final Map<Handler, Map<RelationType, Set<Handler>>> adjustmentMap;
-        private final EventObserver<Handler> observer;
-        private final EnumSet<Handler> emptyEnumSet;
-
-        public boolean hasActionsEnabled(final Handler h, final ActionMode... modes) {
-            final Set<ActionMode> actions = enabledActions.get(h);
+    class ActionStateHolder<Handler>(
+        hClass: Class<Handler>,
+        observer: EventObserver<Handler>
+    ) where Handler : Enum<Handler>, Handler : EventBase<Handler> {
+        private val enabledActions: Map<Handler, MutableSet<ActionMode>>
+        private val actionsMap: Map<Handler, MutableMap<ActionMode, EventAction<Handler>>>
+        private val cooperationMap: Map<Handler, MutableMap<RelationType, MutableSet<Handler>>>
+        private val adjustmentMap: Map<Handler, MutableMap<RelationType, MutableSet<Handler>>>
+        private val observer: EventObserver<Handler>
+        private val emptyEnumSet: EnumSet<Handler>
+        fun hasActionsEnabled(h: Handler, vararg modes: ActionMode): Boolean {
+            val actions: Set<ActionMode> = enabledActions[h]!!
             if (actions.isEmpty()) {
-                return false;
+                return false
             }
-
-            for (final ActionMode m: modes) {
+            for (m in modes) {
                 if (!actions.contains(m)) {
-                    return false;
+                    return false
                 }
             }
-
-            return true;
+            return true
         }
 
-        public ActionStateHolder(final Class<Handler> hClass, final EventObserver<Handler> observer) {
-            final Handler[] values = hClass.getEnumConstants();
-            this.enabledActions = populate(hClass, values, h -> {
-                final Set<ActionMode> set = h.defaultEnabledActions();
-                return set.isEmpty() ? EnumSet.noneOf(ActionMode.class) : EnumSet.copyOf(set);
-            });
-            this.actionsMap = populate(hClass, values, h -> {
-                final Map<ActionMode, EventAction<Handler>> map = h.allActions();
-                return map.isEmpty() ? new EnumMap<>(ActionMode.class) : new EnumMap<>(map);
-            });
-            this.cooperationMap = populate(hClass, values, h -> deepCopyMap(h.cooperations()));
-            this.adjustmentMap = populate(hClass, values, h -> deepCopyMap(h.adjustments()));
-            this.observer = observer;
-            this.emptyEnumSet = EnumSet.noneOf(hClass);
+        init {
+            val values = hClass.enumConstants
+            enabledActions = populate<MutableSet<ActionMode>>(
+                hClass,
+                values,
+                /*Function<Handler, MutableSet<ActionMode?>>*/ { h: Handler ->
+                    val set: Set<ActionMode> = h!!.defaultEnabledActions()
+                    if (set.isEmpty()) EnumSet.noneOf(ActionMode::class.java) else EnumSet.copyOf(set)
+                })
+            actionsMap = populate<MutableMap<ActionMode, EventAction<Handler>>>(
+                hClass,
+                values,
+                /*Function<Handler, MutableMap<ActionMode?, EventAction<Handler?>?>>*/ { h ->
+                    val map: Map<ActionMode, EventAction<Handler>> = h!!.allActions()
+                    if (map.isEmpty()) EnumMap(ActionMode::class.java) else EnumMap<ActionMode, EventAction<Handler>>(
+                        map
+                    )
+                })
+            cooperationMap = populate<MutableMap<EventBase.RelationType, MutableSet<Handler>>>(
+                hClass,
+                values,
+                /*Function<Handler, MutableMap<EventBase.RelationType?, Set<Handler?>?>>*/{ h ->
+                    deepCopyMap(
+                        h!!.cooperations()
+                    )
+                })
+            adjustmentMap = populate<MutableMap<EventBase.RelationType, MutableSet<Handler>>>(
+                hClass,
+                values,
+                /*Function<Handler, MutableMap<EventBase.RelationType?, Set<Handler?>?>>*/ { h ->
+                    deepCopyMap(
+                        h!!.adjustments()
+                    )
+                })
+            this.observer = observer
+            emptyEnumSet = EnumSet.noneOf(hClass)
         }
-        
-        private Map<RelationType, Set<Handler>> deepCopyMap(final Map<RelationType, Set<Handler>> map) {
+
+        private fun deepCopyMap(map: Map<RelationType, Set<Handler>>): MutableMap<RelationType, MutableSet<Handler>> {
             if (map.isEmpty()) {
-                return new EnumMap<>(RelationType.class);
-            }
-            
-            // shallow copy first
-            final EnumMap<RelationType, Set<Handler>> copy = new EnumMap<>(map);
-            // now values
-            copy.replaceAll((r, l) -> EnumSet.copyOf(l));
-            return copy;
-        }
-        
-        private <V> Map<Handler, V> populate(Class<Handler> hClass, Handler[] values, Function<? super Handler, ? extends V> mapper) {
-            return Arrays.stream(values).collect(
-                () -> new EnumMap<>(hClass),
-                (m, h) -> m.put(h, mapper.apply(h)),
-                EnumMap::putAll
-            );
-        }
-        
-        public ActionStateHolder<Handler> run(final Handler h, final ActionMode mode, final AWTEvent ev) {
-            if (enabledActions.get(h).contains(mode)) {
-                Optional.ofNullable(actionsMap.get(h).get(mode)).ifPresent(action -> action.act(observer, ev));
+                return EnumMap(RelationType::class.java)
             }
 
-            return this;
+            // shallow copy first
+            val copy = EnumMap(map)
+            // now values
+            copy.replaceAll { r, l -> EnumSet.copyOf(l) }
+            return copy as MutableMap<RelationType, MutableSet<Handler>>
         }
-        
-        public Map<RelationType, Set<Handler>> cooperations(final Handler h) {
-            return cooperationMap.get(h);
+
+        private fun <V> populate(
+            hClass: Class<Handler>,
+            values: Array<Handler>,
+            mapper: Function<in Handler, out V>
+        ): Map<Handler, V> {
+            return Arrays.stream(values).collect(
+                { EnumMap(hClass) },
+                { m: EnumMap<Handler, V>, h: Handler ->
+                    m[h] = mapper.apply(h)
+                }) { obj: EnumMap<Handler, V>, m: EnumMap<Handler, V> ->
+                obj.putAll(
+                    m
+                )
+            }
         }
-        
-        public Map<RelationType, Set<Handler>> adjustments(final Handler h) {
-            return adjustmentMap.get(h);
+
+        fun run(h: Handler, mode: ActionMode, ev: AWTEvent): ActionStateHolder<Handler> {
+            if (enabledActions[h]!!.contains(mode)) {
+                Optional.ofNullable(
+                    actionsMap[h]!![mode]
+                ).ifPresent { action: EventAction<Handler> -> action.act(observer, ev) }
+            }
+            return this
         }
-                
-        public Set<Handler> cooperations(final Handler h, final RelationType type) {
-            return cooperationMap.get(h).getOrDefault(type, emptyEnumSet);
+
+        fun cooperations(h: Handler): Map<EventBase.RelationType, MutableSet<Handler>> {
+            return cooperationMap[h]!!
         }
-        
-        public Set<Handler> adjustments(final Handler h, final RelationType type) {
-            return adjustmentMap.get(h).getOrDefault(type, emptyEnumSet);
+
+        fun adjustments(h: Handler): Map<EventBase.RelationType, MutableSet<Handler>> {
+            return adjustmentMap[h]!!
         }
-                
+
+        fun cooperations(h: Handler, type: EventBase.RelationType): Set<Handler> {
+            return cooperationMap[h]!!.getOrDefault(type, emptyEnumSet)
+        }
+
+        fun adjustments(h: Handler, type: EventBase.RelationType): Set<Handler> {
+            return adjustmentMap[h]!!.getOrDefault(type, emptyEnumSet)
+        }
+
         @SafeVarargs
-        public final ActionStateHolder<Handler> unmapCooperation(final Handler h, RelationType type, final Handler... targets) {
-            final Set<Handler> set = cooperationMap.get(h).get(type);
+        fun unmapCooperation(
+            h: Handler,
+            type: EventBase.RelationType,
+            vararg targets: Handler
+        ): ActionStateHolder<Handler> {
+            val set = cooperationMap[h]!![type]
             if (set == null || set.isEmpty()) {
-                return this;
+                return this
             }
-            
-            if (targets.length == 0) {
-                set.clear();
+            if (targets.size == 0) {
+                set.clear()
             } else {
-                set.removeAll(Arrays.asList(targets));
+                set.removeAll(Arrays.asList(*targets))
             }
-            
-            return this;
+            return this
         }
-        
+
         @SafeVarargs
-        public final ActionStateHolder<Handler> mapCooperation(final Handler h, RelationType mode, final Handler... targets) {
-            cooperationMap.get(h).compute(mode, (m, set) -> {
+        fun mapCooperation(
+            h: Handler,
+            mode: EventBase.RelationType,
+            vararg targets: Handler
+        ): ActionStateHolder<Handler> {
+            cooperationMap[h]!!.compute(mode) { m, set ->
+                var set = set
                 if (set == null) {
-                    set = EnumSet.copyOf(emptyEnumSet);
+                    set = EnumSet.copyOf(emptyEnumSet)
                 }
-                set.addAll(Arrays.asList(targets));
-                return set;
-            });
-            
-            return this;
-        }
-        
-        @SafeVarargs
-        public final ActionStateHolder<Handler> restoreCooperation(final Handler h, RelationType mode, final Handler... targets) {
-            final Set<Handler> orig = h.adjustments().get(mode);
-            
-            if (orig != null) {
-                final Set<Handler> a = EnumSet.copyOf(orig);
-                final Set<Handler> b = cooperationMap.get(h).get(mode);
-                a.retainAll(Arrays.asList(targets));
-                b.addAll(a);
-            } else {
-                cooperationMap.get(h).remove(mode);
+                set!!.addAll(Arrays.asList(*targets))
+                set
             }
-            
-            return this;
+            return this
         }
-        
+
         @SafeVarargs
-        public final ActionStateHolder<Handler> unmapAdjustment(final Handler h, RelationType type, final Handler... targets) {
-            final Set<Handler> set = adjustmentMap.get(h).get(type);
+        fun restoreCooperation(
+            h: Handler,
+            mode: EventBase.RelationType,
+            vararg targets: Handler
+        ): ActionStateHolder<Handler> {
+            val orig = h!!.adjustments()[mode]
+            if (orig != null) {
+                val a: MutableSet<Handler> = EnumSet.copyOf(orig)
+                val b = cooperationMap[h]!![mode]
+                a.retainAll(Arrays.asList(*targets))
+                b!!.addAll(a)
+            } else {
+                cooperationMap[h]!!.remove(mode)
+            }
+            return this
+        }
+
+        @SafeVarargs
+        fun unmapAdjustment(
+            h: Handler,
+            type: EventBase.RelationType,
+            vararg targets: Handler
+        ): ActionStateHolder<Handler> {
+            val set = adjustmentMap[h]!![type]
             if (set == null || set.isEmpty()) {
-                return this;
+                return this
             }
-            
-            if (targets.length == 0) {
-                set.clear();
+            if (targets.size == 0) {
+                set.clear()
             } else {
-                set.removeAll(Arrays.asList(targets));
+                set.removeAll(Arrays.asList(*targets))
             }
-            
-            return this;
+            return this
         }
-        
+
         @SafeVarargs
-        public final ActionStateHolder<Handler> mapAdjustment(final Handler h, RelationType mode, final Handler... targets) {
-            adjustmentMap.get(h).compute(mode, (m, set) -> {
+        fun mapAdjustment(
+            h: Handler,
+            mode: EventBase.RelationType,
+            vararg targets: Handler
+        ): ActionStateHolder<Handler> {
+            adjustmentMap[h]!!.compute(mode) { m, set ->
+                var set = set
                 if (set == null) {
-                    set = EnumSet.copyOf(emptyEnumSet);
+                    set = EnumSet.copyOf(emptyEnumSet)
                 }
-                set.addAll(Arrays.asList(targets));
-                return set;
-            });
-            
-            return this;
-        }
-        
-        @SafeVarargs
-        public final ActionStateHolder<Handler> restoreAdjustment(final Handler h, RelationType mode, final Handler... targets) {
-            final Set<Handler> orig = h.adjustments().get(mode);
-            
-            if (orig != null) {
-                final Set<Handler> a = EnumSet.copyOf(orig);
-                final Set<Handler> b = adjustmentMap.get(h).get(mode);
-                a.retainAll(Arrays.asList(targets));
-                b.addAll(a);
-            } else {
-                adjustmentMap.get(h).remove(mode);
+                set!!.addAll(Arrays.asList(*targets))
+                set
             }
-            
-            return this;
+            return this
         }
-        
-        public ActionStateHolder<Handler> enableAction(final Handler h, ActionMode mode) {
-            enabledActions.get(h).add(mode);
-            
-            return this;
+
+        @SafeVarargs
+        fun restoreAdjustment(
+            h: Handler,
+            mode: EventBase.RelationType,
+            vararg targets: Handler
+        ): ActionStateHolder<Handler> {
+            val orig = h!!.adjustments()[mode]
+            if (orig != null) {
+                val a: MutableSet<Handler> = EnumSet.copyOf(orig)
+                val b = adjustmentMap[h]!![mode]
+                a.retainAll(Arrays.asList(*targets))
+                b!!.addAll(a)
+            } else {
+                adjustmentMap[h]!!.remove(mode)
+            }
+            return this
         }
-        
-        public ActionStateHolder<Handler> disableAction(final Handler h, ActionMode mode) {
-            enabledActions.get(h).remove(mode);
-            
-            return this;
+
+        fun enableAction(h: Handler, mode: ActionMode): ActionStateHolder<Handler> {
+            enabledActions[h]!!.add(mode)
+            return this
         }
-        
-        public ActionStateHolder<Handler> unmapAction(final Handler h, ActionMode mode) {
-            actionsMap.get(h).remove(mode);
-            
-            return this;
+
+        fun disableAction(h: Handler, mode: ActionMode): ActionStateHolder<Handler> {
+            enabledActions[h]!!.remove(mode)
+            return this
         }
-        
-        public ActionStateHolder<Handler> mapAction(final Handler h, ActionMode mode, EventAction<Handler> remap) {
-            actionsMap.get(h).put(mode, remap);
-            
-            return this;
+
+        fun unmapAction(h: Handler, mode: ActionMode): ActionStateHolder<Handler> {
+            actionsMap[h]!!.remove(mode)
+            return this
         }
-        
-        public ActionStateHolder<Handler> remapAction(final Handler h, ActionMode mode, EventAction<Handler> remap) {
-            actionsMap.get(h).replace(mode, remap);
-            
-            return this;
+
+        fun mapAction(h: Handler, mode: ActionMode, remap: EventAction<Handler>): ActionStateHolder<Handler> {
+            actionsMap[h]!![mode] = remap
+            return this
         }
-        
-        public ActionStateHolder<Handler> restoreAction(final Handler h, ActionMode mode) {
-            final EventAction<Handler> a = h.allActions().get(mode);
-            
+
+        fun remapAction(h: Handler, mode: ActionMode, remap: EventAction<Handler>): ActionStateHolder<Handler> {
+            actionsMap[h]!!.replace(mode, remap)
+            return this
+        }
+
+        fun restoreAction(h: Handler, mode: ActionMode): ActionStateHolder<Handler> {
+            val a: EventAction<Handler>? = h!!.allActions().get(mode)
             if (a != null) {
-                actionsMap.get(h).put(mode, a);
+                actionsMap[h]!![mode] = a
             } else {
-                actionsMap.get(h).remove(mode);
+                actionsMap[h]!!.remove(mode)
             }
-            
-            return this;
+            return this
         }
     }
-    
-    final class Relation<Handler extends Enum<Handler> & EventBase<Handler>> {
-        public final Handler sourceHandler;
-        public final Handler targetHandler;
 
-        public Relation(Handler sourceHandler, Handler targetHandler) {
-            this.sourceHandler = sourceHandler;
-            this.targetHandler = targetHandler;
+    class Relation<Handler>(
+        val sourceHandler: Handler,
+        val targetHandler: Handler
+    ) where Handler : Enum<Handler>, Handler : EventBase<Handler>
+
+    companion object {
+        val EVENT_SORT = Comparator.comparingInt { obj: IntSupplier -> obj.asInt }
+        fun <H> sortHandlers(values: Array<H>): Array<H> where H : Enum<H>, H : EventBase<H> {
+            Arrays.sort(values, EVENT_SORT)
+            return values
+        }
+
+        fun <H> findById(values: Array<H>, eventId: Int): Optional<H> where H : Enum<H>, H : EventBase<H> {
+            val index = Arrays.binarySearch(values, IntSupplier { eventId }, EventBase.EVENT_SORT)
+            return if (index < 0) {
+                Optional.empty()
+            } else Optional.of(values[index])
+        }
+
+        @SafeVarargs
+        fun <H> Relate(src: H, vararg dests: H): Array<EventBase.Relation<H>?> where H : Enum<H>, H : EventBase<H> {
+            val arrayer = IntFunction<Array<EventBase.Relation<H>?>> { arrayOfNulls(it) }
+            return Arrays.stream(dests)
+                .map { dest: H -> EventBase.Relation(src, dest) }
+                .toArray(arrayer)
         }
     }
 }

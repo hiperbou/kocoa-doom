@@ -4,6 +4,7 @@
 // $Id: DoomSystem.java,v 1.18 2013/06/04 11:29:39 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -103,64 +104,53 @@
 // DESCRIPTION:
 //
 //-----------------------------------------------------------------------------
-package i;
+package i
 
-import awt.MsgBox;
-import doom.DoomMain;
-import doom.ticcmd_t;
-import java.io.IOException;
+import awt.MsgBox
+import doom.DoomMain
+import doom.ticcmd_t
+import java.io.IOException
 
-public class DoomSystem implements IDoomSystem {
+class DoomSystem(  // Even the SYSTEM needs to know about DOOM!!!!
+    private val DM: DoomMain<*, *>
+) : IDoomSystem {
+    private val emptycmd: ticcmd_t
 
-    public static void MiscError(String error, Object... args) {
-        System.err.print("Error: ");
-        System.err.print(error);
-        System.err.print("\n");
+    init {
+        emptycmd = ticcmd_t()
     }
 
-    static int mb_used = 6;
-
-    // Even the SYSTEM needs to know about DOOM!!!!
-    private final DoomMain<?, ?> DM;
-    private final ticcmd_t emptycmd;
-
-    public DoomSystem(DoomMain<?, ?> DM) {
-        this.DM = DM;
-        this.emptycmd = new ticcmd_t();
-    }
-
-    @Override
-    public void Tactile(int on, int off, int total) {
+    override fun Tactile(on: Int, off: Int, total: Int) {
         // UNUSED.
-        on = off = total = 0;
+        var on = on
+        var off = off
+        var total = total
+        total = 0
+        off = total
+        on = off
     }
 
-    @Override
-    public ticcmd_t BaseTiccmd() {
-        return emptycmd;
+    override fun BaseTiccmd(): ticcmd_t? {
+        return emptycmd
     }
 
-    @Override
-    public int GetHeapSize() {
-        return mb_used * 1024 * 1024;
+    override fun GetHeapSize(): Int {
+        return mb_used * 1024 * 1024
     }
 
-    @Override
-    public byte[] ZoneBase(int size) {
-        return (new byte[mb_used * 1024 * 1024]);
+    override fun ZoneBase(size: Int): ByteArray? {
+        return ByteArray(mb_used * 1024 * 1024)
     }
 
     //
     //I_Quit
     //
-    @Override
-    public void Quit() {
+    override fun Quit() {
         //DM.CheckDemoStatus();
         try {
-            DM.QuitNetGame();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            DM.QuitNetGame()
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
         //DM.debugEnd();
         /**
@@ -168,87 +158,72 @@ public class DoomSystem implements IDoomSystem {
          */
         //DM.soundDriver.ShutdownSound();
         //DM.music.ShutdownMusic();
-        DM.commit();
-        DM.CM.SaveDefaults();
-        System.exit(0);
+        DM.commit()
+        DM.CM.SaveDefaults()
+        System.exit(0)
     }
 
     /**
      * I_Init
      */
-    @Override
-    public void Init() {
+    override fun Init() {
         //TODO: InitSound();
         //TODO: InitGraphics();
     }
 
-    @Override
-    public void WaitVBL(int count) {
+    override fun WaitVBL(count: Int) {
         try {
-            Thread.sleep(count * 1000 / 70);
-        } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            Thread.sleep((count * 1000 / 70).toLong())
+        } catch (e: InterruptedException) {
+            e.printStackTrace()
         }
     }
 
-    @Override
-    public void BeginRead() {
+    override fun BeginRead() {
         if (DM.diskDrawer != null) {
             if (!DM.diskDrawer.isReading()) {
                 // Set 8 tick reading time
-                DM.diskDrawer.setReading(8);
+                DM.diskDrawer.setReading(8)
             }
         }
-
     }
 
-    @Override
-    public void EndRead() {
-    }
-
-    @Override
-    public void AllocLow(int length) {
-        ; // Dummy
+    override fun EndRead() {}
+    override fun AllocLow(length: Int) {
+        // Dummy
     }
 
     //
     // I_Error
     //
-    @Override
-    public void Error(String error, Object... args) {
-
-        System.err.print("Error: ");
-        System.err.printf(error, args);
-        System.err.print("\n");
+    override fun Error(error: String?, vararg args: Any?) {
+        System.err.print("Error: ")
+        System.err.printf(error, *args)
+        System.err.print("\n")
         //va_end (argptr);
 
         //fflush( stderr );
         // Shutdown. Here might be other errors.
         if (DM.demorecording) {
-            DM.CheckDemoStatus();
+            DM.CheckDemoStatus()
         }
-
         try {
-            DM.QuitNetGame();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            DM.QuitNetGame()
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
         // DM.VI.ShutdownGraphics();
-
-        System.exit(-1);
+        System.exit(-1)
     }
 
-    @Override
-    public void Error(String error) {
+    override fun Error(error: String?) {
         //va_list	argptr;
 
         // Message first.
         //va_start (argptr,error);
-        System.err.print("Error: ");
-        System.err.printf(error);
-        System.err.print("\n");
+        System.err.print("Error: ")
+        System.err.printf(error)
+        System.err.print("\n")
         //va_end (argptr);
 
         //fflush( stderr );
@@ -257,13 +232,22 @@ public class DoomSystem implements IDoomSystem {
         //G_CheckDemoStatus();
         //D_QuitNetGame ();
         //I_ShutdownGraphics();
-        System.exit(-1);
+        System.exit(-1)
     }
 
     // This particular implementation will generate a popup box.// 
-    @Override
-    public boolean GenerateAlert(String title, String cause) {
-        MsgBox alert = new MsgBox(null, title, cause, true);
-        return alert.isOk();
+    override fun GenerateAlert(title: String?, cause: String?): Boolean {
+        val alert = MsgBox(null, title, cause, true)
+        return alert.isOk()
+    }
+
+    companion object {
+        fun MiscError(error: String?, vararg args: Any?) {
+            System.err.print("Error: ")
+            System.err.print(error)
+            System.err.print("\n")
+        }
+
+        var mb_used = 6
     }
 }

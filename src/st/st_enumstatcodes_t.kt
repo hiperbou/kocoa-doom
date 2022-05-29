@@ -1,11 +1,7 @@
-package st;
+package st
+
 
 // States for the chat code.
-
-enum st_enumstatcodes_t {
-
-	    StartChatState,
-	    WaitDestState,
-	    GetChatState
-	    
-	}
+internal enum class st_enumstatcodes_t {
+    StartChatState, WaitDestState, GetChatState
+}

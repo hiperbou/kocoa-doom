@@ -1,71 +1,77 @@
-package p;
+package p
 
-import doom.SourceCode.fixed_t;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import rr.SectorAction;
-import rr.sector_t;
-import w.DoomIO;
-import w.IReadableDoomObject;
+import doom.SourceCode
+import rr.SectorAction
+import rr.sector_t
+import w.DoomIO
+import w.IReadableDoomObject
+import java.io.DataInputStream
+import java.io.IOException
+import java.nio.ByteBuffer
 
-public class plat_t extends SectorAction implements IReadableDoomObject {
+class plat_t : SectorAction(), IReadableDoomObject {
+    //var sector: sector_t? = null //TODO: This is already in SectorAction
 
-    public sector_t sector;
-    public @fixed_t int speed, low, high;
-    public int wait;
-    public int count;
-    public plat_e status;
-    public plat_e oldstatus;
-    public boolean crush;
-    public int tag;
-    public plattype_e type;
+    @SourceCode.fixed_t
+    var speed = 0
 
-    public plat_t() {
+    @SourceCode.fixed_t
+    var low = 0
+
+    @SourceCode.fixed_t
+    var high = 0
+    var wait = 0
+    var count = 0
+    var status: plat_e
+    var oldstatus: plat_e
+    var crush = false
+    var tag = 0
+    var type: plattype_e? = null
+
+    init {
         // These must never be null so they get the lowest ordinal value.
         // by default.
-        this.status = plat_e.up;
-        this.oldstatus = plat_e.up;
+        status = plat_e.up
+        oldstatus = plat_e.up
     }
 
-    @Override
-    public void read(DataInputStream f) throws IOException {
-
-        super.read(f); // Call thinker reader first            
-        super.sectorid = DoomIO.readLEInt(f); // Sector index
-        speed = DoomIO.readLEInt(f);
-        low = DoomIO.readLEInt(f);
-        high = DoomIO.readLEInt(f);
-        wait = DoomIO.readLEInt(f);
-        count = DoomIO.readLEInt(f);
-        status = plat_e.values()[DoomIO.readLEInt(f)];
-        oldstatus = plat_e.values()[DoomIO.readLEInt(f)];
-        System.out.println(status);
-        System.out.println(oldstatus);
-        crush = DoomIO.readIntBoolean(f);
-        tag = DoomIO.readLEInt(f);
-        type = plattype_e.values()[DoomIO.readLEInt(f)];
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
+        super.read(f) // Call thinker reader first            
+        super.sectorid = DoomIO.readLEInt(f) // Sector index
+        speed = DoomIO.readLEInt(f)
+        low = DoomIO.readLEInt(f)
+        high = DoomIO.readLEInt(f)
+        wait = DoomIO.readLEInt(f)
+        count = DoomIO.readLEInt(f)
+        status = plat_e.values()[DoomIO.readLEInt(f)]
+        oldstatus = plat_e.values()[DoomIO.readLEInt(f)]
+        println(status)
+        println(oldstatus)
+        crush = DoomIO.readIntBoolean(f)
+        tag = DoomIO.readLEInt(f)
+        type = plattype_e.values()[DoomIO.readLEInt(f)]
     }
 
-    @Override
-    public void pack(ByteBuffer b) throws IOException {
-        super.pack(b); //12            
-        b.putInt(super.sectorid); // 16
-        b.putInt(speed);//20
-        b.putInt(low); // 24
-        b.putInt(high); //28
-        b.putInt(wait); //32
-        b.putInt(count); //36
-        b.putInt(status.ordinal()); //40
-        b.putInt(oldstatus.ordinal()); //44
-        System.out.println(status);
-        System.out.println(oldstatus);
-        b.putInt(crush ? 1 : 0); // 48
-        b.putInt(tag); // 52
-        b.putInt(type.ordinal()); // 56
+    @Throws(IOException::class)
+    override fun pack(b: ByteBuffer) {
+        super.pack(b) //12            
+        b.putInt(super.sectorid) // 16
+        b.putInt(speed) //20
+        b.putInt(low) // 24
+        b.putInt(high) //28
+        b.putInt(wait) //32
+        b.putInt(count) //36
+        b.putInt(status.ordinal) //40
+        b.putInt(oldstatus.ordinal) //44
+        println(status)
+        println(oldstatus)
+        b.putInt(if (crush) 1 else 0) // 48
+        b.putInt(tag) // 52
+        b.putInt(type!!.ordinal) // 56
     }
 
-    public vldoor_t asVlDoor(sector_t[] sectors) {
+    fun asVlDoor(sectors: Array<sector_t>): vldoor_t {
         /*
         	typedef struct
         	{
@@ -86,19 +92,17 @@ public class plat_t extends SectorAction implements IReadableDoomObject {
         	    
         	} vldoor_t;
          */
-
-        vldoor_t tmp = new vldoor_t();
-        tmp.next = this.next;
-        tmp.prev = this.prev;
-        tmp.thinkerFunction = this.thinkerFunction;
-        tmp.type = vldoor_e.values()[sector.id % vldoor_e.VALUES];
-        tmp.sector = sectors[this.speed % sectors.length];
-        tmp.topheight = this.low;
-        tmp.speed = this.high;
-        tmp.direction = this.wait;
-        tmp.topwait = this.count;
-        tmp.topcountdown = this.status.ordinal();
-
-        return tmp;
+        val tmp = vldoor_t()
+        tmp.next = next
+        tmp.prev = prev
+        tmp.thinkerFunction = thinkerFunction
+        tmp.type = vldoor_e.values()[sector!!.id % vldoor_e.VALUES]
+        tmp.sector = sectors[speed % sectors.size]
+        tmp.topheight = low
+        tmp.speed = high
+        tmp.direction = wait
+        tmp.topwait = count
+        tmp.topcountdown = status.ordinal
+        return tmp
     }
 }

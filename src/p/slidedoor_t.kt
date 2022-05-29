@@ -1,23 +1,23 @@
-package p;
+package p
 
-import static p.ActiveStates.T_SlidingDoor;
-import rr.SectorAction;
-import rr.line_t;
-import rr.sector_t;
 
-public class slidedoor_t extends SectorAction {
-    public sdt_e type;
-    public line_t line;
-    public int frame;
-    public int whichDoorIndex;
-    public int timer;
-    public sector_t frontsector;
-    public sector_t backsector;
-    public sd_e status;
+import rr.SectorAction
+import rr.line_t
+import rr.sector_t
 
-    public slidedoor_t() {
-        type = sdt_e.sdt_closeOnly;
-        status = sd_e.sd_closing;
-        thinkerFunction = T_SlidingDoor;
+class slidedoor_t : SectorAction() {
+    var type: sdt_e
+    var line: line_t? = null
+    var frame = 0
+    var whichDoorIndex = 0
+    var timer = 0
+    var frontsector: sector_t? = null
+    var backsector: sector_t? = null
+    var status: sd_e
+
+    init {
+        type = sdt_e.sdt_closeOnly
+        status = sd_e.sd_closing
+        thinkerFunction = ActiveStates.T_SlidingDoor
     }
 }

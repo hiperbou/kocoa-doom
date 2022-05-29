@@ -1,33 +1,28 @@
-package rr;
+package rr
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import w.CacheableDoomObject
+import java.io.IOException
+import java.nio.ByteBuffer
 
-import w.CacheableDoomObject;
+class flat_t : CacheableDoomObject {
+    var data: ByteArray
 
-public class flat_t
-        implements CacheableDoomObject {
-
-    public static final int FLAT_SIZE=4096;
-    
-    public byte[] data;
-
-    public flat_t(){
-        this.data=new byte[FLAT_SIZE];
+    constructor() {
+        data = ByteArray(flat_t.FLAT_SIZE)
     }
 
-    public flat_t(int size){
-        this.data=new byte[size];
+    constructor(size: Int) {
+        data = ByteArray(size)
     }
 
-    
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-        
-            //buf.get(this.data);
-            this.data=buf.array();
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
 
+        //buf.get(this.data);
+        data = buf.array()
     }
 
+    companion object {
+        const val FLAT_SIZE = 4096
+    }
 }

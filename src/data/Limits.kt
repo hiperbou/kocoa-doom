@@ -1,102 +1,95 @@
-package data;
+package data
 
-import static m.fixed_t.FRACUNIT;
-import static m.fixed_t.MAPFRACUNIT;
+import m.fixed_t
 
-/** Everything that constitutes a removable limit should go here */
+/** Everything that constitutes a removable limit should go here  */
+object Limits {
+    // Obvious rendering limits
+    const val MAXVISPLANES = 128
+    const val MAXSEGS = 32
+    const val MAXVISSPRITES = 128
+    const val MAXDRAWSEGS = 256
 
-public final class Limits {
+    // MAES: Moved MAXOPENINGS to renderer state, it's scale dependant.
+    val CEILSPEED: Int = fixed_t.MAPFRACUNIT
+    const val CEILWAIT = 150
+    const val MAXCEILINGS = 30
+    const val MAXANIMS = 32
 
-	// Obvious rendering limits
-	public static final int MAXVISPLANES = 128;
-	public static final int MAXSEGS = 32;
-	public static final int MAXVISSPRITES = 128;
-	public static final int MAXDRAWSEGS = 256;
-	// MAES: Moved MAXOPENINGS to renderer state, it's scale dependant.
-	public static final int CEILSPEED = MAPFRACUNIT;
-	public static final int CEILWAIT = 150;
-	public static final int MAXCEILINGS = 30;
+    /** Animating line specials  */
+    const val MAXLINEANIMS = 64
 
-	public static final int MAXANIMS = 32;
+    // These are only used in the renderer, effectively putting
+    // a limit to the size of lookup tables for screen buffers.
+    const val MAXWIDTH = 1600
+    const val MAXHEIGHT = 1200
 
-	/** Animating line specials */
-	public static final int MAXLINEANIMS = 64;
+    // Command line/file limits
+    const val MAXWADFILES = 20
+    const val MAXARGVS = 100
 
-	// These are only used in the renderer, effectively putting
-	// a limit to the size of lookup tables for screen buffers.
-	public static final int MAXWIDTH = 1600;
-	public static final int MAXHEIGHT = 1200;
+    // The maximum number of players, multiplayer/networking.
+    // Max computers/players in a game. AFFECTS SAVEGAMES.
+    const val MAXPLAYERS = 4
+    const val MAXNETNODES = 8
 
-	// Command line/file limits
-	public static final int MAXWADFILES = 20;
-	public static final int MAXARGVS = 100;
+    /** Some quirky engine limits  */
+    const val MAXEVENTS = 64
 
-	// The maximum number of players, multiplayer/networking.
-	// Max computers/players in a game. AFFECTS SAVEGAMES.
-	public static final int MAXPLAYERS = 4;
-	public final static int MAXNETNODES = 8;
+    /** max # of wall switch TYPES in a level  */
+    const val MAXSWITCHES = 50
 
-	/** Some quirky engine limits */
-	public static final int MAXEVENTS = 64;
-	
-	/** max # of wall switch TYPES in a level */
-	public static final int MAXSWITCHES = 50;
+    /** 20 adjoining sectors max!  */
+    const val MAX_ADJOINING_SECTORS = 20
 
-	/** 20 adjoining sectors max! */
-	public static final int MAX_ADJOINING_SECTORS = 20;
+    // 4 players, 4 buttons each at once, max.
+    const val MAXBUTTONS = 16
 
-	// 4 players, 4 buttons each at once, max.
-	public static final int MAXBUTTONS = 16;
+    // 1 second, in ticks.
+    const val BUTTONTIME = 35
 
-	// 1 second, in ticks.
-	public static final int BUTTONTIME = 35;
+    /**
+     * keep track of special lines as they are hit, but don't process them until
+     * the move is proven valid
+     */
+    const val MAXSPECIALCROSS = 8
+    const val MAXHEALTH = 100
 
-	/**
-	 * keep track of special lines as they are hit, but don't process them until
-	 * the move is proven valid
-	 */
-	public static final int MAXSPECIALCROSS = 8;
-	public static final int MAXHEALTH = 100;
+    /**
+     * MAXRADIUS is for precalculated sector block boxes the spider demon is
+     * larger, but we do not have any moving sectors nearby
+     */
+    val MAXRADIUS: Int = 32 * fixed_t.FRACUNIT
+    const val MAXINTERCEPTS = 128
+    val MAXMOVE: Int = 30 * fixed_t.MAPFRACUNIT
 
-	/**
-	 * MAXRADIUS is for precalculated sector block boxes the spider demon is
-	 * larger, but we do not have any moving sectors nearby
-	 */
-	public static final int MAXRADIUS = 32 * FRACUNIT;
+    /** Player spawn spots for deathmatch.  */
+    const val MAX_DM_STARTS = 10
 
-	public static final int MAXINTERCEPTS = 128;
-	public static final int MAXMOVE = (30 * MAPFRACUNIT);
+    // C's "chars" are actually Java signed bytes.
+    const val MAXCHAR = 0x7f.toByte()
+    const val MINCHAR = 0x80.toByte()
 
-	/** Player spawn spots for deathmatch. */
-	public static final int MAX_DM_STARTS = 10;
+    // 16-bit integers...
+    const val MAXSHORT = 0x7fff.toShort()
+    const val MINSHORT = 0x8000.toShort()
 
-	// C's "chars" are actually Java signed bytes.
-	public static final byte MAXCHAR = ((byte) 0x7f);
-	public static final byte MINCHAR = ((byte) 0x80);
+    // Max pos 32-bit int.
+    const val MAXINT = 0x7fffffff
+    const val MAXLONG = 0x7fffffffL
 
-	// 16-bit integers...
-	public static final short MAXSHORT = ((short) 0x7fff);
-	public static final short MINSHORT = ((short) 0x8000);
+    // Max negative 32-bit integer. These are considered to be the same.
+    const val MININT = -0x80000000
+    const val MINLONG = 0x80000000L
 
-	// Max pos 32-bit int.
-	public static final int MAXINT = ((int) 0x7fffffff);
-	public static final long MAXLONG = ((long) 0x7fffffff);
-
-	// Max negative 32-bit integer. These are considered to be the same.
-	public static final int MININT = ((int) 0x80000000);
-	public static final long MINLONG = ((long) 0x80000000);
-
-	// Buffering/memory limits.
-	public static final int SAVEGAMESIZE = 0x2c000;
-
-	public static final int SAVESTRINGSIZE = 24;
-	public static final int VERSIONSIZE = 16;
-
-	public static final int PLATWAIT = 3;
-	public static final int PLATSPEED = MAPFRACUNIT;
-	public static final int MAXPLATS = 30;
-	public static final int MAXSKULLS = 20;
-	public static final int NUMBRAINTARGETS=32;
-	public static final int NUMMOBJTYPES=mobjtype_t.NUMMOBJTYPES.ordinal();
-	
+    // Buffering/memory limits.
+    const val SAVEGAMESIZE = 0x2c000
+    const val SAVESTRINGSIZE = 24
+    const val VERSIONSIZE = 16
+    const val PLATWAIT = 3
+    val PLATSPEED: Int = fixed_t.MAPFRACUNIT
+    const val MAXPLATS = 30
+    const val MAXSKULLS = 20
+    const val NUMBRAINTARGETS = 32
+    val NUMMOBJTYPES = mobjtype_t.NUMMOBJTYPES.ordinal
 }

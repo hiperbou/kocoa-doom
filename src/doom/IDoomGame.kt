@@ -1,44 +1,36 @@
-package doom;
+package doom
 
-import defines.skill_t;
 
-/** Groups functions formerly in d_game, 
- * in case you want to provide a different implementation 
+import defines.skill_t
+
+/** Groups functions formerly in d_game,
+ * in case you want to provide a different implementation
  */
+interface IDoomGame {
+    fun ExitLevel()
+    fun WorldDone()
+    fun CheckDemoStatus(): Boolean
 
-public interface IDoomGame {
+    /** Can be called by the startup code or M_Responder.
+     * A normal game starts at map 1,
+     * but a warp test can start elsewhere  */
+    fun DeferedInitNew(skill: skill_t?, episode: Int, map: Int)
 
-	 void ExitLevel ();
-	 void WorldDone ();
+    /** Can be called by the startup code or M_Responder,
+     * calls P_SetupLevel or W_EnterWorld.  */
+    fun LoadGame(name: String?)
 
-     boolean CheckDemoStatus();
-     
-     /** Can be called by the startup code or M_Responder.
-     A normal game starts at map 1,
-     but a warp test can start elsewhere */
-     
-     public void DeferedInitNew (skill_t skill, int episode, int map);
-     
-     /** Can be called by the startup code or M_Responder,
-     calls P_SetupLevel or W_EnterWorld. */
-   public void LoadGame (String name);
+    /** Called by M_Responder.  */
+    fun SaveGame(slot: Int, description: String)
 
-   /** Called by M_Responder. */
-   public void SaveGame (int slot, String description);
-   
-   /** Takes a screenshot *NOW*
-    * 
-    */
-   public void ScreenShot() ;
-   
-   public void StartTitle();
-   
-   public gameaction_t getGameAction();
+    /** Takes a screenshot *NOW*
+     *
+     */
+    fun ScreenShot()
+    fun StartTitle()
+    fun getGameAction(): gameaction_t
+    fun setGameAction(ga: gameaction_t)
 
-   public void setGameAction(gameaction_t ga);
-   
-   // public void PlayerReborn(int player);
-   
-   void DeathMatchSpawnPlayer(int playernum);
-
+    // public void PlayerReborn(int player);
+    fun DeathMatchSpawnPlayer(playernum: Int)
 }

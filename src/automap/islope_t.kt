@@ -1,7 +1,8 @@
-package automap;
+package automap
 
-public class islope_t
-{
-    /** fixed_t */
-    int slp, islp;
+
+class islope_t {
+    /** fixed_t  */
+    var slp = 0
+    var islp = 0
 }

@@ -1,44 +1,56 @@
-package s;
+package s
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioFormat.Encoding;
+import data.sfxinfo_t
+import javax.sound.sampled.AudioFormat
+import javax.sound.sampled.AudioFormat.Encoding
 
-import data.sfxinfo_t;
+/** A class representing a sample in memory
+ * Convenient for wrapping/mirroring it regardless of what it represents.
+ */
+internal class DoomSound : sfxinfo_t {
+    var format: AudioFormat
 
-/** A class representing a sample in memory 
- *  Convenient for wrapping/mirroring it regardless of what it represents.
- * */
-class DoomSound extends sfxinfo_t {
+    constructor(format: AudioFormat) {
+        this.format = format
+    }
 
-	/** This audio format is the one used by internal samples (16 bit, 11KHz, Stereo) 
-     *  for Clips and AudioLines. Sure, it's not general enough... who cares though?
-     */
-	public final static AudioFormat DEFAULT_SAMPLES_FORMAT=new AudioFormat(Encoding.PCM_SIGNED, ISoundDriver.SAMPLERATE, 16, 2, 4, ISoundDriver.SAMPLERATE, true);
-	
-	public final static AudioFormat DEFAULT_DOOM_FORMAT=new AudioFormat(Encoding.PCM_UNSIGNED, ISoundDriver.SAMPLERATE, 8, 1, 1, ISoundDriver.SAMPLERATE, true);
-	
-	
-	public AudioFormat format;
-	
-	public DoomSound(AudioFormat format) {
-		this.format=format;
-	}
-	
-	public DoomSound(){
-		this.format=DEFAULT_DOOM_FORMAT;
-	}
-	
-	public DoomSound(sfxinfo_t sfx,AudioFormat format){
-		this(format);
-		this.data=sfx.data;
-		this.pitch=sfx.pitch;
-		this.link=sfx.link;
-		this.lumpnum=sfx.lumpnum;
-		this.name=sfx.name;
-		this.priority=sfx.priority;
-		this.singularity=sfx.singularity;
-		this.usefulness=sfx.usefulness;
-		this.volume=sfx.volume;
-		}
-	
+    constructor() {
+        format = DoomSound.DEFAULT_DOOM_FORMAT
+    }
+
+    constructor(sfx: sfxinfo_t, format: AudioFormat) : this(format) {
+        data = sfx.data
+        pitch = sfx.pitch
+        _link = sfx._link
+        lumpnum = sfx.lumpnum
+        name = sfx.name
+        priority = sfx.priority
+        singularity = sfx.singularity
+        usefulness = sfx.usefulness
+        volume = sfx.volume
+    }
+
+    companion object {
+        /** This audio format is the one used by internal samples (16 bit, 11KHz, Stereo)
+         * for Clips and AudioLines. Sure, it's not general enough... who cares though?
+         */
+        val DEFAULT_SAMPLES_FORMAT = AudioFormat(
+            Encoding.PCM_SIGNED,
+            ISoundDriver.SAMPLERATE.toFloat(),
+            16,
+            2,
+            4,
+            ISoundDriver.SAMPLERATE.toFloat(),
+            true
+        )
+        val DEFAULT_DOOM_FORMAT = AudioFormat(
+            Encoding.PCM_UNSIGNED,
+            ISoundDriver.SAMPLERATE.toFloat(),
+            8,
+            1,
+            1,
+            ISoundDriver.SAMPLERATE.toFloat(),
+            true
+        )
+    }
 }

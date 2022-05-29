@@ -1,11 +1,7 @@
-package st;
+package st
+
 
 //States for status bar code.
-
-public enum st_stateenum_t {
-
-	
-		    AutomapState,
-	    FirstPersonState
-	    
-	} 
+enum class st_stateenum_t {
+    AutomapState, FirstPersonState
+}

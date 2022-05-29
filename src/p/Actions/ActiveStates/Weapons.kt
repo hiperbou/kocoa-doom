@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,32 +16,37 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates;
+package p.Actions.ActiveStates
 
-import static data.Defines.BT_ATTACK;
-import static data.Defines.PST_DEAD;
-import static data.Tables.FINEANGLES;
-import static data.Tables.FINEMASK;
-import static data.Tables.finecosine;
-import static data.Tables.finesine;
-import static data.info.states;
-import data.sounds;
+import data.Defines
+import data.Defines.BT_ATTACK;
+import data.Defines.PST_DEAD;
+import data.Tables
+import data.Tables.FINEANGLES;
+import data.Tables.FINEMASK;
+import data.Tables.finecosine;
+import data.Tables.finesine;
+import data.info
+import data.info.states;
+import data.sounds.sfxenum_t;
 import defines.statenum_t;
-import static doom.items.weaponinfo;
-import doom.player_t;
-import static doom.player_t.LOWERSPEED;
-import static doom.player_t.RAISESPEED;
-import static doom.player_t.WEAPONBOTTOM;
-import static doom.player_t.WEAPONTOP;
-import static doom.player_t.ps_flash;
-import static doom.player_t.ps_weapon;
+import doom.items
+import doom.items.weaponinfo;
+import doom.player_t
+import doom.player_t.Companion.LOWERSPEED;
+import doom.player_t.Companion.RAISESPEED;
+import doom.player_t.Companion.WEAPONBOTTOM;
+import doom.player_t.Companion.WEAPONTOP;
+import doom.player_t.Companion.ps_flash;
+import doom.player_t.Companion.ps_weapon;
 import doom.weapontype_t;
-import static m.fixed_t.FRACUNIT;
-import static m.fixed_t.FixedMul;
+import m.fixed_t.Companion.FRACUNIT
+import m.fixed_t.Companion.FixedMul
 import p.pspdef_t;
-import static utils.C2JUtils.eval;
+import utils.C2JUtils
+import utils.C2JUtils.eval;
 
-public interface Weapons extends Sounds {
+interface Weapons : Sounds {
     /**
      * A_WeaponReady
      * The player can fire the weapon
@@ -48,77 +54,75 @@ public interface Weapons extends Sounds {
      * Follows after getting weapon up,
      * or after previous attack/fire sequence.
      */
-    default void A_WeaponReady(player_t player, pspdef_t psp) {
-        statenum_t newstate;
-        int angle;
+    fun A_WeaponReady(player: player_t, psp: pspdef_t) {
+        val newstate: statenum_t
+        var angle: Int
 
+        val mo = player.mo!!
         // get out of attack state
-        if (player.mo.mobj_state == states[statenum_t.S_PLAY_ATK1.ordinal()]
-            || player.mo.mobj_state == states[statenum_t.S_PLAY_ATK2.ordinal()]) {
-            player.mo.SetMobjState(statenum_t.S_PLAY);
+        if (mo.mobj_state === info.states[statenum_t.S_PLAY_ATK1.ordinal]
+            || mo.mobj_state === info.states[statenum_t.S_PLAY_ATK2.ordinal]
+        ) {
+            mo.SetMobjState(statenum_t.S_PLAY)
         }
-
         if (player.readyweapon == weapontype_t.wp_chainsaw
-         && psp.state == states[statenum_t.S_SAW.ordinal()])
-        {
-            StartSound(player.mo, sounds.sfxenum_t.sfx_sawidl);
+            && psp.state === info.states[statenum_t.S_SAW.ordinal]
+        ) {
+            StartSound(player.mo, sfxenum_t.sfx_sawidl)
         }
 
         // check for change
         //  if player is dead, put the weapon away
-        if (player.pendingweapon != weapontype_t.wp_nochange || !eval(player.health[0])) {
+        if (player.pendingweapon != weapontype_t.wp_nochange || !C2JUtils.eval(player.health[0])) {
             // change weapon
             //  (pending weapon should allready be validated)
-            newstate = weaponinfo[player.readyweapon.ordinal()].downstate;
-            player.SetPsprite(player_t.ps_weapon, newstate);
-            return;
+            newstate = items.weaponinfo[player.readyweapon.ordinal].downstate
+            player.SetPsprite(player_t.ps_weapon, newstate)
+            return
         }
 
         // check for fire
         //  the missile launcher and bfg do not auto fire
-        if (eval(player.cmd.buttons & BT_ATTACK)) {
+        if (C2JUtils.eval(player.cmd.buttons.code and Defines.BT_ATTACK)) {
             if (!player.attackdown
-             || (player.readyweapon != weapontype_t.wp_missile
-             && player.readyweapon != weapontype_t.wp_bfg))
-            {
-                player.attackdown = true;
-                getEnemies().FireWeapon(player);
-                return;
+                || (player.readyweapon != weapontype_t.wp_missile
+                        && player.readyweapon != weapontype_t.wp_bfg)
+            ) {
+                player.attackdown = true
+                enemies.FireWeapon(player)
+                return
             }
         } else {
-            player.attackdown = false;
+            player.attackdown = false
         }
 
         // bob the weapon based on movement speed
-        angle = (128 * LevelTime()) & FINEMASK;
-        psp.sx = FRACUNIT + FixedMul(player.bob, finecosine[angle]);
-        angle &= FINEANGLES / 2 - 1;
-        psp.sy = player_t.WEAPONTOP + FixedMul(player.bob, finesine[angle]);
+        angle = 128 * LevelTime() and Tables.FINEMASK
+        psp.sx = FRACUNIT + FixedMul(player.bob, Tables.finecosine[angle])
+        angle = angle and Tables.FINEANGLES / 2 - 1
+        psp.sy = player_t.WEAPONTOP + FixedMul(player.bob, Tables.finesine[angle])
     }
 
     //
     // A_Raise
     //
-    default void A_Raise(player_t player, pspdef_t psp) {
-        statenum_t newstate;
+    fun A_Raise(player: player_t, psp: pspdef_t) {
+        val newstate: statenum_t
 
         //System.out.println("Trying to raise weapon");
         //System.out.println(player.readyweapon + " height: "+psp.sy);
-        psp.sy -= RAISESPEED;
-
-        if (psp.sy > WEAPONTOP) {
+        psp.sy -= player_t.RAISESPEED
+        if (psp.sy > player_t.WEAPONTOP) {
             //System.out.println("Not on top yet, exit and repeat.");
-            return;
+            return
         }
-
-        psp.sy = WEAPONTOP;
+        psp.sy = player_t.WEAPONTOP
 
         // The weapon has been raised all the way,
         //  so change to the ready state.
-        newstate = weaponinfo[player.readyweapon.ordinal()].readystate;
+        newstate = items.weaponinfo[player.readyweapon.ordinal].readystate
         //System.out.println("Weapon raised, setting new state.");
-
-        player.SetPsprite(ps_weapon, newstate);
+        player.SetPsprite(player_t.ps_weapon, newstate)
     }
 
     //
@@ -126,42 +130,42 @@ public interface Weapons extends Sounds {
     // The player can re-fire the weapon
     // without lowering it entirely.
     //
-    @Override
-    default void A_ReFire(player_t player, pspdef_t psp) {
+    override fun A_ReFire(player: player_t, psp: pspdef_t?) {
         // check for fire
         //  (if a weaponchange is pending, let it go through instead)
-        if (eval(player.cmd.buttons & BT_ATTACK)
-            && player.pendingweapon == weapontype_t.wp_nochange
-            && eval(player.health[0])) {
-            player.refire++;
-            getEnemies().FireWeapon(player);
+        if (C2JUtils.eval(player.cmd.buttons.code and Defines.BT_ATTACK) && player.pendingweapon == weapontype_t.wp_nochange && C2JUtils.eval(
+                player.health[0]
+            )
+        ) {
+            player.refire++
+            enemies.FireWeapon(player)
         } else {
-            player.refire = 0;
-            player.CheckAmmo();
+            player.refire = 0
+            player.CheckAmmo()
         }
     }
 
     //
     // A_GunFlash
     //
-    default void A_GunFlash(player_t player, pspdef_t psp) {
-        player.mo.SetMobjState(statenum_t.S_PLAY_ATK2);
-        player.SetPsprite(ps_flash, weaponinfo[player.readyweapon.ordinal()].flashstate);
+    fun A_GunFlash(player: player_t, psp: pspdef_t?) {
+        player.mo!!.SetMobjState(statenum_t.S_PLAY_ATK2)
+        player.SetPsprite(player_t.ps_flash, items.weaponinfo[player.readyweapon.ordinal].flashstate)
     }
-    
+
     //
     // ?
     //
-    default void A_Light0(player_t player, pspdef_t psp) {
-        player.extralight = 0;
+    fun A_Light0(player: player_t, psp: pspdef_t?) {
+        player.extralight = 0
     }
 
-    default void A_Light1(player_t player, pspdef_t psp) {
-        player.extralight = 1;
+    fun A_Light1(player: player_t, psp: pspdef_t?) {
+        player.extralight = 1
     }
 
-    default void A_Light2(player_t player, pspdef_t psp) {
-        player.extralight = 2;
+    fun A_Light2(player: player_t, psp: pspdef_t?) {
+        player.extralight = 2
     }
 
     //
@@ -169,41 +173,38 @@ public interface Weapons extends Sounds {
     // Lowers current weapon,
     //  and changes weapon at bottom.
     //
-    default void A_Lower(player_t player, pspdef_t psp) {
-        psp.sy += LOWERSPEED;
+    fun A_Lower(player: player_t, psp: pspdef_t) {
+        psp.sy += player_t.LOWERSPEED
 
         // Is already down.
-        if (psp.sy < WEAPONBOTTOM) {
-            return;
+        if (psp.sy < player_t.WEAPONBOTTOM) {
+            return
         }
 
         // Player is dead.
-        if (player.playerstate == PST_DEAD) {
-            psp.sy = WEAPONBOTTOM;
+        if (player.playerstate == Defines.PST_DEAD) {
+            psp.sy = player_t.WEAPONBOTTOM
 
             // don't bring weapon back up
-            return;
+            return
         }
 
         // The old weapon has been lowered off the screen,
         // so change the weapon and start raising it
-        if (!eval(player.health[0])) {
+        if (!C2JUtils.eval(player.health[0])) {
             // Player is dead, so keep the weapon off screen.
-            player.SetPsprite(ps_weapon, statenum_t.S_NULL);
-            return;
+            player.SetPsprite(player_t.ps_weapon, statenum_t.S_NULL)
+            return
         }
-
-        player.readyweapon = player.pendingweapon;
-
-        player.BringUpWeapon();
+        player.readyweapon = player.pendingweapon!!
+        player.BringUpWeapon()
     }
 
-    default void A_CheckReload(player_t player, pspdef_t psp) {
-        player.CheckAmmo();
+    fun A_CheckReload(player: player_t, psp: pspdef_t?) {
+        player.CheckAmmo()
         /*
         if (player.ammo[am_shell]<2)
         P_SetPsprite (player, ps_weapon, S_DSNR1);
          */
     }
-
 }

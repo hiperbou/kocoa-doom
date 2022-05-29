@@ -1,64 +1,51 @@
-package defines;
+package defines
 
-import static defines.DoomVersion.*;
-import doom.CommandVariable;
+
+import doom.CommandVariable
 
 /**
  * Game mode handling - identify IWAD version to handle IWAD dependend animations etc.
  */
-public enum GameMode {
-    shareware("data_se", DOOM1_WAD, CommandVariable.SHDEV), // DOOM 1 shareware, E1, M9
-    registered("data_se", DOOM_WAD, CommandVariable.REGDEV), // DOOM 1 registered, E3, M27
-    commercial("cdata", DOOM2_WAD, CommandVariable.COMDEV), // DOOM 2 retail, E1 M34
+enum class GameMode(// Well, no IWAD found.  
+    val devDir: String, val version: DoomVersion, val devVar: CommandVariable
+) {
+    shareware("data_se", DoomVersion.DOOM1_WAD, CommandVariable.SHDEV),  // DOOM 1 shareware, E1, M9
+    registered("data_se", DoomVersion.DOOM_WAD, CommandVariable.REGDEV),  // DOOM 1 registered, E3, M27
+    commercial("cdata", DoomVersion.DOOM2_WAD, CommandVariable.COMDEV),  // DOOM 2 retail, E1 M34
+
     // DOOM 2 german edition not handled
-    retail("data_se", DOOMU_WAD, CommandVariable.REGDEV), // DOOM 1 retail, E4, M36
-    pack_tnt("cdata", TNT_WAD, CommandVariable.COMDEV), // TNT mission pack
-    pack_plut("cdata", PLUTONIA_WAD, CommandVariable.COMDEV), // Plutonia pack
-    pack_xbla("cdata", XBLA_WAD, CommandVariable.COMDEV), // XBLA Doom. How you got hold of it, I don't care :-p
-    freedm("cdata", FREEDM_WAD, CommandVariable.FRDMDEV), // FreeDM
-    freedoom1("data_se", FREEDOOM1_WAD, CommandVariable.FR1DEV), // Freedoom phase 1 
-    freedoom2("cdata", FREEDOOM2_WAD, CommandVariable.FR2DEV), // Freedoom phase 2
-    indetermined("data_se", null, null);  // Well, no IWAD found.  
-    
-    public final String devDir;
-    public final DoomVersion version;
-    public final CommandVariable devVar;
-    
-    public static GameMode forVersion(DoomVersion v) {
-        switch(v) {
-            case DOOM1_WAD:
-                return shareware;
-            case DOOM2F_WAD:
-            case DOOM2_WAD:
-                return commercial;
-            case DOOMU_WAD:
-            case UDOOM_WAD:
-                return retail;
-            case DOOM_WAD:
-                return registered;
-            case FREEDM_WAD:
-                return freedm;
-            case FREEDOOM1_WAD:
-                return freedoom1;
-            case FREEDOOM2_WAD:
-                return freedoom2;
-            case PLUTONIA_WAD:
-                return pack_plut;
-            case TNT_WAD:
-                return pack_tnt;
-            case XBLA_WAD:
-                return pack_xbla;
-        }
-        return null;
+    retail("data_se", DoomVersion.DOOMU_WAD, CommandVariable.REGDEV),  // DOOM 1 retail, E4, M36
+    pack_tnt("cdata", DoomVersion.TNT_WAD, CommandVariable.COMDEV),  // TNT mission pack
+    pack_plut("cdata", DoomVersion.PLUTONIA_WAD, CommandVariable.COMDEV),  // Plutonia pack
+    pack_xbla(
+        "cdata",
+        DoomVersion.XBLA_WAD,
+        CommandVariable.COMDEV
+    ),  // XBLA Doom. How you got hold of it, I don't care :-p
+    freedm("cdata", DoomVersion.FREEDM_WAD, CommandVariable.FRDMDEV),  // FreeDM
+    freedoom1("data_se", DoomVersion.FREEDOOM1_WAD, CommandVariable.FR1DEV),  // Freedoom phase 1 
+    freedoom2("cdata", DoomVersion.FREEDOOM2_WAD, CommandVariable.FR2DEV),  // Freedoom phase 2
+    indetermined("data_se", DoomVersion.DOOM1_WAD, CommandVariable.SHDEV);
+
+    fun hasTexture2(): Boolean {
+        return (this == GameMode.shareware || this == GameMode.freedoom2 || this != GameMode.commercial)
     }
 
-    private GameMode(String devDir, DoomVersion version, CommandVariable devVar) {
-        this.devDir = devDir;
-        this.version = version;
-        this.devVar = devVar;
+    companion object {
+        fun forVersion(v: DoomVersion?): GameMode? {
+            when (v) {
+                DoomVersion.DOOM1_WAD -> return shareware
+                DoomVersion.DOOM2F_WAD, DoomVersion.DOOM2_WAD -> return commercial
+                DoomVersion.DOOMU_WAD, DoomVersion.UDOOM_WAD -> return retail
+                DoomVersion.DOOM_WAD -> return registered
+                DoomVersion.FREEDM_WAD -> return freedm
+                DoomVersion.FREEDOOM1_WAD -> return freedoom1
+                DoomVersion.FREEDOOM2_WAD -> return freedoom2
+                DoomVersion.PLUTONIA_WAD -> return pack_plut
+                DoomVersion.TNT_WAD -> return pack_tnt
+                DoomVersion.XBLA_WAD -> return pack_xbla
+            }
+            return null
+        }
     }
-    
-    public boolean hasTexture2() {
-        return !(this == GameMode.shareware || this == GameMode.freedoom2 || this == GameMode.commercial);
-    }
-};
+}

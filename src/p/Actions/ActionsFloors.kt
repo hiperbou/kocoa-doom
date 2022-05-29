@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,405 +16,367 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import static data.Limits.MAXINT;
-import data.sounds;
-import m.fixed_t;
-import static m.fixed_t.FRACUNIT;
-import p.ActiveStates;
-import p.floor_e;
-import p.floormove_t;
-import p.plat_e;
-import p.plat_t;
-import p.plattype_e;
-import p.result_e;
-import p.stair_e;
-import rr.line_t;
-import static rr.line_t.ML_TWOSIDED;
-import rr.sector_t;
-import rr.side_t;
-import static utils.C2JUtils.eval;
 
-public interface ActionsFloors extends ActionsPlats {
+import data.Limits
+import data.sounds.sfxenum_t
+import m.fixed_t
+import p.*
+import rr.line_t
+import rr.sector_t
+import rr.side_t
+import utils.C2JUtils
 
-    result_e MovePlane(sector_t sector, int speed, int floordestheight, boolean crush, int i, int direction);
-    boolean twoSided(int secnum, int i);
-    side_t getSide(int secnum, int i, int s);
-    sector_t getSector(int secnum, int i, int i0);
-
-    //
-    // FLOORS
-    //
-    int FLOORSPEED = fixed_t.MAPFRACUNIT;
+interface ActionsFloors : ActionsPlats {
+    fun MovePlane(sector: sector_t, speed: Int, floordestheight: Int, crush: Boolean, i: Int, direction: Int): result_e
+    fun twoSided(secnum: Int, i: Int): Boolean
+    fun getSide(secnum: Int, i: Int, s: Int): side_t
+    fun getSector(secnum: Int, i: Int, i0: Int): sector_t
 
     /**
      * MOVE A FLOOR TO IT'S DESTINATION (UP OR DOWN)
      */
-    default void MoveFloor(floormove_t floor) {
-        final result_e res = MovePlane(floor.sector, floor.speed, floor.floordestheight, floor.crush, 0, floor.direction);
-
-        if (!eval(LevelTime() & 7)) {
-            StartSound(floor.sector.soundorg, sounds.sfxenum_t.sfx_stnmov);
+    fun MoveFloor(floor: floormove_t) {
+        val res = MovePlane(floor.sector!!, floor.speed, floor.floordestheight, floor.crush, 0, floor.direction)
+        if (!C2JUtils.eval(LevelTime() and 7)) {
+            StartSound(floor.sector!!.soundorg, sfxenum_t.sfx_stnmov)
         }
-
         if (res == result_e.pastdest) {
-            floor.sector.specialdata = null;
-
+            floor.sector!!.specialdata = null
             if (floor.direction == 1) {
-                switch (floor.type) {
-                    case donutRaise:
-                        floor.sector.special = (short) floor.newspecial;
-                        floor.sector.floorpic = floor.texture;
-                    default:
-                        break;
+                when (floor.type) {
+                    floor_e.donutRaise -> {
+                        floor.sector!!.special = floor.newspecial.toShort()
+                        floor.sector!!.floorpic = floor.texture
+                    }
+                    else -> {}
                 }
             } else if (floor.direction == -1) {
-                switch (floor.type) //TODO: check if a null floor.type is valid or a bug 
-                // MAES: actually, type should always be set to something.
-                // In C, this means "zero" or "null". In Java, we must make sure
-                // it's actually set to something all the time.
-                {
-                    case lowerAndChange:
-                        floor.sector.special = (short) floor.newspecial;
-                        floor.sector.floorpic = floor.texture;
-                    default:
-                    	break;
+                when (floor.type) {
+                    floor_e.lowerAndChange -> {
+                        floor.sector!!.special = floor.newspecial.toShort()
+                        floor.sector!!.floorpic = floor.texture
+                    }
+                    else -> {}
                 }
             }
-
-            RemoveThinker(floor);
-            StartSound(floor.sector.soundorg, sounds.sfxenum_t.sfx_pstop);
+            RemoveThinker(floor)
+            StartSound(floor.sector!!.soundorg, sfxenum_t.sfx_pstop)
         }
     }
 
     //
     // HANDLE FLOOR TYPES
     //
-    @Override
-    default boolean DoFloor(line_t line, floor_e floortype) {
-        int secnum = -1;
-        boolean rtn = false;
-        sector_t sec;
-        floormove_t floor;
-
-        while ((secnum = FindSectorFromLineTag(line, secnum)) >= 0) {
-            sec = levelLoader().sectors[secnum];
+    override fun DoFloor(line: line_t, floortype: floor_e): Boolean {
+        var secnum = -1
+        var rtn = false
+        var sec: sector_t
+        var floor: floormove_t
+        while (FindSectorFromLineTag(line, secnum).also { secnum = it } >= 0) {
+            sec = levelLoader().sectors[secnum]
 
             // ALREADY MOVING?  IF SO, KEEP GOING...
             if (sec.specialdata != null) {
-                continue;
+                continue
             }
 
             // new floor thinker
-            rtn = true;
-            floor = new floormove_t();
-            sec.specialdata = floor;
-            floor.thinkerFunction = ActiveStates.T_MoveFloor;
-            AddThinker(floor);
-            floor.type = floortype;
-            floor.crush = false;
-
-            switch (floortype) {
-                case lowerFloor:
-                    floor.direction = -1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = sec.FindHighestFloorSurrounding();
-                    break;
-
-                case lowerFloorToLowest:
-                    floor.direction = -1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = sec.FindLowestFloorSurrounding();
-                    break;
-
-                case turboLower:
-                    floor.direction = -1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED * 4;
-                    floor.floordestheight = sec.FindHighestFloorSurrounding();
+            rtn = true
+            floor = floormove_t()
+            sec.specialdata = floor
+            floor.thinkerFunction = ActiveStates.T_MoveFloor
+            AddThinker(floor)
+            floor.type = floortype
+            floor.crush = false
+            when (floortype) {
+                floor_e.lowerFloor -> {
+                    floor.direction = -1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = sec.FindHighestFloorSurrounding()
+                }
+                floor_e.lowerFloorToLowest -> {
+                    floor.direction = -1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = sec.FindLowestFloorSurrounding()
+                }
+                floor_e.turboLower -> {
+                    floor.direction = -1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED * 4
+                    floor.floordestheight = sec.FindHighestFloorSurrounding()
                     if (floor.floordestheight != sec.floorheight) {
-                        floor.floordestheight += 8 * FRACUNIT;
+                        floor.floordestheight += 8 * fixed_t.FRACUNIT
                     }
-                    break;
-
-                case raiseFloorCrush:
-                    floor.crush = true;
-                case raiseFloor:
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = sec.FindLowestCeilingSurrounding();
+                }
+                floor_e.raiseFloorCrush -> {
+                    floor.crush = true
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = sec.FindLowestCeilingSurrounding()
                     if (floor.floordestheight > sec.ceilingheight) {
-                        floor.floordestheight = sec.ceilingheight;
+                        floor.floordestheight = sec.ceilingheight
                     }
-                    floor.floordestheight -= (8 * FRACUNIT)
-                        * eval(floortype == floor_e.raiseFloorCrush);
-                    break;
-
-                case raiseFloorTurbo:
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED * 4;
-                    floor.floordestheight = sec.FindNextHighestFloor(sec.floorheight);
-                    break;
-
-                case raiseFloorToNearest:
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = sec.FindNextHighestFloor(sec.floorheight);
-                    break;
-
-                case raiseFloor24:
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = floor.sector.floorheight + 24 * FRACUNIT;
-                    break;
-                case raiseFloor512:
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = floor.sector.floorheight + 512 * FRACUNIT;
-                    break;
-
-                case raiseFloor24AndChange:
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = floor.sector.floorheight + 24 * FRACUNIT;
-                    sec.floorpic = line.frontsector.floorpic;
-                    sec.special = line.frontsector.special;
-                    break;
-
-                case raiseToTexture: {
-                    int minsize = MAXINT;
-                    side_t side;
-
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    for (int i = 0; i < sec.linecount; ++i) {
+                    floor.floordestheight -= (8 * fixed_t.FRACUNIT
+                            * C2JUtils.eval(floortype == floor_e.raiseFloorCrush))
+                }
+                floor_e.raiseFloor -> {
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = sec.FindLowestCeilingSurrounding()
+                    if (floor.floordestheight > sec.ceilingheight) {
+                        floor.floordestheight = sec.ceilingheight
+                    }
+                    floor.floordestheight -= (8 * fixed_t.FRACUNIT
+                            * C2JUtils.eval(floortype == floor_e.raiseFloorCrush))
+                }
+                floor_e.raiseFloorTurbo -> {
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED * 4
+                    floor.floordestheight = sec.FindNextHighestFloor(sec.floorheight)
+                }
+                floor_e.raiseFloorToNearest -> {
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = sec.FindNextHighestFloor(sec.floorheight)
+                }
+                floor_e.raiseFloor24 -> {
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = floor.sector!!.floorheight + 24 * fixed_t.FRACUNIT
+                }
+                floor_e.raiseFloor512 -> {
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = floor.sector!!.floorheight + 512 * fixed_t.FRACUNIT
+                }
+                floor_e.raiseFloor24AndChange -> {
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = floor.sector!!.floorheight + 24 * fixed_t.FRACUNIT
+                    sec.floorpic = line.frontsector!!.floorpic
+                    sec.special = line.frontsector!!.special
+                }
+                floor_e.raiseToTexture -> {
+                    var minsize = Limits.MAXINT
+                    var side: side_t
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    var i = 0
+                    while (i < sec.linecount) {
                         if (twoSided(secnum, i)) {
-                            for (int s = 0; s < 2; ++s) {
-                                side = getSide(secnum, i, s);
+                            var s = 0
+                            while (s < 2) {
+                                side = getSide(secnum, i, s)
                                 if (side.bottomtexture >= 0) {
-                                    if (DOOM().textureManager.getTextureheight(side.bottomtexture) < minsize) {
-                                        minsize = DOOM().textureManager.getTextureheight(side.bottomtexture);
+                                    if (DOOM().textureManager.getTextureheight(side.bottomtexture.toInt()) < minsize) {
+                                        minsize = DOOM().textureManager.getTextureheight(side.bottomtexture.toInt())
                                     }
                                 }
+                                ++s
                             }
                         }
+                        ++i
                     }
-                    floor.floordestheight = floor.sector.floorheight + minsize;
+                    floor.floordestheight = floor.sector!!.floorheight + minsize
                 }
-                break;
-
-                case lowerAndChange:
-                    floor.direction = -1;
-                    floor.sector = sec;
-                    floor.speed = FLOORSPEED;
-                    floor.floordestheight = sec.FindLowestFloorSurrounding();
-                    floor.texture = sec.floorpic;
-
-                    for (int i = 0; i < sec.linecount; i++) {
+                floor_e.lowerAndChange -> {
+                    floor.direction = -1
+                    floor.sector = sec
+                    floor.speed = ActionsFloors.FLOORSPEED
+                    floor.floordestheight = sec.FindLowestFloorSurrounding()
+                    floor.texture = sec.floorpic
+                    var i = 0
+                    while (i < sec.linecount) {
                         if (twoSided(secnum, i)) {
-                            if (getSide(secnum, i, 0).sector.id == secnum) {
-                                sec = getSector(secnum, i, 1);
+                            if (getSide(secnum, i, 0).sector!!.id == secnum) {
+                                sec = getSector(secnum, i, 1)
                                 if (sec.floorheight == floor.floordestheight) {
-                                    floor.texture = sec.floorpic;
-                                    floor.newspecial = sec.special;
-                                    break;
+                                    floor.texture = sec.floorpic
+                                    floor.newspecial = sec.special.toInt()
+                                    break
                                 }
                             } else {
-                                sec = getSector(secnum, i, 0);
+                                sec = getSector(secnum, i, 0)
                                 if (sec.floorheight == floor.floordestheight) {
-                                    floor.texture = sec.floorpic;
-                                    floor.newspecial = sec.special;
-                                    break;
+                                    floor.texture = sec.floorpic
+                                    floor.newspecial = sec.special.toInt()
+                                    break
                                 }
                             }
                         }
+                        i++
                     }
-                default:
-                	break;
+                }
+                else -> {}
             }
         }
-        return rtn;
+        return rtn
     }
 
     /**
      * BUILD A STAIRCASE!
      */
-    @Override
-    default boolean BuildStairs(line_t line, stair_e type) {
-        int secnum;
-        int height;
-        int i;
-        int newsecnum;
-        int texture;
-        boolean ok;
-        boolean rtn;
-
-        sector_t sec;
-        sector_t tsec;
-
-        floormove_t floor;
-
-        int stairsize = 0;
-        int speed = 0; // shut up compiler
-
-        secnum = -1;
-        rtn = false;
-        while ((secnum = FindSectorFromLineTag(line, secnum)) >= 0) {
-            sec = levelLoader().sectors[secnum];
+    override fun BuildStairs(line: line_t?, type: stair_e?): Boolean {
+        var secnum: Int
+        var height: Int
+        var i: Int
+        var newsecnum: Int
+        var texture: Int
+        var ok: Boolean
+        var rtn: Boolean
+        var sec: sector_t
+        var tsec: sector_t
+        var floor: floormove_t
+        var stairsize = 0
+        var speed = 0 // shut up compiler
+        secnum = -1
+        rtn = false
+        while (FindSectorFromLineTag(line!!, secnum).also { secnum = it } >= 0) {
+            sec = levelLoader().sectors[secnum]
 
             // ALREADY MOVING?  IF SO, KEEP GOING...
             if (sec.specialdata != null) {
-                continue;
+                continue
             }
 
             // new floor thinker
-            rtn = true;
-            floor = new floormove_t();
-            sec.specialdata = floor;
-            floor.thinkerFunction = ActiveStates.T_MoveFloor;
-            AddThinker(floor);
-            floor.direction = 1;
-            floor.sector = sec;
-            switch (type) {
-                case build8:
-                    speed = FLOORSPEED / 4;
-                    stairsize = 8 * FRACUNIT;
-                    break;
-                case turbo16:
-                    speed = FLOORSPEED * 4;
-                    stairsize = 16 * FRACUNIT;
-                    break;
+            rtn = true
+            floor = floormove_t()
+            sec.specialdata = floor
+            floor.thinkerFunction = ActiveStates.T_MoveFloor
+            AddThinker(floor)
+            floor.direction = 1
+            floor.sector = sec
+            when (type) {
+                stair_e.build8 -> {
+                    speed = ActionsFloors.FLOORSPEED / 4
+                    stairsize = 8 * fixed_t.FRACUNIT
+                }
+                stair_e.turbo16 -> {
+                    speed = ActionsFloors.FLOORSPEED * 4
+                    stairsize = 16 * fixed_t.FRACUNIT
+                }
             }
-            floor.speed = speed;
-            height = sec.floorheight + stairsize;
-            floor.floordestheight = height;
-
-            texture = sec.floorpic;
+            floor.speed = speed
+            height = sec.floorheight + stairsize
+            floor.floordestheight = height
+            texture = sec.floorpic.toInt()
 
             // Find next sector to raise
             // 1.   Find 2-sided line with same sector side[0]
             // 2.   Other side is the next sector to raise
             do {
-                ok = false;
-                for (i = 0; i < sec.linecount; i++) {
-                    if (!eval((sec.lines[i]).flags & ML_TWOSIDED)) {
-                        continue;
+                ok = false
+                i = 0
+                while (i < sec.linecount) {
+                    if (!C2JUtils.eval(sec.lines!![i]!!.flags.toInt() and line_t.ML_TWOSIDED)) {
+                        i++
+                        continue
                     }
-
-                    tsec = (sec.lines[i]).frontsector;
-                    newsecnum = tsec.id;
-
+                    tsec = sec.lines!![i]!!.frontsector!!
+                    newsecnum = tsec.id
                     if (secnum != newsecnum) {
-                        continue;
+                        i++
+                        continue
                     }
-
-                    tsec = (sec.lines[i]).backsector;
-                    newsecnum = tsec.id;
-
-                    if (tsec.floorpic != texture) {
-                        continue;
+                    tsec = sec.lines!![i]!!.backsector!!
+                    newsecnum = tsec.id
+                    if (tsec.floorpic.toInt() != texture) {
+                        i++
+                        continue
                     }
-
-                    height += stairsize;
-
+                    height += stairsize
                     if (tsec.specialdata != null) {
-                        continue;
+                        i++
+                        continue
                     }
-
-                    sec = tsec;
-                    secnum = newsecnum;
-                    floor = new floormove_t();
-                    sec.specialdata = floor;
-                    floor.thinkerFunction = ActiveStates.T_MoveFloor;
-                    AddThinker(floor);
-                    floor.direction = 1;
-                    floor.sector = sec;
-                    floor.speed = speed;
-                    floor.floordestheight = height;
-                    ok = true;
-                    break;
+                    sec = tsec
+                    secnum = newsecnum
+                    floor = floormove_t()
+                    sec.specialdata = floor
+                    floor.thinkerFunction = ActiveStates.T_MoveFloor
+                    AddThinker(floor)
+                    floor.direction = 1
+                    floor.sector = sec
+                    floor.speed = speed
+                    floor.floordestheight = height
+                    ok = true
+                    break
+                    i++
                 }
-            } while (ok);
+            } while (ok)
         }
-        return rtn;
+        return rtn
     }
 
     /**
      * Move a plat up and down
      */
-    default void PlatRaise(plat_t plat) {
-        result_e res;
-
-        switch (plat.status) {
-            case up:
-                res = MovePlane(plat.sector, plat.speed, plat.high, plat.crush, 0, 1);
-
+    fun PlatRaise(plat: plat_t) {
+        val res: result_e
+        when (plat.status) {
+            plat_e.up -> {
+                res = MovePlane(plat.sector!!, plat.speed, plat.high, plat.crush, 0, 1)
                 if (plat.type == plattype_e.raiseAndChange
-                    || plat.type == plattype_e.raiseToNearestAndChange) {
-                    if (!eval(LevelTime() & 7)) {
-                        StartSound(plat.sector.soundorg, sounds.sfxenum_t.sfx_stnmov);
+                    || plat.type == plattype_e.raiseToNearestAndChange
+                ) {
+                    if (!C2JUtils.eval(LevelTime() and 7)) {
+                        StartSound(plat.sector!!.soundorg, sfxenum_t.sfx_stnmov)
                     }
                 }
-
-                if (res == result_e.crushed && (!plat.crush)) {
-                    plat.count = plat.wait;
-                    plat.status = plat_e.down;
-                    StartSound(plat.sector.soundorg, sounds.sfxenum_t.sfx_pstart);
+                if (res == result_e.crushed && !plat.crush) {
+                    plat.count = plat.wait
+                    plat.status = plat_e.down
+                    StartSound(plat.sector!!.soundorg, sfxenum_t.sfx_pstart)
                 } else {
                     if (res == result_e.pastdest) {
-                        plat.count = plat.wait;
-                        plat.status = plat_e.waiting;
-                        StartSound(plat.sector.soundorg, sounds.sfxenum_t.sfx_pstop);
-
-                        switch (plat.type) {
-                            case blazeDWUS:
-                            case downWaitUpStay:
-                                RemoveActivePlat(plat);
-                                break;
-
-                            case raiseAndChange:
-                            case raiseToNearestAndChange:
-                                RemoveActivePlat(plat);
-                                break;
-
-                            default:
-                                break;
+                        plat.count = plat.wait
+                        plat.status = plat_e.waiting
+                        StartSound(plat.sector!!.soundorg, sfxenum_t.sfx_pstop)
+                        when (plat.type) {
+                            plattype_e.blazeDWUS, plattype_e.downWaitUpStay -> RemoveActivePlat(plat)
+                            plattype_e.raiseAndChange, plattype_e.raiseToNearestAndChange -> RemoveActivePlat(plat)
+                            else -> {}
                         }
                     }
                 }
-                break;
-
-            case down:
-                res = MovePlane(plat.sector, plat.speed, plat.low, false, 0, -1);
-
+            }
+            plat_e.down -> {
+                res = MovePlane(plat.sector!!, plat.speed, plat.low, false, 0, -1)
                 if (res == result_e.pastdest) {
-                    plat.count = plat.wait;
-                    plat.status = plat_e.waiting;
-                    StartSound(plat.sector.soundorg, sounds.sfxenum_t.sfx_pstop);
+                    plat.count = plat.wait
+                    plat.status = plat_e.waiting
+                    StartSound(plat.sector!!.soundorg, sfxenum_t.sfx_pstop)
                 }
-                break;
-
-            case waiting:
-                if (--plat.count == 0) {
-                    if (plat.sector.floorheight == plat.low) {
-                        plat.status = plat_e.up;
-                    } else {
-                        plat.status = plat_e.down;
-                    }
-                    StartSound(plat.sector.soundorg, sounds.sfxenum_t.sfx_pstart);
+            }
+            plat_e.waiting -> if (--plat.count == 0) {
+                if (plat.sector!!.floorheight == plat.low) {
+                    plat.status = plat_e.up
+                } else {
+                    plat.status = plat_e.down
                 }
-            case in_stasis:
-                break;
+                StartSound(plat.sector!!.soundorg, sfxenum_t.sfx_pstart)
+            }
+            plat_e.in_stasis -> {}
         }
+    }
+
+    companion object {
+        //
+        // FLOORS
+        //
+        val FLOORSPEED: Int = fixed_t.MAPFRACUNIT
     }
 }

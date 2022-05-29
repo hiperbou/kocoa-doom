@@ -1,18 +1,13 @@
-package p;
+package p
+
 
 //
 // P_DOORS
 //
+enum class vldoor_e {
+    normal, close30ThenOpen, close, open, raiseIn5Mins, blazeRaise, blazeOpen, blazeClose;
 
-public enum vldoor_e {
-     normal,
-     close30ThenOpen,
-     close,
-     open,
-     raiseIn5Mins,
-     blazeRaise,
-     blazeOpen,
-     blazeClose;
-     
-     public static final int VALUES=vldoor_e.values().length;
- }
+    companion object {
+        val VALUES = vldoor_e.values().size
+    }
+}

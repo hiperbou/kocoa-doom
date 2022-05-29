@@ -1,111 +1,105 @@
-package utils;
+package utils
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
- 
+
+import java.util.*
+import java.util.concurrent.Executor
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+
 /**
  * An executor that make sure tasks submitted with the same key
  * will be executed in the same order as task submission
- * (order of calling the {@link #submit(Object, Runnable)} method).
+ * (order of calling the [.submit] method).
  *
- * Tasks submitted will be run in the given {@link Executor}.
- * There is no restriction on how many threads in the given {@link Executor}
+ * Tasks submitted will be run in the given [Executor].
+ * There is no restriction on how many threads in the given [Executor]
  * needs to have (it can be single thread executor as well as a cached thread pool).
  *
- * If there are more than one thread in the given {@link Executor}, tasks
+ * If there are more than one thread in the given [Executor], tasks
  * submitted with different keys may be executed in parallel, but never
  * for tasks submitted with the same key.
- * 
+ *
  * * @param <K> type of keys.
- */
-public class OrderedExecutor<K> {
- 
-    private final Executor executor;
-    private final Map<K, Task> tasks;
- 
+</K> */
+class OrderedExecutor<K>(private val executor: Executor) {
+    private val tasks: MutableMap<K, Task?>
+
     /**
-     * Constructs a {@code OrderedExecutor}.
+     * Constructs a `OrderedExecutor`.
      *
      * @param executor tasks will be run in this executor.
      */
-    public OrderedExecutor(Executor executor) {
-        this.executor = executor;
-        this.tasks = new HashMap<K, Task>();
+    init {
+        tasks = HashMap<K, Task?>()
     }
- 
+
     /**
      * Adds a new task to run for the given key.
      *
      * @param key the key for applying tasks ordering.
      * @param runnable the task to run.
      */
-    public synchronized void submit(K key, Runnable runnable) {
-        Task task = tasks.get(key);
+    @Synchronized
+    fun submit(key: K, runnable: Runnable) {
+        var task: Task? = tasks[key]
         if (task == null) {
-            task = new Task();
-            tasks.put(key, task);
+            task = Task()
+            tasks[key] = task
         }
-        task.add(runnable);
+        task.add(runnable)
     }
- 
+
     /**
      * Private inner class for running tasks for each key.
      * Each key submitted will have one instance of this class.
      */
-    private class Task implements Runnable {
- 
-        private final Lock lock;
-        private final Queue<Runnable> queue;
- 
-        Task() {
-            this.lock = new ReentrantLock();
-            this.queue = new LinkedList<Runnable>();
+    private inner class Task internal constructor() : Runnable {
+        private val lock: Lock
+        private val queue: Queue<Runnable>
+
+        init {
+            lock = ReentrantLock()
+            queue = LinkedList()
         }
- 
-        public void add(Runnable runnable) {
-            boolean runTask;
-            lock.lock();
+
+        fun add(runnable: Runnable) {
+            val runTask: Boolean
+            lock.lock()
             try {
                 // Run only if no job is running.
-                runTask = queue.isEmpty();
-                queue.offer(runnable);
+                runTask = queue.isEmpty()
+                queue.offer(runnable)
             } finally {
-                lock.unlock();
+                lock.unlock()
             }
             if (runTask) {
-                executor.execute(this);
+                executor.execute(this)
             }
         }
- 
-        @Override
-        public void run() {
+
+        override fun run() {
             // Pick a task to run.
-            Runnable runnable;
-            lock.lock();
-            try {
-                runnable = queue.peek();
+            val runnable: Runnable
+            lock.lock()
+            runnable = try {
+                queue.peek()
             } finally {
-                lock.unlock();
+                lock.unlock()
             }
             try {
-                runnable.run();
-            } catch (Exception ex) {
-                ex.printStackTrace();
+                runnable.run()
+            } catch (ex: Exception) {
+                ex.printStackTrace()
             }
             // Check to see if there are queued task, if yes, submit for execution.
-            lock.lock();
+            lock.lock()
             try {
-                queue.poll();
+                queue.poll()
                 if (!queue.isEmpty()) {
-                    executor.execute(this);
+                    executor.execute(this)
                 }
             } finally {
-                lock.unlock();
+                lock.unlock()
             }
         }
     }

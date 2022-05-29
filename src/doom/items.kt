@@ -1,10 +1,15 @@
-package doom;
+package doom
+
+import defines.ammotype_t
+import defines.statenum_t
+
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: items.java,v 1.3 2010/12/20 17:15:08 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -40,100 +45,78 @@ package doom;
 // DESCRIPTION:
 //
 //-----------------------------------------------------------------------------
-
-import defines.*;
-
-public class items{
-
-public static weaponinfo_t[]	weaponinfo=
-{
-    new weaponinfo_t(
-	// fist
-	ammotype_t.am_noammo,
-	statenum_t.S_PUNCHUP,
-	statenum_t.S_PUNCHDOWN,
-	statenum_t.S_PUNCH,
-	statenum_t.S_PUNCH1,
-	statenum_t.S_NULL
-    ),	
-    new weaponinfo_t(
-	// pistol
-    ammotype_t.am_clip,
-	statenum_t.S_PISTOLUP,
-	statenum_t.S_PISTOLDOWN,
-	statenum_t.S_PISTOL,
-	statenum_t.S_PISTOL1,
-	statenum_t.S_PISTOLFLASH
-	), new weaponinfo_t(
-	// shotgun
-    ammotype_t.am_shell,
-    statenum_t.S_SGUNUP,
-    statenum_t.S_SGUNDOWN,
-    statenum_t.S_SGUN,
-    statenum_t.S_SGUN1,
-    statenum_t.S_SGUNFLASH1
-    ),
-    new weaponinfo_t(
-	// chaingun
-    ammotype_t.am_clip,
-	statenum_t.S_CHAINUP,
-	statenum_t.S_CHAINDOWN,
-	statenum_t.S_CHAIN,
-	statenum_t.S_CHAIN1,
-	statenum_t.S_CHAINFLASH1
-    ),
-    new weaponinfo_t(
-	// missile launcher
-        ammotype_t.am_misl,
-	statenum_t.S_MISSILEUP,
-	statenum_t.S_MISSILEDOWN,
-	statenum_t.S_MISSILE,
-	statenum_t.S_MISSILE1,
-	statenum_t.S_MISSILEFLASH1
-    ),
-    new weaponinfo_t(
-	// plasma rifle
-        ammotype_t.am_cell,
-	statenum_t.S_PLASMAUP,
-	statenum_t.S_PLASMADOWN,
-	statenum_t.S_PLASMA,
-	statenum_t.S_PLASMA1,
-	statenum_t.S_PLASMAFLASH1
-    ),
-    new weaponinfo_t(
-	// bfg 9000
-        ammotype_t.am_cell,
-	statenum_t.S_BFGUP,
-	statenum_t.S_BFGDOWN,
-	statenum_t.S_BFG,
-	statenum_t.S_BFG1,
-	statenum_t.S_BFGFLASH1
-    ),
-    new weaponinfo_t(
-	// chainsaw
-        ammotype_t.am_noammo,
-	statenum_t.S_SAWUP,
-	statenum_t.S_SAWDOWN,
-	statenum_t.S_SAW,
-	statenum_t.S_SAW1,
-	statenum_t.S_NULL
-    ),
-    new weaponinfo_t(
-	// super shotgun
-    ammotype_t.am_shell,
-    statenum_t.S_DSGUNUP,
-	statenum_t.S_DSGUNDOWN,
-	statenum_t.S_DSGUN,
-	statenum_t.S_DSGUN1,
-	statenum_t.S_DSGUNFLASH1
+object items {
+    var weaponinfo = arrayOf(
+        weaponinfo_t( // fist
+            ammotype_t.am_noammo,
+            statenum_t.S_PUNCHUP,
+            statenum_t.S_PUNCHDOWN,
+            statenum_t.S_PUNCH,
+            statenum_t.S_PUNCH1,
+            statenum_t.S_NULL
+        ),
+        weaponinfo_t( // pistol
+            ammotype_t.am_clip,
+            statenum_t.S_PISTOLUP,
+            statenum_t.S_PISTOLDOWN,
+            statenum_t.S_PISTOL,
+            statenum_t.S_PISTOL1,
+            statenum_t.S_PISTOLFLASH
+        ), weaponinfo_t( // shotgun
+            ammotype_t.am_shell,
+            statenum_t.S_SGUNUP,
+            statenum_t.S_SGUNDOWN,
+            statenum_t.S_SGUN,
+            statenum_t.S_SGUN1,
+            statenum_t.S_SGUNFLASH1
+        ),
+        weaponinfo_t( // chaingun
+            ammotype_t.am_clip,
+            statenum_t.S_CHAINUP,
+            statenum_t.S_CHAINDOWN,
+            statenum_t.S_CHAIN,
+            statenum_t.S_CHAIN1,
+            statenum_t.S_CHAINFLASH1
+        ),
+        weaponinfo_t( // missile launcher
+            ammotype_t.am_misl,
+            statenum_t.S_MISSILEUP,
+            statenum_t.S_MISSILEDOWN,
+            statenum_t.S_MISSILE,
+            statenum_t.S_MISSILE1,
+            statenum_t.S_MISSILEFLASH1
+        ),
+        weaponinfo_t( // plasma rifle
+            ammotype_t.am_cell,
+            statenum_t.S_PLASMAUP,
+            statenum_t.S_PLASMADOWN,
+            statenum_t.S_PLASMA,
+            statenum_t.S_PLASMA1,
+            statenum_t.S_PLASMAFLASH1
+        ),
+        weaponinfo_t( // bfg 9000
+            ammotype_t.am_cell,
+            statenum_t.S_BFGUP,
+            statenum_t.S_BFGDOWN,
+            statenum_t.S_BFG,
+            statenum_t.S_BFG1,
+            statenum_t.S_BFGFLASH1
+        ),
+        weaponinfo_t( // chainsaw
+            ammotype_t.am_noammo,
+            statenum_t.S_SAWUP,
+            statenum_t.S_SAWDOWN,
+            statenum_t.S_SAW,
+            statenum_t.S_SAW1,
+            statenum_t.S_NULL
+        ),
+        weaponinfo_t( // super shotgun
+            ammotype_t.am_shell,
+            statenum_t.S_DSGUNUP,
+            statenum_t.S_DSGUNDOWN,
+            statenum_t.S_DSGUN,
+            statenum_t.S_DSGUN1,
+            statenum_t.S_DSGUNFLASH1
+        )
     )
-    };
 }
-
-
-
-
-
-
-
-

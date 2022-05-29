@@ -1,79 +1,75 @@
-package w;
+package w
 
-public class name8 {
-    private byte[]  s;
-    static byte[] ss=new byte[9];
-    public int[]    x;
-    public long hash;
-    
-    public name8(String name){
-        s=new byte[9];
-        x=new int[2];
+class name8(name: String) {
+    private val s: ByteArray
+    var x: IntArray
+    var hash: Long
+
+    init {
+        s = ByteArray(9)
+        x = IntArray(2)
         // in case the name was a full 8 chars
-        this.s[8] = 0;
-        
-        byte[] tmp=name.getBytes();
-        System.arraycopy(tmp, 0, this.s, 0, Math.min(8,tmp.length));
-        this.x[0]=byteArrayToInt(s,0);
-        this.x[1]=byteArrayToInt(s,4);
-        this.hash=byteArrayToLong(s,0);
+        s[8] = 0
+        val tmp = name.toByteArray()
+        System.arraycopy(tmp, 0, s, 0, Math.min(8, tmp.size))
+        x[0] = name8.byteArrayToInt(s, 0)
+        x[1] = name8.byteArrayToInt(s, 4)
+        hash = name8.byteArrayToLong(s, 0)
     }
-    
-    /** Returns a 64-bit number that maps directly to the ASCII
-     *  8-bit representation of a fixed-length 8 char string.
-     *  It's for all effects and purposes a unique 64-bit hash, and can be used to
-     *  speed up comparisons.
-     *  
-     * @param name
-     * @return
-     */
-    
-    public static long getLongHash(String name){
-        // in case the name was a full 8 chars
-        for (int i=0;i<ss.length;i++){
-            ss[i]=0;
+
+    companion object {
+        var ss = ByteArray(9)
+
+        /** Returns a 64-bit number that maps directly to the ASCII
+         * 8-bit representation of a fixed-length 8 char string.
+         * It's for all effects and purposes a unique 64-bit hash, and can be used to
+         * speed up comparisons.
+         *
+         * @param name
+         * @return
+         */
+        fun getLongHash(name: String): Long {
+            // in case the name was a full 8 chars
+            for (i in name8.ss.indices) {
+                name8.ss[i] = 0
+            }
+            val tmp = name.toByteArray()
+            // We must effectively limit hashes to 31 bits to be able to use them.
+            System.arraycopy(tmp, 0, name8.ss, 0, Math.min(8, tmp.size))
+            return name8.byteArrayToLong(name8.ss, 0)
         }
-        
-        byte[] tmp=name.getBytes();
-        // We must effectively limit hashes to 31 bits to be able to use them.
-        System.arraycopy(tmp, 0, ss, 0, Math.min(8,tmp.length));
-        return byteArrayToLong(ss,0);
-    }
-    
-    public static int getIntName(String name){
-        // in case the name was a full 8 chars
-        for (int i=0;i<ss.length;i++){
-            ss[i]=0;
+
+        fun getIntName(name: String): Int {
+            // in case the name was a full 8 chars
+            for (i in name8.ss.indices) {
+                name8.ss[i] = 0
+            }
+            val tmp = name.toByteArray()
+            System.arraycopy(tmp, 0, name8.ss, 0, Math.min(4, tmp.size))
+            return name8.byteArrayToInt(name8.ss, 0)
         }
-        
-        byte[] tmp=name.getBytes();
-        System.arraycopy(tmp, 0, ss, 0, Math.min(4,tmp.length));
-        return byteArrayToInt(ss,0);
+
+        fun byteArrayToInt(src: ByteArray, ofs: Int): Int {
+            return src[ofs].toInt() shl 24 or (src[ofs + 1].toInt() shl 16) or (src[ofs + 2].toInt() shl 8) or src[ofs + 3].toInt()
+        }
+
+        fun byteArrayToLong(src: ByteArray?, ofs: Int): Long {
+            return name8.byteArrayToInt(src!!, 0).toLong() shl 32 or name8.byteArrayToInt(src, 4)
+                .toLong()
+        }
+
+        /** Probably has horrible performance...
+         *
+         * @param src
+         * @param ofs
+         * @return
+         */
+        fun stringToInt(src: String, ofs: Int): Int {
+            val s = ByteArray(9)
+            for (i in 0 until src.length) {
+                s[i] = src[i].code.toByte()
+            }
+            return s[ofs].toInt() shl 24 or (s[ofs + 1].toInt() shl 16) or (s[ofs + 2].toInt() shl 8) or s[ofs + 3].toInt()
+        }
     }
-    
-    public static int byteArrayToInt(byte[] src, int ofs){
-        return (src[ofs]<<24)|(src[ofs+1]<<16)|(src[ofs+2]<<8)|src[ofs+3];
-    }
-    
-    public static long byteArrayToLong(byte[] src, int ofs){
-        return (((long)byteArrayToInt(src, 0)<<32)|byteArrayToInt(src, 4));
-    }
-    
-    
-    /** Probably has horrible performance...
-     * 
-     * @param src
-     * @param ofs
-     * @return
-     */
-    
-    public static int stringToInt(String src, int ofs){
-         byte[]  s=new byte[9];
-         for (int i=0;i<src.length();i++){
-             s[i]=(byte) src.charAt(i);
-         }
-        
-            return (s[ofs]<<24)|(s[ofs+1]<<16)|(s[ofs+2]<<8)|s[ofs+3];
-    }
-        
-    }
+}

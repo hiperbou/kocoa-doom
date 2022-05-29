@@ -1,35 +1,39 @@
-package data;
+package data
 
-import static data.Defines.TIC_MUL;
-import defines.statenum_t;
-import p.ActiveStates;
-import static p.ActiveStates.NOP;
+import defines.statenum_t
+//import w.statenum_t
+import p.ActiveStates
 
-public class state_t {
 
-    public state_t() {
-
+class state_t {
+    constructor() {}
+    constructor(
+        sprite: spritenum_t?,
+        frame: Int,
+        tics: Int,
+        nextstate: statenum_t?,
+        misc1: Int,
+        misc2: Int,
+        _action: ActiveStates/*<ParamClassDani>*/ = ActiveStates.NOP //as ActiveStates<ParamClassDani>
+    ) {
+        this.sprite = sprite
+        this.frame = frame
+        this.tics = tics * Defines.TIC_MUL
+        this.action = _action
+        this.nextstate = nextstate
+        this.misc1 = misc1
+        this.misc2 = misc2
     }
 
-    public state_t(spritenum_t sprite, int frame, int tics, ActiveStates action, statenum_t nextstate, int misc1, int misc2) {
-        this.sprite = sprite;
-        this.frame = frame;
-        this.tics = tics * TIC_MUL;
-        this.action = action == null ? NOP : action;
-        this.nextstate = nextstate;
-        this.misc1 = misc1;
-        this.misc2 = misc2;
-    }
+    var sprite: spritenum_t? = null
 
-    public spritenum_t sprite;
     /**
      * The frame should indicate which one of the frames available in the
      * available spritenum should be used. This can also be flagged with
      * 0x8000 indicating bright sprites.
      */
-
-    public int frame;
-    public int tics;
+    var frame = 0
+    var tics = 0
     //TODO: proper implementation of (*action)
     // MAES: was actionp_t... which is typedeffed to ActionFunction anyway,
     // and this is the only place it's invoked explicitly.
@@ -42,32 +46,27 @@ public class state_t {
      * This a
      *
      */
-    public ActiveStates action;
+    var action: ActiveStates/*<ParamClassDani>*/? = null
+    var nextstate: statenum_t? = null
+    var misc1 = 0
+    var misc2 = 0
 
-    public statenum_t nextstate;
-    public int misc1, misc2;
-    
     /**
      * relative index in state array. Needed sometimes.
      */
-    public int id;
-
-    @Override
-    public String toString() {
-        sb.setLength(0);
-        sb.append(this.getClass().getName());
-        sb.append(" sprite ");
-        sb.append(this.sprite.name());
-        sb.append(" frame ");
-        sb.append(this.frame);
-
-        return sb.toString();
-
+    var id = 0
+    override fun toString(): String {
+        state_t.sb.setLength(0)
+        state_t.sb.append(this.javaClass.name)
+        state_t.sb.append(" sprite ")
+        state_t.sb.append(sprite!!.name)
+        state_t.sb.append(" frame ")
+        state_t.sb.append(frame)
+        return state_t.sb.toString()
     }
 
-    protected static StringBuilder sb = new StringBuilder();
-
-    /*@Override
+    companion object {
+        protected var sb = StringBuilder() /*@Override
     public void read(DoomFile f) throws IOException {
         this.sprite = spritenum_t.values()[f.readLEInt()];
         this.frame = f.readLEInt();
@@ -77,4 +76,5 @@ public class state_t {
         this.misc1 = f.readInt();
         this.misc2 = f.readInt();
     } */
+    }
 }

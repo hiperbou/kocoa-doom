@@ -1,49 +1,41 @@
-package w;
+package w
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.IOException
 
-public class wadheader_t implements IReadableDoomObject, IWritableDoomObject {
-    public String type;
-    public int numentries;
-    public int tablepos;
-    
-    public boolean big_endian=false;
-    
-    public void read(DataInputStream f) throws IOException{
-
-        type=DoomIO.readNullTerminatedString(f,4);
-        
-        if (!big_endian){
-        numentries=(int) DoomIO.readUnsignedLEInt(f);
-        tablepos=(int) DoomIO.readUnsignedLEInt(f);
-
+class wadheader_t : IReadableDoomObject, IWritableDoomObject {
+    var type: String? = null
+    var numentries = 0
+    var tablepos = 0
+    var big_endian = false
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
+        type = DoomIO.readNullTerminatedString(f, 4)
+        if (!big_endian) {
+            numentries = DoomIO.readUnsignedLEInt(f).toInt()
+            tablepos = DoomIO.readUnsignedLEInt(f).toInt()
         } else {
-            numentries=f.readInt();
-            tablepos=f.readInt();
+            numentries = f.readInt()
+            tablepos = f.readInt()
         }
-        
     }
 
-    public static int sizeof(){
-        return 16;
-    }
-
-    @Override
-    public void write(DataOutputStream dos)
-            throws IOException {
-        DoomIO.writeString(dos, type, 4);
-        
-        if (!big_endian){
-            DoomIO.writeLEInt(dos, (int) numentries);
-            DoomIO.writeLEInt(dos, (int) tablepos);
+    @Throws(IOException::class)
+    override fun write(dos: DataOutputStream) {
+        DoomIO.writeString(dos, type, 4)
+        if (!big_endian) {
+            DoomIO.writeLEInt(dos, numentries)
+            DoomIO.writeLEInt(dos, tablepos)
         } else {
-                dos.writeInt((int) numentries);
-                dos.writeInt((int) tablepos);
+            dos.writeInt(numentries)
+            dos.writeInt(tablepos)
         }
-        
-        
     }
 
+    companion object {
+        fun sizeof(): Int {
+            return 16
+        }
+    }
 }

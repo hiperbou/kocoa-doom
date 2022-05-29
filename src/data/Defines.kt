@@ -1,22 +1,20 @@
-package data;
+package data
+
+
+import defines.ammotype_t
+import defines.card_t
+import doom.weapontype_t
+import g.Signals.ScanCode
+import m.fixed_t
 
 //import m.define;
-import static data.Limits.MAXINT;
-import static data.Limits.MININT;
-import defines.ammotype_t;
-import defines.card_t;
-import doom.weapontype_t;
-import g.Signals;
-import static m.fixed_t.FRACBITS;
-import static m.fixed_t.FRACUNIT;
-import static m.fixed_t.MAPFRACUNIT;
-
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id: Defines.java,v 1.48 2012/09/24 17:16:22 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -33,290 +31,247 @@ import static m.fixed_t.MAPFRACUNIT;
 //   key definitions, lots of other stuff.
 //
 //-----------------------------------------------------------------------------
-
 //#ifndef __DOOMDEF__
 //#define __DOOMDEF__
-
 //#include <stdio.h>
 //#include <string.h>
-
 //
 // Global parameters/defines.
 //
 // DOOM version
-public final class Defines{
-    
-    /** Seems to be 109 for shareware 1.9, wtf is this*/
-public static final int VERSION =  109 ;
+object Defines {
+    /** Seems to be 109 for shareware 1.9, wtf is this */
+    const val VERSION = 109
+    const val JAVARANDOM_MASK = 0x80
 
-public static final int JAVARANDOM_MASK = 0x80;
+    /** Some parts of the code may actually be better used as if in a UNIX environment  */
+    const val NORMALUNIX = false
 
-/** Some parts of the code may actually be better used as if in a UNIX environment */
+    /** If rangecheck is undefined,  ost parameter validation debugging code will not be compiled  */
+    const val RANGECHECK = false
 
-public static final boolean NORMALUNIX =false;
+    // Do or do not use external soundserver.
+    // The sndserver binary to be run separately
+    //  has been introduced by Dave Taylor.
+    // The integrated sound support is experimental,
+    //  and unfinished. Default is synchronous.
+    // Experimental asynchronous timer based is
+    //  handled by SNDINTR. 
+    //#define SNDSERV  1
+    //#define SNDINTR  1
+    // Defines suck. C sucks.
+    // C++ might sucks for OOP, but it sure is a better C.
+    // So there.
+    // MAES: moved static defines out of here and into VideoScaleInfo.
+    // State updates, number of tics / second.
+    const val BASETICRATE = 35
+    const val TIC_MUL = 1
+    const val TICRATE = Defines.BASETICRATE * Defines.TIC_MUL
 
+    //
+    // Difficulty/skill settings/filters.
+    //
+    // Skill flags.
+    var MTF_EASY = 1
+    var MTF_NORMAL = 2
+    var MTF_HARD = 4
 
-/** If rangecheck is undefined,  ost parameter validation debugging code will not be compiled */
-public static final boolean RANGECHECK=false;
+    // Deaf monsters/do not react to sound.
+    var MTF_AMBUSH = 8
 
-// Do or do not use external soundserver.
-// The sndserver binary to be run separately
-//  has been introduced by Dave Taylor.
-// The integrated sound support is experimental,
-//  and unfinished. Default is synchronous.
-// Experimental asynchronous timer based is
-//  handled by SNDINTR. 
-//#define SNDSERV  1
-//#define SNDINTR  1
+    //Maes: this makes it a bit less retarded.
+    val NUMCARDS = card_t.NUMCARDS.ordinal
 
-// Defines suck. C sucks.
-// C++ might sucks for OOP, but it sure is a better C.
-// So there.
+    //Maes: this makes it a bit less retarded.
+    val NUMWEAPONS = weapontype_t.NUMWEAPONS.ordinal
 
-// MAES: moved static defines out of here and into VideoScaleInfo.
+    //Maes: this makes it a bit less retarded.
+    val NUMAMMO = ammotype_t.NUMAMMO.ordinal
 
-// State updates, number of tics / second.
-public static final int BASETICRATE = 35;
-public static final int TIC_MUL = 1;
-public static final int TICRATE = BASETICRATE*TIC_MUL;
+    // Power up artifacts.
+    const val pw_invulnerability = 0
+    const val pw_strength = 1
+    const val pw_invisibility = 2
+    const val pw_ironfeet = 3
+    const val pw_allmap = 4
+    const val pw_infrared = 5
+    const val NUMPOWERS = 6
 
-//
-// Difficulty/skill settings/filters.
-//
+    /** Power up durations,
+     * how many seconds till expiration,
+     * assuming TICRATE is 35 ticks/second.
+     */
+    const val INVULNTICS = 30 * Defines.TICRATE
+    const val INVISTICS = 60 * Defines.TICRATE
+    const val INFRATICS = 120 * Defines.TICRATE
+    const val IRONTICS = 60 * Defines.TICRATE
 
-// Skill flags.
-public static int MTF_EASY =       1;
-public static int MTF_NORMAL =     2;
-public static int MTF_HARD =       4;
+    // Center command from Heretic
+    const val TOCENTER = -8
 
-// Deaf monsters/do not react to sound.
-public static int MTF_AMBUSH =8;
+    // from r_defs.h:
+    //Silhouette, needed for clipping Segs (mainly)
+    //and sprites representing things.
+    const val SIL_NONE = 0
+    const val SIL_BOTTOM = 1
+    const val SIL_TOP = 2
+    const val SIL_BOTH = 3
 
-//Maes: this makes it a bit less retarded.
-public static final int NUMCARDS=card_t.NUMCARDS.ordinal();
+    //SKY, store the number for name.
+    const val SKYFLATNAME = "F_SKY1"
 
+    // The sky map is 256*128*4 maps.
+    const val ANGLETOSKYSHIFT = 22
 
-//Maes: this makes it a bit less retarded.
-public static final int NUMWEAPONS=weapontype_t.NUMWEAPONS.ordinal();
+    // From r_draw.c
+    // status bar height at bottom of screen
+    const val SBARHEIGHT = 32
 
-//Maes: this makes it a bit less retarded.
-public static final int NUMAMMO=ammotype_t.NUMAMMO.ordinal();
+    //
+    //Different vetween registered DOOM (1994) and
+    //Ultimate DOOM - Final edition (retail, 1995?).
+    //This is supposedly ignored for commercial
+    //release (aka DOOM II), which had 34 maps
+    //in one episode. So there.
+    const val NUMEPISODES = 4
+    const val NUMMAPS = 9
 
-// Power up artifacts.
-public static final int pw_invulnerability=0;
-public static final int    pw_strength=1;
-public static final int    pw_invisibility=2;
-public static final int    pw_ironfeet=3;
-public static final int    pw_allmap=4;
-public static final int    pw_infrared=5;
-public static final int    NUMPOWERS=6;
+    //in tics
+    //U #define PAUSELEN        (TICRATE*2) 
+    //U #define SCORESTEP       100
+    //U #define ANIMPERIOD      32
+    //pixel distance from "(YOU)" to "PLAYER N"
+    //U #define STARDIST        10 
+    //U #define WK 1
+    // MAES 23/5/2011: moved SP_... stuff to EndLevel
+    const val BACKUPTICS = 12
 
+    // From Zone:
+    //
+    //ZONE MEMORY
+    //PU - purge tags.
+    //Tags < 100 are not overwritten until freed.
+    const val PU_STATIC = 1 // static entire execution time
+    const val PU_SOUND = 2 // static while playing
+    const val PU_MUSIC = 3 // static while playing
+    const val PU_DAVE = 4 // anything else Dave wants static
+    const val PU_LEVEL = 50 // static until level exited
+    const val PU_LEVSPEC = 51 // a special thinker in a level
 
-/** Power up durations,
- *  how many seconds till expiration,
- *  assuming TICRATE is 35 ticks/second.
- */
-    public static final int INVULNTICS=(30*TICRATE),
-    INVISTICS=(60*TICRATE),
-    INFRATICS=(120*TICRATE),
-    IRONTICS =(60*TICRATE);
+    //Tags >= 100 are purgable whenever needed.
+    const val PU_PURGELEVEL = 100
+    const val PU_CACHE = 101
 
-// Center command from Heretic
-public final static int TOCENTER=-8;
+    // From hu_lib.h:
+    //font stuff
+    val HU_CHARERASE = ScanCode.SC_BACKSPACE
+    const val HU_MAXLINES = 4
+    const val HU_MAXLINELENGTH = 80
 
-// from r_defs.h:
+    // From hu_stuff.h
+    //
+    //Globally visible constants.
+    //
+    const val HU_FONTSTART = '!' // the first font characters
+        .code.toByte()
+    const val HU_FONTEND = '_' // the last font characters
+        .code.toByte()
 
+    //Calculate # of glyphs in font.
+    const val HU_FONTSIZE = HU_FONTEND - HU_FONTSTART + 1
+    const val HU_BROADCAST = 5.toChar()
+    val HU_MSGREFRESH = ScanCode.SC_ENTER
+    const val HU_MSGX = 0.toChar()
+    const val HU_MSGY = 0.toChar()
+    const val HU_MSGWIDTH = 64 // in characters
+        .toChar()
+    const val HU_MSGHEIGHT = 1 // in lines
+        .toChar()
+    const val HU_MSGTIMEOUT = 4 * Defines.TICRATE
+    const val SAVESTRINGSIZE = 24
 
+    //
+    // Button/action code definitions.
+    // From d_event.h
+    // Press "Fire".
+    const val BT_ATTACK = 1
 
-//Silhouette, needed for clipping Segs (mainly)
-//and sprites representing things.
-public static final int SIL_NONE =0;
-public static final int SIL_BOTTOM     =1;
-public static final int SIL_TOP  =       2;
-public static final int SIL_BOTH    =    3;
+    // Use button, to open doors, activate switches.
+    const val BT_USE = 2
 
-//SKY, store the number for name.
-static public final String SKYFLATNAME  ="F_SKY1";
+    // Flag: game events, not really buttons.
+    const val BT_SPECIAL = 128
+    const val BT_SPECIALMASK = 3
 
-// The sky map is 256*128*4 maps.
-public static final int ANGLETOSKYSHIFT   = 22;
+    // Flag, weapon change pending.
+    // If true, the next 3 bits hold weapon num.
+    const val BT_CHANGE = 4
 
-// From r_draw.c
+    // The 3bit weapon mask and shift, convenience.
+    const val BT_WEAPONMASK = 8 + 16 + 32
+    const val BT_WEAPONSHIFT = 3
 
-// status bar height at bottom of screen
-public static final int  SBARHEIGHT     = 32;
+    // Pause the game.
+    const val BTS_PAUSE = 1
 
+    // Save the game at each console.
+    const val BTS_SAVEGAME = 2
 
-//
-//Different vetween registered DOOM (1994) and
-//Ultimate DOOM - Final edition (retail, 1995?).
-//This is supposedly ignored for commercial
-//release (aka DOOM II), which had 34 maps
-//in one episode. So there.
-public static final int NUMEPISODES=4;
-public static final int NUMMAPS     =9;
+    // Savegame slot numbers
+    //  occupy the second byte of buttons.    
+    const val BTS_SAVEMASK = 4 + 8 + 16
+    const val BTS_SAVESHIFT = 2
 
-
-//in tics
-//U #define PAUSELEN        (TICRATE*2) 
-//U #define SCORESTEP       100
-//U #define ANIMPERIOD      32
-//pixel distance from "(YOU)" to "PLAYER N"
-//U #define STARDIST        10 
-//U #define WK 1
-
-
-// MAES 23/5/2011: moved SP_... stuff to EndLevel
-
-public static final int    BACKUPTICS     = 12;
-
-
-
-
-// From Zone:
-
-//
-//ZONE MEMORY
-//PU - purge tags.
-//Tags < 100 are not overwritten until freed.
-public static final int PU_STATIC   =    1;   // static entire execution time
-public static final int PU_SOUND    =    2;   // static while playing
-public static final int PU_MUSIC   =     3;   // static while playing
-public static final int PU_DAVE   =  4;   // anything else Dave wants static
-public static final int PU_LEVEL   =     50;  // static until level exited
-public static final int PU_LEVSPEC  =    51;    // a special thinker in a level
-//Tags >= 100 are purgable whenever needed.
-public static final int PU_PURGELEVEL =  100;
-public static final int PU_CACHE     =   101;
-
-
-// From hu_lib.h:
-
-//font stuff
-static public final Signals.ScanCode HU_CHARERASE  =  Signals.ScanCode.SC_BACKSPACE;
-
-public static final int HU_MAXLINES  =   4;
-public static final int HU_MAXLINELENGTH  =  80;
-
-// From hu_stuff.h
-
-//
-//Globally visible constants.
-//
-static public final byte HU_FONTSTART  =  '!'; // the first font characters
-static public final byte HU_FONTEND  ='_'; // the last font characters
-
-//Calculate # of glyphs in font.
-public static final int HU_FONTSIZE = (HU_FONTEND - HU_FONTSTART + 1); 
-
-static public final char HU_BROADCAST   = 5;
-
-static public final Signals.ScanCode HU_MSGREFRESH = Signals.ScanCode.SC_ENTER;
-static public final char HU_MSGX     =0;
-static public final char HU_MSGY     =0;
-static public final char HU_MSGWIDTH =64;  // in characters
-static public final char HU_MSGHEIGHT  =  1;   // in lines
-
-public static final int HU_MSGTIMEOUT =  (4*TICRATE);
-
-public static final int SAVESTRINGSIZE = 24;
-
-//
-// Button/action code definitions.
-// From d_event.h
-
-     // Press "Fire".
-    public static final int BT_ATTACK       = 1;
-     // Use button, to open doors, activate switches.
-    public static final int BT_USE      = 2;
-
-     // Flag: game events, not really buttons.
-    public static final int BT_SPECIAL      = 128;
-    public static final int BT_SPECIALMASK  = 3;
-     
-     // Flag, weapon change pending.
-     // If true, the next 3 bits hold weapon num.
-    public static final int  BT_CHANGE       = 4;
-     // The 3bit weapon mask and shift, convenience.
-    public static final int  BT_WEAPONMASK   = (8+16+32);
-    public static final int   BT_WEAPONSHIFT  = 3;
-
-     // Pause the game.
-    public static final int  BTS_PAUSE       = 1;
-     // Save the game at each console.
-    public static final int  BTS_SAVEGAME    = 2;
-
-     // Savegame slot numbers
-     //  occupy the second byte of buttons.    
-    public static final int BTS_SAVEMASK    = (4+8+16);
-    public static final int BTS_SAVESHIFT   = 2;
-   
-
-    
-    
     //==================== Stuff from r_local.c =========================================
-
-    
-    public static final int FLOATSPEED        =(FRACUNIT*4);
-
-    public static final int VIEWHEIGHT    =   (41*FRACUNIT);
+    val FLOATSPEED: Int = fixed_t.FRACUNIT * 4
+    val VIEWHEIGHT: Int = 41 * fixed_t.FRACUNIT
 
     // mapblocks are used to check movement
     // against lines and things
-    public static final int MAPBLOCKUNITS=    128;
-    public static final int MAPBLOCKSIZE  =(MAPBLOCKUNITS*FRACUNIT);
-    public static final int MAPBLOCKSHIFT =(FRACBITS+7);
-    public static final int MAPBMASK      =(MAPBLOCKSIZE-1);
-    public static final int MAPBTOFRAC=       (MAPBLOCKSHIFT-FRACBITS);
-    public static final int BLOCKMAPPADDING=       8*FRACUNIT;
+    const val MAPBLOCKUNITS = 128
+    val MAPBLOCKSIZE: Int = MAPBLOCKUNITS * fixed_t.FRACUNIT
+    val MAPBLOCKSHIFT: Int = fixed_t.FRACBITS + 7
+    val MAPBMASK = MAPBLOCKSIZE - 1
+    val MAPBTOFRAC: Int = MAPBLOCKSHIFT - fixed_t.FRACBITS
+    val BLOCKMAPPADDING: Int = 8 * fixed_t.FRACUNIT
 
     // player radius for movement checking
-    public static final int PLAYERRADIUS  =16*FRACUNIT;
-    public static final int GRAVITY   =   MAPFRACUNIT;
-    public static int USERANGE      =(64*FRACUNIT);
-    public static int MELEERANGE    =   (64*FRACUNIT);
-    public static int MISSILERANGE=(32*64*FRACUNIT);
+    val PLAYERRADIUS: Int = 16 * fixed_t.FRACUNIT
+    val GRAVITY: Int = fixed_t.MAPFRACUNIT
+    var USERANGE: Int = 64 * fixed_t.FRACUNIT
+    var MELEERANGE: Int = 64 * fixed_t.FRACUNIT
+    var MISSILERANGE: Int = 32 * 64 * fixed_t.FRACUNIT
 
     // follow a player exlusively for 3 seconds
-    public static int   BASETHRESHOLD=      100;
+    var BASETHRESHOLD = 100
+    var PT_ADDLINES = 1
+    var PT_ADDTHINGS = 2
+    var PT_EARLYOUT = 4
 
+    //
+    // P_MOBJ
+    //
+    var ONFLOORZ = Limits.MININT
+    var ONCEILINGZ = Limits.MAXINT
 
-    
-    public static int PT_ADDLINES     =1;
-    public static int PT_ADDTHINGS    =2;
-    public static int PT_EARLYOUT     =4;
-    
- //
- // P_MOBJ
- //
- public static int ONFLOORZ  =   MININT;
- public static int ONCEILINGZ    =   MAXINT;
+    // Time interval for item respawning.
+    var ITEMQUESIZE = 128
 
- // Time interval for item respawning.
- public static int ITEMQUESIZE       =128;
- 
+    /** Indicate a leaf. e6y: support for extended nodes  */
+    const val NF_SUBSECTOR = -0x80000000
 
-    /** Indicate a leaf. e6y: support for extended nodes */
-    public static final int NF_SUBSECTOR = 0x80000000;
+    /** This is the regular leaf indicator. Use for reference/conversions  */
+    const val NF_SUBSECTOR_CLASSIC = 0x8000
 
-    /** This is the regular leaf indicator. Use for reference/conversions */
-    public static final int NF_SUBSECTOR_CLASSIC = 0x8000;
+    /** Player states.  */
+    const val PST_LIVE = 0
 
-    
-    
-    /** Player states. */
-    
-    public static final int   PST_LIVE=0,     // Playing or camping.    
-        PST_DEAD=1,        // Dead on the ground, view follows killer.
+    // Playing or camping.    
+    const val PST_DEAD = 1
 
-        PST_REBORN=2;            // Ready to restart/respawn???
- 
-    public static final int  FF_FULLBRIGHT =  0x8000;  // flag in thing->frame
-    public static final int  FF_FRAMEMASK =   0x7fff;
-
-
- 
-static final String
-rcsid = "$Id: Defines.java,v 1.48 2012/09/24 17:16:22 velktron Exp $";
+    // Dead on the ground, view follows killer.
+    const val PST_REBORN = 2 // Ready to restart/respawn???
+    const val FF_FULLBRIGHT = 0x8000 // flag in thing->frame
+    const val FF_FRAMEMASK = 0x7fff
+    const val rcsid = "\$Id: Defines.java,v 1.48 2012/09/24 17:16:22 velktron Exp $"
 }
-

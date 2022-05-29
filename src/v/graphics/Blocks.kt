@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,120 +15,132 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.graphics;
+package v.graphics
 
-import java.awt.Rectangle;
-import java.lang.reflect.Array;
-import v.scale.VideoScale;
+import v.scale.VideoScale
+import java.awt.Rectangle
 
 /**
  * Manipulating Blocks
- * 
+ *
  * @author Good Sign
  */
-public interface Blocks<V, E extends Enum<E>> extends Points<V, E>, Palettes {
+interface Blocks<V, E : Enum<E>> : Points<V, E>, Palettes {
     /**
      * Converts a block of paletted pixels into screen format pixels
      * It is advised that implementation should both perform caching
      * and be additionally optimized for 1-value src arrays
      */
-    V convertPalettedBlock(byte... src);
-    
+    fun convertPalettedBlock(vararg src: Byte): V
+
     /**
      * Fills the whole dstScreen tiling the copies of block across it
      */
-    default void TileScreen(E dstScreen, V block, Rectangle blockArea) {
-        final int screenHeight = getScreenHeight();
-        final int screenWidth = getScreenWidth();
-        
-        for (int y = 0; y < screenHeight; y += blockArea.height) {
+    fun TileScreen(dstScreen: E, block: V, blockArea: Rectangle) {
+        val screenHeight = getScreenHeight()
+        val screenWidth = getScreenWidth()
+        var y = 0
+        while (y < screenHeight) {
+
             // Draw whole blocks.
-            for (int x = 0; x < screenWidth; x += blockArea.width) {
-                final int destination = point(x, y, screenWidth);
-                DrawBlock(dstScreen, block, blockArea, destination);
+            var x = 0
+            while (x < screenWidth) {
+                val destination = point(x, y, screenWidth)
+                DrawBlock(dstScreen, block, blockArea, destination)
+                x += blockArea.width
             }
+            y += blockArea.height
         }
     }
-    
+
     /**
      * Fills the rectangular part of dstScreen tiling the copies of block across it
      */
-    default void TileScreenArea(E dstScreen, Rectangle screenArea, V block, Rectangle blockArea) {
-        final int screenWidth = getScreenWidth();
-        final int fiilLimitX = screenArea.x + screenArea.width;
-        final int fiilLimitY = screenArea.y + screenArea.height;
-        
-        for (int y = screenArea.y; y < fiilLimitY; y += blockArea.height) {
+    fun TileScreenArea(dstScreen: E, screenArea: Rectangle, block: V, blockArea: Rectangle) {
+        val screenWidth = getScreenWidth()
+        val fiilLimitX = screenArea.x + screenArea.width
+        val fiilLimitY = screenArea.y + screenArea.height
+        var y = screenArea.y
+        while (y < fiilLimitY) {
+
             // Draw whole blocks.
-            for (int x = screenArea.x; x < fiilLimitX; x += blockArea.width) {
-                final int destination = point(x, y, screenWidth);
-                DrawBlock(dstScreen, block, blockArea, destination);
+            var x = screenArea.x
+            while (x < fiilLimitX) {
+                val destination = point(x, y, screenWidth)
+                DrawBlock(dstScreen, block, blockArea, destination)
+                x += blockArea.width
             }
+            y += blockArea.height
         }
     }
-    
+
     /**
      * Draws a linear block of pixels from the source buffer into screen buffer
      * V_DrawBlock
      */
-    default void DrawBlock(E dstScreen, V block, Rectangle sourceArea, int destinationPoint) {
-        final V screen = getScreen(dstScreen);
-        final int bufferLength = Array.getLength(screen);
-        final int screenWidth = getScreenWidth();
-        final Relocation rel = new Relocation(
+    fun DrawBlock(dstScreen: E, block: V, sourceArea: Rectangle, destinationPoint: Int) {
+        val screen = getScreen(dstScreen)!!
+        val bufferLength = java.lang.reflect.Array.getLength(screen)
+        val screenWidth = getScreenWidth()
+        val rel = Relocation(
             point(sourceArea.x, sourceArea.y),
             destinationPoint,
-            sourceArea.width);
-        
-        for (int h = sourceArea.height; h > 0; --h, rel.source += sourceArea.width, rel.destination += screenWidth) {
+            sourceArea.width
+        )
+        var h = sourceArea.height
+        while (h > 0) {
             if (rel.destination + rel.length >= bufferLength) {
-                return;
+                return
             }
-            screenCopy(block, screen, rel);
+            screenCopy(block, screen, rel)
+            --h
+            rel.source += sourceArea.width
+            rel.destination += screenWidth
         }
     }
-    
-    default V ScaleBlock(V block, VideoScale vs, int width, int height) {
-        return ScaleBlock(block, width, height, vs.getScalingX(), vs.getScalingY());
+
+    fun ScaleBlock(block: V, vs: VideoScale, width: Int, height: Int): V {
+        return ScaleBlock(block, width, height, vs.getScalingX(), vs.getScalingY())
     }
-    
-    default V ScaleBlock(V block, int width, int height, int dupX, int dupY) {
-        final int newWidth = width * dupX;
-        final int newHeight = height * dupY;
-        @SuppressWarnings("unchecked")
-        final V newBlock = (V) Array.newInstance(block.getClass().getComponentType(), newWidth * newHeight);
-        final Horizontal row = new Horizontal(0, dupX);
-        
-        for (int i = 0; i < width; ++i) {
-            for (int j = 0; j < height; ++j) {
-                final int pointSource = point(i, j, width);
-                final int pointDestination = point(i * dupX, j * dupY, newWidth);
-                row.start = pointDestination;
+
+    fun ScaleBlock(block: V, width: Int, height: Int, dupX: Int, dupY: Int): V {
+        val newWidth = width * dupX
+        val newHeight = height * dupY
+        val newBlock = java.lang.reflect.Array.newInstance(block!!::class.java.getComponentType(), newWidth * newHeight) as V
+
+        val row = Horizontal(0, dupX)
+        for (i in 0 until width) {
+            for (j in 0 until height) {
+                val pointSource = point(i, j, width)
+                val pointDestination = point(i * dupX, j * dupY, newWidth)
+                row.start = pointDestination
                 // Fill first line of rect
-                screenSet(block, pointSource, newBlock, row);
+                screenSet(block, pointSource, newBlock, row)
                 // Fill the rest of the rect
-                RepeatRow(newBlock, row, dupY - 1, newWidth);
+                RepeatRow(newBlock, row, dupY - 1, newWidth)
             }
         }
-        
-        return newBlock;
+        return newBlock
     }
 
     /**
      * Given a row, repeats it down the screen
      */
-    default void RepeatRow(V screen, final Horizontal row, int times) {
-        RepeatRow(screen, row, times, getScreenWidth());
+    fun RepeatRow(screen: V, row: Horizontal, times: Int) {
+        RepeatRow(screen, row, times, getScreenWidth())
     }
-    
+
     /**
      * Given a row, repeats it down the screen
      */
-    default void RepeatRow(V block, final Horizontal row, int times, int blockWidth) {
+    fun RepeatRow(block: V, row: Horizontal, times: Int, blockWidth: Int) {
+        var times = times
         if (times > 0) {
-            final Relocation rel = row.relocate(blockWidth);
-            for (; times > 0; --times, rel.shift(blockWidth)) {
-                screenCopy(block, block, rel);
+            val rel = row.relocate(blockWidth)
+            while (times > 0) {
+                screenCopy(block, block, rel)
+                --times
+                rel.shift(blockWidth)
             }
         }
     }

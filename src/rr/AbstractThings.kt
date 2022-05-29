@@ -1,116 +1,82 @@
-package rr;
+package rr
 
-import static data.Defines.FF_FRAMEMASK;
-import static data.Defines.FF_FULLBRIGHT;
-import static data.Defines.SIL_BOTTOM;
-import static data.Defines.SIL_TOP;
-import static data.Defines.pw_invisibility;
-import static doom.player_t.NUMPSPRITES;
-import i.IDoomSystem;
-import static m.fixed_t.FRACBITS;
-import static m.fixed_t.FRACUNIT;
-import static m.fixed_t.FixedMul;
-import static p.mobj_t.MF_TRANSLATION;
-import p.pspdef_t;
-import rr.drawfuns.ColFuncs;
-import rr.drawfuns.ColVars;
-import rr.drawfuns.ColumnFunction;
-import static rr.line_t.ML_DONTPEGBOTTOM;
-import v.graphics.Palettes;
-import v.scale.VideoScale;
-import v.tables.LightsAndColors;
-import w.IWadLoader;
+import data.Defines
+import doom.player_t
+import i.IDoomSystem
+import m.fixed_t.Companion.FRACBITS
+import m.fixed_t.Companion.FRACUNIT
+import m.fixed_t.Companion.FixedMul
+import p.mobj_t
+import p.pspdef_t
+import rr.drawfuns.ColFuncs
+import rr.drawfuns.ColVars
+import rr.drawfuns.ColumnFunction
+import v.graphics.Lights
+import v.scale.VideoScale
+import v.tables.LightsAndColors
+import w.IWadLoader
 
 /**
  * Refresh of things, i.e. objects represented by sprites. This abstract
  * class is the base for all implementations, and contains the gory clipping
  * and priority stuff. It can terminate by drawing directly, or by buffering
  * into a pipeline for parallelized drawing.
- * 
+ *
  * It need to be aware of almost everything in the renderer, which means that
- * it's a PITA to keep "disembodied". Then again, this probably means it's more 
+ * it's a PITA to keep "disembodied". Then again, this probably means it's more
  * extensible...
- * 
- * 
- * 
+ *
+ *
+ *
  */
+abstract class AbstractThings<T, V>(vs: VideoScale, R: SceneRenderer<T, V>) : IMaskedDrawer<T, V> {
+    protected lateinit var maskedtexturecol: ShortArray
+    protected var pmaskedtexturecol = 0
 
-public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
-
-    private final static boolean RANGECHECK=false;
-    
-    protected short[] maskedtexturecol;
-    protected int pmaskedtexturecol = 0;
-    
     // Cache those you get from the sprite manager
-    protected int[] spritewidth, spriteoffset, spritetopoffset;
+    protected lateinit var spritewidth: IntArray
+    protected lateinit var spriteoffset: IntArray
+    protected lateinit var spritetopoffset: IntArray
 
-    /** fixed_t */
-    protected int pspritescale, pspriteiscale, pspritexscale,
-            pspriteyscale, skyscale;
+    /** fixed_t  */
+    protected var pspritescale = 0
+    protected var pspriteiscale = 0
+    protected var pspritexscale = 0
+    protected var pspriteyscale = 0
+    protected var skyscale = 0
 
     // Used for masked segs
-    protected int rw_scalestep;
-
-    protected int spryscale;
-
-    protected int sprtopscreen;
-    
-    protected short[] mfloorclip;
-
-    protected int p_mfloorclip;
-
-    protected short[] mceilingclip;
-
-    protected int p_mceilingclip;
-
-    protected sector_t frontsector;
-
-    protected sector_t backsector;
+    protected var rw_scalestep = 0
+    protected var spryscale = 0
+    protected var sprtopscreen = 0
+    protected lateinit var mfloorclip: ShortArray
+    protected var p_mfloorclip = 0
+    protected lateinit var mceilingclip: ShortArray
+    protected var p_mceilingclip = 0
+    protected var frontsector: sector_t? = null
+    protected var backsector: sector_t? = null
 
     // This must be "pegged" to the one used by the default renderer.
-    protected ColVars<T, V> maskedcvars;
-    
-    protected ColumnFunction<T,V> colfunc;
-    protected ColFuncs<T,V> colfuncs;
-    protected ColFuncs<T,V> colfuncshi;
-    protected ColFuncs<T,V> colfuncslow;
-    protected final VideoScale vs;
-    protected final LightsAndColors<V> colormaps;
-    protected final ViewVars view;
-    protected final SegVars seg_vars;
-    protected final TextureManager<T> TexMan;
-    protected final IDoomSystem I;
-    protected final ISpriteManager SM;
-    protected final BSPVars MyBSP;
-    protected final IVisSpriteManagement<V> VIS;
-    protected final IWadLoader W;
-    protected final vissprite_t<V> avis;
-    
-    public AbstractThings(VideoScale vs, SceneRenderer<T,V> R) {
-        this.colfuncshi = R.getColFuncsHi();
-        this.colfuncslow = R.getColFuncsLow();
-        this.colormaps = R.getColorMap();
-        this.view = R.getView();
-        this.seg_vars = R.getSegVars();
-        this.TexMan = R.getTextureManager();
-        this.I = R.getDoomSystem();
-        this.SM = R.getSpriteManager();
-        this.MyBSP = R.getBSPVars();
-        this.VIS = R.getVisSpriteManager();
-        this.W = R.getWadLoader();
-        this.avis = new vissprite_t<V>();
-        this.maskedcvars = R.getMaskedDCVars();
-        this.vs = vs;
-        clipbot = new short[vs.getScreenWidth()];
-        cliptop = new short[vs.getScreenWidth()];
-    }
-
-    @Override
-    public void cacheSpriteManager(ISpriteManager SM) {
-        this.spritewidth = SM.getSpriteWidth();
-        this.spriteoffset = SM.getSpriteOffset();
-        this.spritetopoffset = SM.getSpriteTopOffset();
+    protected var maskedcvars: ColVars<T, V>
+    protected var colfunc: ColumnFunction<T, V>? = null
+    protected var colfuncs: ColFuncs<T, V>? = null
+    protected var colfuncshi: ColFuncs<T, V>
+    protected var colfuncslow: ColFuncs<T, V>
+    protected val vs: VideoScale
+    protected val colormaps: LightsAndColors<V>
+    protected val view: ViewVars
+    protected val seg_vars: SegVars
+    protected val TexMan: TextureManager<T>
+    protected val I: IDoomSystem
+    protected val SM: ISpriteManager
+    protected val MyBSP: BSPVars
+    protected val VIS: IVisSpriteManagement<V>
+    protected val W: IWadLoader
+    protected val avis: vissprite_t<V?>
+    override fun cacheSpriteManager(SM: ISpriteManager) {
+        spritewidth = SM.getSpriteWidth()
+        spriteoffset = SM.getSpriteOffset()
+        spritetopoffset = SM.getSpriteTopOffset()
     }
 
     /**
@@ -118,65 +84,59 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
      * Sprites are actually drawn here. MAES: Optimized. No longer needed to
      * pass x1 and x2 parameters (useless) +2 fps on nuts.wad timedemo.
      */
-    @SuppressWarnings("unchecked")
-    protected void DrawVisSprite(vissprite_t<V> vis) {
-        column_t column;
-        int texturecolumn;
-        int frac; // fixed_t
-        patch_t patch;
+    protected open fun DrawVisSprite(vis: vissprite_t<V?>) {
+        var column: column_t
+        var texturecolumn: Int
+        var frac: Int // fixed_t
+        val patch: patch_t
 
         // At this point, the view angle (and patch) has already been
         // chosen. Go back.
-        patch = W.CachePatchNum(vis.patch + SM.getFirstSpriteLump());
-
-        maskedcvars.dc_colormap = vis.colormap;
+        patch = W.CachePatchNum(vis.patch + SM.getFirstSpriteLump())
+        maskedcvars.dc_colormap = vis.colormap
         // colfunc=glasscolfunc;
         if (maskedcvars.dc_colormap == null) {
             // NULL colormap = shadow draw
-            colfunc = colfuncs.fuzz;
-        } else if ((vis.mobjflags & MF_TRANSLATION) != 0) {
-            colfunc = colfuncs.trans;
-            maskedcvars.dc_translation = (T) colormaps.getTranslationTable(vis.mobjflags);
+            colfunc = colfuncs!!.fuzz
+        } else if (vis.mobjflags and mobj_t.MF_TRANSLATION != 0) {
+            colfunc = colfuncs!!.trans
+            maskedcvars.dc_translation = colormaps.getTranslationTable(vis.mobjflags) as T
         }
-
-        maskedcvars.dc_iscale = Math.abs(vis.xiscale) >> view.detailshift;
-        maskedcvars.dc_texturemid = vis.texturemid;
-        frac = vis.startfrac;
-        spryscale = vis.scale;
-        sprtopscreen =
-            view.centeryfrac
-                    - FixedMul(maskedcvars.dc_texturemid, spryscale);
+        maskedcvars.dc_iscale = Math.abs(vis.xiscale) shr view.detailshift
+        maskedcvars.dc_texturemid = vis.texturemid
+        frac = vis.startfrac
+        spryscale = vis.scale
+        sprtopscreen = (view.centeryfrac
+                - FixedMul(maskedcvars.dc_texturemid, spryscale))
 
         // A texture height of 0 means "not tiling" and holds for
         // all sprite/masked renders.
-        maskedcvars.dc_texheight = 0;
-
-        for (maskedcvars.dc_x = vis.x1; maskedcvars.dc_x <= vis.x2; maskedcvars.dc_x++, frac +=
-            vis.xiscale) {
-            texturecolumn = frac >> FRACBITS;
-            if (RANGECHECK) {
-                if (texturecolumn < 0 || texturecolumn >= patch.width)
-                    I.Error("R_DrawSpriteRange: bad texturecolumn");
+        maskedcvars.dc_texheight = 0
+        maskedcvars.dc_x = vis.x1
+        while (maskedcvars.dc_x <= vis.x2) {
+            texturecolumn = frac shr FRACBITS
+            if (AbstractThings.RANGECHECK) {
+                if (texturecolumn < 0 || texturecolumn >= patch.width) I.Error("R_DrawSpriteRange: bad texturecolumn")
             }
-            column = patch.columns[texturecolumn];
-            DrawMaskedColumn(column);
+            column = patch.columns[texturecolumn]!!
+            DrawMaskedColumn(column)
+            maskedcvars.dc_x++
+            frac += vis.xiscale
         }
-
-        colfunc = colfuncs.masked;
+        colfunc = colfuncs!!.masked
     }
 
     /**
      * R_RenderMaskedSegRange
-     * 
+     *
      * @param ds
      * @param x1
      * @param x2
      */
-    protected void RenderMaskedSegRange(drawseg_t ds, int x1, int x2) {
-        int index;
-
-        int lightnum;
-        int texnum;
+    protected open fun RenderMaskedSegRange(ds: drawseg_t, x1: Int, x2: Int) {
+        var index: Int
+        var lightnum: Int
+        val texnum: Int
 
         // System.out.printf("RenderMaskedSegRange from %d to %d\n",x1,x2);
 
@@ -184,358 +144,349 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
         // Use different light tables
         // for horizontal / vertical / diagonal. Diagonal?
         // OPTIMIZE: get rid of LIGHTSEGSHIFT globally
-        MyBSP.curline = ds.curline;
-        frontsector = MyBSP.curline.frontsector;
-        backsector = MyBSP.curline.backsector;
-        texnum = TexMan.getTextureTranslation(MyBSP.curline.sidedef.midtexture);
+        MyBSP.curline = ds.curline
+        val curline = MyBSP.curline!!
+        frontsector = curline.frontsector
+        val frontsector = frontsector!!
+        backsector = curline.backsector
+        val backsector = backsector!!
+        texnum = TexMan.getTextureTranslation(curline.sidedef!!.midtexture.toInt())
         // System.out.print(" for texture "+textures[texnum].name+"\n:");
-        lightnum =
-            (frontsector.lightlevel >> colormaps.lightSegShift()) + colormaps.extralight;
-
-        if (MyBSP.curline.v1y == MyBSP.curline.v2y)
-            lightnum--;
-        else if (MyBSP.curline.v1x == MyBSP.curline.v2x)
-            lightnum++;
+        lightnum = (frontsector.lightlevel.toInt() shr colormaps.lightSegShift()) + colormaps.extralight
+        if (curline.v1y == curline.v2y) lightnum-- else if (curline.v1x == curline.v2x) lightnum++
 
         // Killough code.
         colormaps.walllights =
-            lightnum >= colormaps.lightLevels() ? colormaps.scalelight[colormaps.lightLevels() - 1]
-                    : lightnum < 0 ? colormaps.scalelight[0]
-                            : colormaps.scalelight[lightnum];
+            (if (lightnum >= colormaps.lightLevels()) colormaps.scalelight[colormaps.lightLevels() - 1] else if (lightnum < 0) colormaps.scalelight[0] else colormaps.scalelight[lightnum]) as Array<V>
 
         // Get the list
-        maskedtexturecol = ds.getMaskedTextureColList();
+        maskedtexturecol = ds.getMaskedTextureColList()!!
         // And this is the pointer.
-        pmaskedtexturecol = ds.getMaskedTextureColPointer();
-
-        rw_scalestep = ds.scalestep;
-        spryscale = ds.scale1 + (x1 - ds.x1) * rw_scalestep;
+        pmaskedtexturecol = ds.getMaskedTextureColPointer()
+        rw_scalestep = ds.scalestep
+        spryscale = ds.scale1 + (x1 - ds.x1) * rw_scalestep
 
         // HACK to get "pointers" inside clipping lists
-        mfloorclip = ds.getSprBottomClipList();
-        p_mfloorclip = ds.getSprBottomClipPointer();
-        mceilingclip = ds.getSprTopClipList();
-        p_mceilingclip = ds.getSprTopClipPointer();
+        mfloorclip = ds.getSprBottomClipList()!!
+        p_mfloorclip = ds.getSprBottomClipPointer()
+        mceilingclip = ds.getSprTopClipList()!!
+        p_mceilingclip = ds.getSprTopClipPointer()
         // find positioning
-        if ((MyBSP.curline.linedef.flags & ML_DONTPEGBOTTOM) != 0) {
+        if (curline.linedef!!.flags.toInt() and line_t.ML_DONTPEGBOTTOM != 0) {
             maskedcvars.dc_texturemid =
-                frontsector.floorheight > backsector.floorheight ? frontsector.floorheight
-                        : backsector.floorheight;
-            maskedcvars.dc_texturemid =
-                maskedcvars.dc_texturemid + TexMan.getTextureheight(texnum)
-                        - view.z;
+                if (frontsector.floorheight > backsector.floorheight) frontsector.floorheight else backsector.floorheight
+            maskedcvars.dc_texturemid = (maskedcvars.dc_texturemid + TexMan.getTextureheight(texnum)
+                    - view.z)
         } else {
             maskedcvars.dc_texturemid =
-                frontsector.ceilingheight < backsector.ceilingheight ? frontsector.ceilingheight
-                        : backsector.ceilingheight;
-            maskedcvars.dc_texturemid = maskedcvars.dc_texturemid - view.z;
+                if (frontsector.ceilingheight < backsector.ceilingheight) frontsector.ceilingheight else backsector.ceilingheight
+            maskedcvars.dc_texturemid = maskedcvars.dc_texturemid - view.z
         }
-        maskedcvars.dc_texturemid += MyBSP.curline.sidedef.rowoffset;
-
-        if (colormaps.fixedcolormap != null)
-            maskedcvars.dc_colormap = colormaps.fixedcolormap;
+        maskedcvars.dc_texturemid += curline.sidedef!!.rowoffset
+        if (colormaps.fixedcolormap != null) maskedcvars.dc_colormap = colormaps.fixedcolormap
 
         // Texture height must be set at this point. This will trigger
         // tiling. For sprites, it should be set to 0.
-        maskedcvars.dc_texheight =
-            TexMan.getTextureheight(texnum) >> FRACBITS;
+        maskedcvars.dc_texheight = TexMan.getTextureheight(texnum) shr FRACBITS
 
         // draw the columns
-        for (maskedcvars.dc_x = x1; maskedcvars.dc_x <= x2; maskedcvars.dc_x++) {
+        maskedcvars.dc_x = x1
+        while (maskedcvars.dc_x <= x2) {
+
             // calculate lighting
             if (maskedtexturecol[pmaskedtexturecol + maskedcvars.dc_x] != Short.MAX_VALUE) {
                 if (colormaps.fixedcolormap == null) {
-                    index = spryscale >>> colormaps.lightScaleShift();
-
-                    if (index >= colormaps.maxLightScale())
-                        index = colormaps.maxLightScale() - 1;
-
-                    maskedcvars.dc_colormap = colormaps.walllights[index];
+                    index = spryscale ushr colormaps.lightScaleShift()
+                    if (index >= colormaps.maxLightScale()) index = colormaps.maxLightScale() - 1
+                    maskedcvars.dc_colormap = colormaps.walllights[index]
                 }
-
-                sprtopscreen =
-                    view.centeryfrac
-                            - FixedMul(maskedcvars.dc_texturemid, spryscale);
-                maskedcvars.dc_iscale = (int) (0xffffffffL / spryscale);
+                sprtopscreen = (view.centeryfrac
+                        - FixedMul(maskedcvars.dc_texturemid, spryscale))
+                maskedcvars.dc_iscale = (0xffffffffL / spryscale).toInt()
 
                 // draw the texture
-                column_t data = TexMan.GetColumnStruct(texnum,
-                    (int) maskedtexturecol[pmaskedtexturecol
-                            + maskedcvars.dc_x]);// -3);
-
-                DrawMaskedColumn(data);
-
-                maskedtexturecol[pmaskedtexturecol + maskedcvars.dc_x] =
-                    Short.MAX_VALUE;
+                val data = TexMan.GetColumnStruct(
+                    texnum, maskedtexturecol[pmaskedtexturecol
+                            + maskedcvars.dc_x].toInt()
+                )!!// -3);
+                DrawMaskedColumn(data)
+                maskedtexturecol[pmaskedtexturecol + maskedcvars.dc_x] = Short.MAX_VALUE
             }
-            spryscale += rw_scalestep;
+            spryscale += rw_scalestep
+            maskedcvars.dc_x++
         }
-
     }
 
     /**
      * R_DrawPSprite Draws a "player sprite" with slighly different rules
      * than normal sprites. This is actually a PITA, at best :-/
      */
+    protected open fun DrawPSprite(psp: pspdef_t) {
+        var tx: Int
+        val x1: Int
+        val x2: Int
+        val sprdef: spritedef_t
+        val sprframe: spriteframe_t
+        val vis: vissprite_t<V?>
+        val lump: Int
+        val flip: Boolean
 
-    protected void DrawPSprite(pspdef_t psp) {
-
-        int tx;
-        int x1;
-        int x2;
-        spritedef_t sprdef;
-        spriteframe_t sprframe;
-        vissprite_t<V> vis;
-        int lump;
-        boolean flip;
-
+        val state = psp.state!!
+        val sprite = state.sprite!!
         // decide which patch to use (in terms of angle?)
-        if (RANGECHECK) {
-            if (psp.state.sprite.ordinal() >= SM.getNumSprites())
-                I.Error("R_ProjectSprite: invalid sprite number %d ",
-                    psp.state.sprite);
+        if (AbstractThings.RANGECHECK) {
+            if (sprite.ordinal >= SM.getNumSprites()) I.Error(
+                "R_ProjectSprite: invalid sprite number %d ",
+                state.sprite
+            )
         }
-
-        sprdef = SM.getSprite(psp.state.sprite.ordinal());
-
-        if (RANGECHECK) {
-            if ((psp.state.frame & FF_FRAMEMASK) >= sprdef.numframes)
-                I.Error("R_ProjectSprite: invalid sprite frame %d : %d ",
-                    psp.state.sprite, psp.state.frame);
+        sprdef = SM.getSprite(sprite.ordinal)
+        if (AbstractThings.RANGECHECK) {
+            if (state.frame and Defines.FF_FRAMEMASK >= sprdef.numframes) I.Error(
+                "R_ProjectSprite: invalid sprite frame %d : %d ",
+                sprite, state.frame
+            )
         }
-
-        sprframe = sprdef.spriteframes[psp.state.frame & FF_FRAMEMASK];
+        sprframe = sprdef.spriteframes[state.frame and Defines.FF_FRAMEMASK]!!
 
         // Base frame for "angle 0" aka viewed from dead-front.
-        lump = sprframe.lump[0];
+        lump = sprframe.lump[0]
         // Q: where can this be set? A: at sprite loadtime.
-        flip = (boolean) (sprframe.flip[0] != 0);
+        flip = (sprframe.flip[0].toInt() != 0)
 
         // calculate edges of the shape. tx is expressed in "view units".
-        tx = (int) (FixedMul(psp.sx, view.BOBADJUST) - view.WEAPONADJUST);
-
-        tx -= spriteoffset[lump];
+        tx = (FixedMul(psp.sx, view.BOBADJUST) - view.WEAPONADJUST)
+        tx -= spriteoffset[lump]
 
         // So...centerxfrac is the center of the screen (pixel coords in
         // fixed point).
-        x1 = (view.centerxfrac + FixedMul(tx, pspritescale)) >> FRACBITS;
+        x1 = view.centerxfrac + FixedMul(tx, pspritescale) shr FRACBITS
 
         // off the right side
-        if (x1 > view.width)
-            return;
-
-        tx += spritewidth[lump];
-        x2 =
-            ((view.centerxfrac + FixedMul(tx, pspritescale)) >> FRACBITS) - 1;
+        if (x1 > view.width) return
+        tx += spritewidth[lump]
+        x2 = (view.centerxfrac + FixedMul(tx, pspritescale) shr FRACBITS) - 1
 
         // off the left side
-        if (x2 < 0)
-            return;
+        if (x2 < 0) return
 
         // store information in a vissprite ?
-        vis = avis;
-        vis.mobjflags = 0;
+        vis = avis
+        vis.mobjflags = 0
         vis.texturemid =
-            ((BASEYCENTER + view.lookdir) << FRACBITS) + FRACUNIT / 2
-                    - (psp.sy - spritetopoffset[lump]);
-        vis.x1 = x1 < 0 ? 0 : x1;
-        vis.x2 = x2 >= view.width ? view.width - 1 : x2;
-        vis.scale = (pspritescale) << view.detailshift;
-
+            ((IMaskedDrawer.BASEYCENTER + view.lookdir shl FRACBITS) + FRACUNIT / 2
+                    - (psp.sy - spritetopoffset[lump]))
+        vis.x1 = if (x1 < 0) 0 else x1
+        vis.x2 = if (x2 >= view.width) view.width - 1 else x2
+        vis.scale = pspritescale shl view.detailshift
         if (flip) {
-            vis.xiscale = -pspriteiscale;
-            vis.startfrac = spritewidth[lump] - 1;
+            vis.xiscale = -pspriteiscale
+            vis.startfrac = spritewidth[lump] - 1
         } else {
-            vis.xiscale = pspriteiscale;
-            vis.startfrac = 0;
+            vis.xiscale = pspriteiscale
+            vis.startfrac = 0
         }
-
-        if (vis.x1 > x1)
-            vis.startfrac += vis.xiscale * (vis.x1 - x1);
-
-        vis.patch = lump;
-
-        if ((view.player.powers[pw_invisibility] > 4 * 32)
-                || (view.player.powers[pw_invisibility] & 8) != 0) {
+        if (vis.x1 > x1) vis.startfrac += vis.xiscale * (vis.x1 - x1)
+        vis.patch = lump
+        if (view.player!!.powers[Defines.pw_invisibility] > 4 * 32
+            || view.player!!.powers[Defines.pw_invisibility] and 8 != 0
+        ) {
             // shadow draw
-            vis.colormap = null;
-
+            vis.colormap = null
         } else if (colormaps.fixedcolormap != null) {
             // fixed color
-            vis.colormap = colormaps.fixedcolormap;
+            vis.colormap = colormaps.fixedcolormap
             // vis.pcolormap=0;
-        } else if ((psp.state.frame & FF_FULLBRIGHT) != 0) {
+        } else if (state.frame and Defines.FF_FULLBRIGHT != 0) {
             // full bright
-            vis.colormap = colormaps.colormaps[Palettes.COLORMAP_FIXED];
+            vis.colormap = colormaps.colormaps[Lights.COLORMAP_FIXED]
             // vis.pcolormap=0;
         } else {
             // local light
-            vis.colormap = colormaps.spritelights[colormaps.maxLightScale() - 1];
+            vis.colormap = colormaps.spritelights[colormaps.maxLightScale() - 1]
         }
 
         // System.out.println("Weapon draw "+vis);
-        DrawVisSprite(vis);
+        DrawVisSprite(vis)
     }
 
-    protected int PSpriteSY[] = { 0, // staff
-            5 * FRACUNIT, // goldwand
-            15 * FRACUNIT, // crossbow
-            15 * FRACUNIT, // blaster
-            15 * FRACUNIT, // skullrod
-            15 * FRACUNIT, // phoenix rod
-            15 * FRACUNIT, // mace
-            15 * FRACUNIT, // gauntlets
-            15 * FRACUNIT // beak
-        };
+    protected var PSpriteSY = intArrayOf(
+        0,  // staff
+        5 * FRACUNIT,  // goldwand
+        15 * FRACUNIT,  // crossbow
+        15 * FRACUNIT,  // blaster
+        15 * FRACUNIT,  // skullrod
+        15 * FRACUNIT,  // phoenix rod
+        15 * FRACUNIT,  // mace
+        15 * FRACUNIT,  // gauntlets
+        15 * FRACUNIT // beak
+    )
 
     /**
      * R_DrawPlayerSprites This is where stuff like guns is drawn...right?
      */
-
-    protected final void DrawPlayerSprites() {
-        int i;
-        int lightnum;
-        pspdef_t psp;
+    protected fun DrawPlayerSprites() {
+        var i: Int
+        val lightnum: Int
+        var psp: pspdef_t
 
         // get light level
-        lightnum =
-            (view.player.mo.subsector.sector.lightlevel >> colormaps.lightSegShift())
-                    + colormaps.extralight;
+        lightnum = ((view.player!!.mo!!.subsector!!.sector!!.lightlevel.toInt() shr colormaps.lightSegShift())
+                + colormaps.extralight)
 
         if (lightnum < 0)
-            colormaps.spritelights = colormaps.scalelight[0];
+            colormaps.spritelights = colormaps.scalelight[0] as Array<V>
         else if (lightnum >= colormaps.lightLevels())
-            colormaps.spritelights = colormaps.scalelight[colormaps.lightLevels() - 1];
+            colormaps.spritelights = colormaps.scalelight[colormaps.lightLevels() - 1] as Array<V>
         else
-            colormaps.spritelights = colormaps.scalelight[lightnum];
+            colormaps.spritelights = colormaps.scalelight[lightnum] as Array<V>
 
         // clip to screen bounds
-        mfloorclip = view.screenheightarray;
-        p_mfloorclip = 0;
-        mceilingclip = view.negonearray;
-        p_mceilingclip = 0;
+        mfloorclip = view.screenheightarray
+        p_mfloorclip = 0
+        mceilingclip = view.negonearray
+        p_mceilingclip = 0
 
         // add all active psprites
         // MAES 25/5/2011 Fixed another stupid bug that prevented
         // PSP from actually being updated. This in turn uncovered
         // other bugs in the way psp and state were treated, and the way
         // flash states were set. It should be OK now.
-        for (i = 0; i < NUMPSPRITES; i++) {
-            psp = view.player.psprites[i];
-            if (psp.state != null && psp.state.id != 0) {
-                DrawPSprite(psp);
+        i = 0
+        while (i < player_t.NUMPSPRITES) {
+            psp = view.player!!.psprites[i]
+            if (psp.state != null && psp.state!!.id != 0) {
+                DrawPSprite(psp)
             }
+            i++
         }
     }
 
     // MAES: Scale to vs.getScreenWidth()
-    protected short[] clipbot;
+    protected var clipbot: ShortArray
+    protected var cliptop: ShortArray
 
-    protected short[] cliptop;
+    init {
+        colfuncshi = R.getColFuncsHi()
+        colfuncslow = R.getColFuncsLow()
+        colormaps = R.getColorMap()
+        view = R.getView()
+        seg_vars = R.getSegVars()
+        TexMan = R.getTextureManager()
+        I = R.getDoomSystem()
+        SM = R.getSpriteManager()!!
+        MyBSP = R.getBSPVars()
+        VIS = R.getVisSpriteManager()
+        W = R.getWadLoader()!!
+        avis = vissprite_t()
+        maskedcvars = R.getMaskedDCVars()
+        this.vs = vs
+        clipbot = ShortArray(vs.getScreenWidth())
+        cliptop = ShortArray(vs.getScreenWidth())
+    }
 
     /**
      * R_DrawSprite
      */
-
-    protected final void DrawSprite(vissprite_t<V> spr) {
-        int ds;
-        drawseg_t dss;
-
-        int x;
-        int r1;
-        int r2;
-        int scale; // fixed
-        int lowscale; // fixed
-        int silhouette;
-
-        for (x = spr.x1; x <= spr.x2; x++)
-            clipbot[x] = cliptop[x] = -2;
+    protected fun DrawSprite(spr: vissprite_t<V?>) {
+        var ds: Int
+        var dss: drawseg_t
+        var x: Int
+        var r1: Int
+        var r2: Int
+        var scale: Int // fixed
+        var lowscale: Int // fixed
+        var silhouette: Int
+        x = spr.x1
+        while (x <= spr.x2) {
+            cliptop[x] = -2
+            clipbot[x] = cliptop[x]
+            x++
+        }
 
         // Scan drawsegs from end to start for obscuring segs.
         // The first drawseg that has a greater scale
         // is the clip seg.
-        for (ds = seg_vars.ds_p - 1; ds >= 0; ds--) {
+        ds = seg_vars.ds_p - 1
+        while (ds >= 0) {
+
             // determine if the drawseg obscures the sprite
             // System.out.println("Drawseg "+ds+"of "+(ds_p-1));
-            dss = seg_vars.drawsegs[ds];
-            if (dss.x1 > spr.x2
-                    || dss.x2 < spr.x1
-                    || ((dss.silhouette == 0) && (dss
-                            .nullMaskedTextureCol()))) {
+            dss = seg_vars.drawsegs[ds]
+            if (dss.x1 > spr.x2 || dss.x2 < spr.x1 || dss.silhouette == 0 && dss
+                    .nullMaskedTextureCol()
+            ) {
                 // does not cover sprite
-                continue;
+                ds--
+                continue
             }
-
-            r1 = dss.x1 < spr.x1 ? spr.x1 : dss.x1;
-            r2 = dss.x2 > spr.x2 ? spr.x2 : dss.x2;
-
+            r1 = if (dss.x1 < spr.x1) spr.x1 else dss.x1
+            r2 = if (dss.x2 > spr.x2) spr.x2 else dss.x2
             if (dss.scale1 > dss.scale2) {
-                lowscale = dss.scale2;
-                scale = dss.scale1;
+                lowscale = dss.scale2
+                scale = dss.scale1
             } else {
-                lowscale = dss.scale1;
-                scale = dss.scale2;
+                lowscale = dss.scale1
+                scale = dss.scale2
             }
 
             if (scale < spr.scale
-                    || (lowscale < spr.scale && (dss.curline
-                            .PointOnSegSide(spr.gx, spr.gy) == 0))) {
+                || (lowscale < spr.scale && (dss.curline!!.PointOnSegSide(spr.gx, spr.gy) == 0)))
+            {
                 // masked mid texture?
-                if (!dss.nullMaskedTextureCol())
-                    RenderMaskedSegRange(dss, r1, r2);
+                if (!dss.nullMaskedTextureCol()) RenderMaskedSegRange(dss, r1, r2)
+                ds--
                 // seg is behind sprite
-                continue;
+                continue
             }
 
             // clip this piece of the sprite
-            silhouette = dss.silhouette;
-
-            if (spr.gz >= dss.bsilheight)
-                silhouette &= ~SIL_BOTTOM;
-
-            if (spr.gzt <= dss.tsilheight)
-                silhouette &= ~SIL_TOP;
+            silhouette = dss.silhouette
+            if (spr.gz >= dss.bsilheight) silhouette = silhouette and Defines.SIL_BOTTOM.inv()
+            if (spr.gzt <= dss.tsilheight) silhouette = silhouette and Defines.SIL_TOP.inv()
 
             // BOTTOM clipping
             if (silhouette == 1) {
                 // bottom sil
-                for (x = r1; x <= r2; x++)
-                    if (clipbot[x] == -2)
-                        clipbot[x] = dss.getSprBottomClip(x);
-
+                x = r1
+                while (x <= r2) {
+                    if (clipbot[x].toInt() == -2) clipbot[x] = dss.getSprBottomClip(x)
+                    x++
+                }
             } else if (silhouette == 2) {
                 // top sil
-                for (x = r1; x <= r2; x++)
-                    if (cliptop[x] == -2)
-                        cliptop[x] = dss.getSprTopClip(x);
+                x = r1
+                while (x <= r2) {
+                    if (cliptop[x].toInt() == -2) cliptop[x] = dss.getSprTopClip(x)
+                    x++
+                }
             } else if (silhouette == 3) {
                 // both
-                for (x = r1; x <= r2; x++) {
-                    if (clipbot[x] == -2)
-                        clipbot[x] = dss.getSprBottomClip(x);
-                    if (cliptop[x] == -2)
-                        cliptop[x] = dss.getSprTopClip(x);
+                x = r1
+                while (x <= r2) {
+                    if (clipbot[x].toInt() == -2) clipbot[x] = dss.getSprBottomClip(x)
+                    if (cliptop[x].toInt() == -2) cliptop[x] = dss.getSprTopClip(x)
+                    x++
                 }
             }
-
+            ds--
         }
 
         // all clipping has been performed, so draw the sprite
 
         // check for unclipped columns
-        for (x = spr.x1; x <= spr.x2; x++) {
-            if (clipbot[x] == -2)
-                clipbot[x] = (short) view.height;
+        x = spr.x1
+        while (x <= spr.x2) {
+            if (clipbot[x].toInt() == -2) clipbot[x] = view.height.toShort()
             // ?? What's this bullshit?
-            if (cliptop[x] == -2)
-                cliptop[x] = -1;
+            if (cliptop[x].toInt() == -2) cliptop[x] = -1
+            x++
         }
-
-        mfloorclip = clipbot;
-        p_mfloorclip = 0;
-        mceilingclip = cliptop;
-        p_mceilingclip = 0;
-        DrawVisSprite(spr);
+        mfloorclip = clipbot
+        p_mfloorclip = 0
+        mceilingclip = cliptop
+        p_mceilingclip = 0
+        DrawVisSprite(spr)
     }
 
     /**
@@ -545,12 +496,10 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
      * anything, and it will work better, in-place and be simpler to draw,
      * too.
      */
-
-    @Override
-    public void DrawMasked() {
+    override fun DrawMasked() {
         // vissprite_t spr;
-        int ds;
-        drawseg_t dss;
+        var ds: Int
+        var dss: drawseg_t
 
         // Well, it sorts visspite objects.
         // It actually IS faster to sort with comparators, but you need to
@@ -561,8 +510,7 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
         // modified mergesort, while
         // the original algorithm is so dreadful it actually does slow
         // things down.
-
-        VIS.SortVisSprites();
+        VIS.SortVisSprites()
 
         // If you are feeling adventurous, try these ones. They *might*
         // perform
@@ -587,7 +535,7 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
         // say to Keep Away. No srsly.
 
         /*
-         * SortVisSprites (); // Sprite "0" not visible? /*if (vissprite_p >
+         * SortVisSprites (); // Sprite "0" not visible? / *if (vissprite_p >
          * 0) { // draw all vissprites back to front for (spr =
          * vsprsortedhead.next ; spr != vsprsortedhead ; spr=spr.next) {
          * DrawSprite (spr); } }
@@ -595,40 +543,35 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
 
         // After using in-place sorts, sprites can be drawn as simply as
         // that.
-
-        colfunc = colfuncs.masked; // Sprites use fully-masked capable
-                                 // function.
-
-        final vissprite_t<V>[] vissprites = VIS.getVisSprites();
-        final int numvissprites = VIS.getNumVisSprites();
-
-        for (int i = 0; i < numvissprites; i++) {
-            DrawSprite(vissprites[i]);
+        colfunc = colfuncs!!.masked // Sprites use fully-masked capable
+        // function.
+        val vissprites = VIS.getVisSprites()
+        val numvissprites = VIS.getNumVisSprites()
+        for (i in 0 until numvissprites) {
+            DrawSprite(vissprites[i])
         }
 
         // render any remaining masked mid textures
-        for (ds = seg_vars.ds_p - 1; ds >= 0; ds--) {
-            dss = seg_vars.drawsegs[ds];
-            if (!dss.nullMaskedTextureCol())
-                RenderMaskedSegRange(dss, dss.x1, dss.x2);
+        ds = seg_vars.ds_p - 1
+        while (ds >= 0) {
+            dss = seg_vars.drawsegs[ds]
+            if (!dss.nullMaskedTextureCol()) RenderMaskedSegRange(dss, dss.x1, dss.x2)
+            ds--
         }
         // draw the psprites on top of everything
         // but does not draw on side views
         // if (viewangleoffset==0)
-
-        colfunc = colfuncs.player;
-        DrawPlayerSprites();
-        colfunc = colfuncs.masked;
+        colfunc = colfuncs!!.player
+        DrawPlayerSprites()
+        colfunc = colfuncs!!.masked
     }
-
     /**
      * R_DrawMaskedColumn Used for sprites and masked mid textures. Masked
      * means: partly transparent, i.e. stored in posts/runs of opaque
      * pixels. NOTE: this version accepts raw bytes, in case you know what
      * you're doing.
      */
-
-   /* protected final void DrawMaskedColumn(T column) {
+    /* protected final void DrawMaskedColumn(T column) {
         int topscreen;
         int bottomscreen;
         int basetexturemid; // fixed_t
@@ -682,8 +625,6 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
         maskedcvars.dc_texturemid = basetexturemid;
     }
     */
-
-
     /**
      * R_DrawMaskedColumn Used for sprites and masked mid textures. Masked
      * means: partly transparent, i.e. stored in posts/runs of opaque
@@ -691,47 +632,40 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
      * post is drawn outside of the screen the rest appear screwed up.
      * SOLUTION: use the version taking raw byte[] arguments.
      */
-
-    @SuppressWarnings("unchecked")
-    protected final void DrawMaskedColumn(column_t column) {
-        int topscreen;
-        int bottomscreen;
-        int basetexturemid; // fixed_t
-
-        basetexturemid = maskedcvars.dc_texturemid;
+    protected fun DrawMaskedColumn(column: column_t) {
+        var topscreen: Int
+        var bottomscreen: Int
+        val basetexturemid: Int // fixed_t
+        basetexturemid = maskedcvars.dc_texturemid
         // That's true for the whole column.
-        maskedcvars.dc_source = (T) column.data;
+        maskedcvars.dc_source = column.data as T
         // dc_source_ofs=0;
 
         // for each post...
-        for (int i = 0; i < column.posts; i++) {
-            maskedcvars.dc_source_ofs = column.postofs[i];
+        for (i in 0 until column.posts) {
+            maskedcvars.dc_source_ofs = column.postofs[i]
             // calculate unclipped screen coordinates
             // for post
-            topscreen = sprtopscreen + spryscale * column.postdeltas[i];
-            bottomscreen = topscreen + spryscale * column.postlen[i];
-
-            maskedcvars.dc_yl = (topscreen + FRACUNIT - 1) >> FRACBITS;
-            maskedcvars.dc_yh = (bottomscreen - 1) >> FRACBITS;
-
+            topscreen = sprtopscreen + spryscale * column.postdeltas[i]
+            bottomscreen = topscreen + spryscale * column.postlen[i]
+            maskedcvars.dc_yl = topscreen + FRACUNIT - 1 shr FRACBITS
+            maskedcvars.dc_yh = bottomscreen - 1 shr FRACBITS
             if (maskedcvars.dc_yh >= mfloorclip[p_mfloorclip
-                    + maskedcvars.dc_x])
-                maskedcvars.dc_yh =
-                    mfloorclip[p_mfloorclip + maskedcvars.dc_x] - 1;
+                        + maskedcvars.dc_x]
+            ) maskedcvars.dc_yh = mfloorclip[p_mfloorclip + maskedcvars.dc_x] - 1
             if (maskedcvars.dc_yl <= mceilingclip[p_mceilingclip
-                    + maskedcvars.dc_x])
-                maskedcvars.dc_yl =
-                    mceilingclip[p_mceilingclip + maskedcvars.dc_x] + 1;
+                        + maskedcvars.dc_x]
+            ) maskedcvars.dc_yl = mceilingclip[p_mceilingclip + maskedcvars.dc_x] + 1
 
             // killough 3/2/98, 3/27/98: Failsafe against overflow/crash:
             if (maskedcvars.dc_yl <= maskedcvars.dc_yh
-                    && maskedcvars.dc_yh < maskedcvars.viewheight) {
+                && maskedcvars.dc_yh < maskedcvars.viewheight
+            ) {
 
                 // Set pointer inside column to current post's data
                 // Remember, it goes {postlen}{postdelta}{pad}[data]{pad}
-
                 maskedcvars.dc_texturemid =
-                    basetexturemid - (column.postdeltas[i] << FRACBITS);
+                    basetexturemid - (column.postdeltas[i].toInt() shl FRACBITS)
 
                 // Drawn by either R_DrawColumn or (SHADOW)
                 // R_DrawFuzzColumn.
@@ -745,18 +679,15 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
 
                 // Drawn by either R_DrawColumn
                 //  or (SHADOW) R_DrawFuzzColumn.
-                
+
                 // FUN FACT: this was missing and fucked my shit up.
-                maskedcvars.dc_texheight=0; // Killough
-                
-                completeColumn();
-                 
+                maskedcvars.dc_texheight = 0 // Killough
+                completeColumn()
             }
         }
-
-        maskedcvars.dc_texturemid = basetexturemid;
+        maskedcvars.dc_texturemid = basetexturemid
     }
-    
+
     /*
      * R_DrawMaskedColumn
      * Used for sprites and masked mid textures.
@@ -768,7 +699,7 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
      *  REALLY needed.
      *
      */
-/*
+    /*
     protected final  void DrawMaskedColumn (byte[] column)
     {
         int topscreen;
@@ -820,28 +751,22 @@ public abstract class AbstractThings<T,V> implements IMaskedDrawer<T,V> {
         dc_texturemid = basetexturemid;
     }
       */
-
-    @Override
-    public void setPspriteIscale(int i) {
-        pspriteiscale = i;
-
+    override fun setPspriteIscale(i: Int) {
+        pspriteiscale = i
     }
 
-    @Override
-    public void setPspriteScale(int i) {
-        pspritescale = i;
+    override fun setPspriteScale(i: Int) {
+        pspritescale = i
     }
 
-    @Override
-    public void setDetail(int detailshift){
-        switch (detailshift){
-        case HIGH_DETAIL:
-            colfuncs=colfuncshi;
-            break;
-        case LOW_DETAIL:
-            colfuncs=colfuncslow;
-            break;
+    override fun setDetail(detailshift: Int) {
+        when (detailshift) {
+            IDetailAware.HIGH_DETAIL -> colfuncs = colfuncshi
+            IDetailAware.LOW_DETAIL -> colfuncs = colfuncslow
         }
     }
-    
+
+    companion object {
+        private const val RANGECHECK = false
+    }
 }

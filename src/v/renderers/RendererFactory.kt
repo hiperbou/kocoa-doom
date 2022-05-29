@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,92 +15,81 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.renderers;
+package v.renderers
 
-import java.util.Objects;
-import v.DoomGraphicSystem;
-import v.scale.VideoScale;
-import w.IWadLoader;
+import v.DoomGraphicSystem
+import v.scale.VideoScale
+import w.IWadLoader
+import java.util.*
 
 /**
  * Renderer choice that depends on selected (or provided through command line) BppMode
  * It also ensures you create it in right order and with right components.
- * 
+ *
  * And see - no package interface shared to public
  * @author Good Sign
  */
-public class RendererFactory {
-    private RendererFactory() {}
-    
-    public static <T, V> Clear<T, V> newBuilder() {
-        return new Builder<>();
+object RendererFactory {
+    fun <T, V> newBuilder(): RendererFactory.Clear<T, V> {
+        return RendererFactory.Builder()
     }
 
-    private static class Builder<T, V>
-        implements Clear<T, V>, WithVideoScale<T, V>, WithBppMode<T, V>, WithWadLoader<T, V>
-    {
-        private IWadLoader wadLoader;
-        private VideoScale videoScale;
-        private BppMode bppMode;
-        
-        @Override
-        public WithVideoScale<T, V> setVideoScale(VideoScale videoScale) {
-            this.videoScale = Objects.requireNonNull(videoScale);
-            return this;
+    private class Builder<T, V> : RendererFactory.Clear<T, V>, WithVideoScale<T, V>, WithBppMode<T, V>,
+        WithWadLoader<T, V> {
+        private var wadLoader: IWadLoader? = null
+        private var videoScale: VideoScale? = null
+        private var bppMode: BppMode? = null
+        override fun setVideoScale(videoScale: VideoScale): RendererFactory.WithVideoScale<T, V> {
+            this.videoScale = Objects.requireNonNull(videoScale)
+            return this
         }
 
-        @Override
-        public WithBppMode<T, V> setBppMode(BppMode bppMode) {
-            this.bppMode = Objects.requireNonNull(bppMode);
-            return this;
+        override fun setBppMode(bppMode: BppMode): WithBppMode<T, V> {
+            this.bppMode = Objects.requireNonNull(bppMode)
+            return this
         }
 
-        @Override
-        public WithWadLoader<T, V> setWadLoader(IWadLoader wadLoader) {
-            this.wadLoader = Objects.requireNonNull(wadLoader);
-            return this;
+        override fun setWadLoader(wadLoader: IWadLoader): WithWadLoader<T, V> {
+            this.wadLoader = Objects.requireNonNull(wadLoader)
+            return this
         }
 
-        @Override
-        public DoomGraphicSystem<T, V> build() {
-            return bppMode.graphics(this);
+        override fun build(): DoomGraphicSystem<T, V> {
+            return bppMode!!.graphics(this)
         }
 
-        @Override
-        public BppMode getBppMode() {
-            return bppMode;
+        override fun getBppMode(): BppMode? {
+            return bppMode
         }
 
-        @Override
-        public VideoScale getVideoScale() {
-            return videoScale;
+        override fun getVideoScale(): VideoScale? {
+            return videoScale
         }
 
-        @Override
-        public IWadLoader getWadLoader() {
-            return wadLoader;
+        override fun getWadLoader(): IWadLoader? {
+            return wadLoader
         }
     }
-    
-    public interface Clear<T, V> {
-        WithVideoScale<T, V> setVideoScale(VideoScale videoScale);
+
+    interface Clear<T, V> {
+        fun setVideoScale(videoScale: VideoScale): WithVideoScale<T, V>
     }
 
-    public interface WithVideoScale<T, V> {
-        WithBppMode<T, V> setBppMode(BppMode bppMode);
-        VideoScale getVideoScale();
+    interface WithVideoScale<T, V> {
+        fun setBppMode(bppMode: BppMode): WithBppMode<T, V>
+        fun getVideoScale(): VideoScale?
     }
-    
-    public interface WithBppMode<T, V> {
-        WithWadLoader<T, V> setWadLoader(IWadLoader wadLoader);
-        VideoScale getVideoScale();
-        BppMode getBppMode();
+
+    interface WithBppMode<T, V> {
+        fun setWadLoader(wadLoader: IWadLoader): WithWadLoader<T, V>
+        fun getVideoScale(): VideoScale?
+        fun getBppMode(): BppMode?
     }
-    
-    public interface WithWadLoader<T, V> {
-        DoomGraphicSystem<T, V> build();
-        VideoScale getVideoScale();
-        BppMode getBppMode();
-        IWadLoader getWadLoader();
+
+    interface WithWadLoader<T, V> {
+        fun build(): DoomGraphicSystem<T, V>
+        fun getVideoScale(): VideoScale?
+        fun getBppMode(): BppMode?
+        fun getWadLoader(): IWadLoader?
     }
 }

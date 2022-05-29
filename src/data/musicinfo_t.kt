@@ -1,29 +1,26 @@
-package data;
+package data
 
-public class musicinfo_t {
 
-    public musicinfo_t() {
+class musicinfo_t {
+    constructor() {}
+    constructor(name: String?) {
+        this.name = name
     }
 
-    
-    public musicinfo_t(String name) {
-        this.name = name;
-    }
-    
-    public musicinfo_t(String name, int lumpnum) {
-        this.name = name;
-        this.lumpnum = lumpnum;
+    constructor(name: String?, lumpnum: Int) {
+        this.name = name
+        this.lumpnum = lumpnum
     }
 
     // up to 6-character name
-    public String   name;
+    var name: String? = null
 
     // lump number of music
-    public int     lumpnum;
-    
+    var lumpnum = 0
+
     // music data
-    public byte[] data;
+    var data: ByteArray? = ByteArray(0)
 
     // music handle once registered
-    public int handle;
+    var handle = 0
 }

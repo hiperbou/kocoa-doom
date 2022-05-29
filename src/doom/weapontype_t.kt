@@ -1,28 +1,15 @@
-package doom;
+package doom
+
 
 /** The defined weapons,
  * including a marker indicating
- *  user has not changed weapon.
+ * user has not changed weapon.
  */
-public enum weapontype_t
-{
-    wp_fist,
-    wp_pistol,
-    wp_shotgun,
-    wp_chaingun,
-    wp_missile,
-    wp_plasma,
-    wp_bfg,
-    wp_chainsaw,
-    wp_supershotgun,
-
-    NUMWEAPONS,
-    
-    // No pending weapon change.
+enum class weapontype_t {
+    wp_fist, wp_pistol, wp_shotgun, wp_chaingun, wp_missile, wp_plasma, wp_bfg, wp_chainsaw, wp_supershotgun, NUMWEAPONS,  // No pending weapon change.
     wp_nochange;
-    
-    public String toString(){
-        return this.name();
+
+    override fun toString(): String {
+        return name
     }
-    
 }

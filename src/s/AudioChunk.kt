@@ -1,21 +1,19 @@
-package s;
+package s
 
-public class AudioChunk{
-    public AudioChunk() {
-        buffer=new byte[s.ISoundDriver.MIXBUFFERSIZE];
-        setStuff(0,0);
-        this.free=true;
+class AudioChunk {
+    fun setStuff(chunk: Int, time: Int) {
+        this.chunk = chunk
+        this.time = time
     }
-    
-    public void setStuff(int chunk, int time){
-        this.chunk = chunk;
-        this.time = time;
-    }
-    
-    public int chunk;
-    public int time;
-    public byte[] buffer;
-    public boolean free;
-    
 
+    var chunk = 0
+    var time = 0
+    var buffer: ByteArray
+    var free: Boolean
+
+    init {
+        buffer = ByteArray(ISoundDriver.MIXBUFFERSIZE)
+        setStuff(0, 0)
+        free = true
+    }
 }

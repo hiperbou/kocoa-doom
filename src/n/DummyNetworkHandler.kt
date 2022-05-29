@@ -1,44 +1,33 @@
-package n;
+package n
 
-import doom.IDoomGameNetworking;
-import doom.doomcom_t;
 
-public class DummyNetworkHandler implements IDoomGameNetworking{
+import doom.IDoomGameNetworking
+import doom.doomcom_t
 
-    @Override
-    public void NetUpdate() {
+class DummyNetworkHandler : IDoomGameNetworking {
+    override fun NetUpdate() {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public void TryRunTics() {
+    override fun TryRunTics() {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public doomcom_t getDoomCom() {
+    override fun getDoomCom(): doomcom_t? {
         // TODO Auto-generated method stub
-        return null;
+        return null
     }
 
-    @Override
-    public void setDoomCom(doomcom_t doomcom) {
+    override fun setDoomCom(doomcom: doomcom_t?) {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public int getTicdup() {
+    override fun getTicdup(): Int {
         // TODO Auto-generated method stub
-        return 0;
+        return 0
     }
 
-    @Override
-    public void setTicdup(int ticdup) {
+    override fun setTicdup(ticdup: Int) {
         // TODO Auto-generated method stub
-        
     }
-
 }

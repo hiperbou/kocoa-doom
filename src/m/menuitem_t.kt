@@ -1,38 +1,37 @@
-package m;
+package m
 
-import g.Signals;
 
-public class menuitem_t {
+import g.Signals.ScanCode
 
-    public menuitem_t(int status, String name, MenuRoutine routine, Signals.ScanCode alphaKey) {
-        this.status = status;
-        this.name = name;
-        this.routine = routine;
-        this.alphaKey = alphaKey;
+class menuitem_t {
+    constructor(status: Int, name: String, routine: MenuRoutine, alphaKey: ScanCode?) {
+        this.status = status
+        this.name = name
+        this.routine = routine
+        this.alphaKey = alphaKey
     }
 
-    public menuitem_t(int status, String name, MenuRoutine routine) {
-        this.status = status;
-        this.name = name;
-        this.routine = routine;
+    constructor(status: Int, name: String, routine: MenuRoutine?) {
+        this.status = status
+        this.name = name
+        this.routine = routine
     }
 
     /**
      * 0 = no cursor here, 1 = ok, 2 = arrows ok
      */
-    int status;
-
-    String name;
+    var status: Int
+    var name: String
 
     // choice = menu item #.
     // if status = 2,
     //   choice=0:leftarrow,1:rightarrow
     // MAES: OK... to probably we need some sort of "MenuRoutine" class for this one.
     // void	(*routine)(int choice);
-    MenuRoutine routine;
+    var routine: MenuRoutine? = null
 
     /**
      * hotkey in menu
      */
-    Signals.ScanCode alphaKey;
+    var alphaKey: ScanCode? = null
 }

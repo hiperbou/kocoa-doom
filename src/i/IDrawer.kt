@@ -1,7 +1,6 @@
-package i;
+package i
 
-public interface IDrawer {
 
-	public void Drawer();
-	
+interface IDrawer {
+    fun Drawer()
 }

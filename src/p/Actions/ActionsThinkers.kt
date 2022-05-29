@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,43 +16,22 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import static data.Defines.ITEMQUESIZE;
-import static data.Defines.ONCEILINGZ;
-import static data.Defines.ONFLOORZ;
-import static data.Limits.MAXPLAYERS;
-import static data.Tables.ANG45;
-import static data.info.mobjinfo;
-import data.mapthing_t;
-import data.mobjtype_t;
-import data.sounds;
-import doom.CommandVariable;
-import doom.DoomMain;
-import doom.SourceCode;
-import doom.SourceCode.CauseOfDesyncProbability;
-import doom.SourceCode.P_Spec;
-import static doom.SourceCode.P_Spec.P_SpawnSpecials;
-import static doom.SourceCode.P_Tick.P_RemoveThinker;
-import doom.thinker_t;
-import static m.fixed_t.FRACBITS;
-import p.AbstractLevelLoader;
-import p.ActiveStates;
-import p.ActiveStates.MobjConsumer;
-import static p.ActiveStates.NOP;
-import p.ActiveStates.ThinkerConsumer;
-import static p.DoorDefines.FASTDARK;
-import static p.DoorDefines.SLOWDARK;
-import p.ThinkerList;
-import p.UnifiedGameMap;
-import p.mobj_t;
-import static p.mobj_t.MF_SPAWNCEILING;
-import rr.sector_t;
-import rr.subsector_t;
-import static utils.C2JUtils.eval;
 
-public interface ActionsThinkers extends ActionsSectors, ThinkerList {
+import data.*
+import data.sounds.sfxenum_t
+import doom.CommandVariable
+import doom.SourceCode.*
+import doom.thinker_t
+import m.fixed_t.Companion.FRACBITS
+import p.*
+import p.Actions.ActionsSectors.RespawnQueue
+import rr.sector_t
+import rr.subsector_t
+import utils.C2JUtils
 
+interface ActionsThinkers : ActionsSectors, ThinkerList {
     //
     // P_RemoveThinker
     // Deallocation is lazy -- it will not actually be freed
@@ -64,23 +44,22 @@ public interface ActionsThinkers extends ActionsSectors, ThinkerList {
     // set the function to P_RemoveThinkerDelayed(), so that later, it will be
     // removed automatically as part of the thinker process.
     //
-    @Override
-    @SourceCode.Compatible("thinker->function.acv = (actionf_v)(-1)")
-    @SourceCode.P_Tick.C(P_RemoveThinker)
-    default void RemoveThinker(thinker_t thinker) {
-        thinker.thinkerFunction = NOP;
+    @Compatible("thinker->function.acv = (actionf_v)(-1)")
+    @P_Tick.C(P_Tick.P_RemoveThinker)
+    override fun RemoveThinker(thinker: thinker_t) {
+        thinker.thinkerFunction = ActiveStates.NOP
     }
 
     /**
      * P_SpawnSpecials After the map has been loaded, scan for specials that spawn thinkers
      */
-    @SourceCode.Suspicious(CauseOfDesyncProbability.LOW)
-    @P_Spec.C(P_SpawnSpecials)
-    default void SpawnSpecials() {
-        final DoomMain<?, ?> D = DOOM();
-        final AbstractLevelLoader ll = levelLoader();
-        final UnifiedGameMap.Specials sp = getSpecials();
-        sector_t sector;
+    @Suspicious(CauseOfDesyncProbability.LOW)
+    @P_Spec.C(P_Spec.P_SpawnSpecials)
+    fun SpawnSpecials() {
+        val D = DOOM()
+        val ll = levelLoader()
+        val sp = specials
+        var sector: sector_t
 
         /*int     episode;
 
@@ -89,127 +68,94 @@ public interface ActionsThinkers extends ActionsSectors, ThinkerList {
         episode = 2;
          */
         // See if -TIMER needs to be used.
-        sp.levelTimer = false;
-
+        sp.levelTimer = false
         if (D.cVarManager.bool(CommandVariable.AVG) && IsDeathMatch()) {
-            sp.levelTimer = true;
-            sp.levelTimeCount = 20 * 60 * 35;
+            sp.levelTimer = true
+            sp.levelTimeCount = 20 * 60 * 35
         }
-
         if (IsDeathMatch()) {
-            D.cVarManager.with(CommandVariable.TIMER, 0, (Integer i) -> {
-                sp.levelTimer = true;
-                sp.levelTimeCount = i * 60 * 35;
-            });
+            D.cVarManager.with(CommandVariable.TIMER, 0) { i: Int? ->
+                sp.levelTimer = true
+                sp.levelTimeCount = i!! * 60 * 35
+            }
         }
 
         //  Init special SECTORs.
         //sector = LL.sectors;
-        for (int i = 0; i < ll.numsectors; i++) {
-            sector = ll.sectors[i];
-            if (!eval(sector.special)) {
-                continue;
+        for (i in 0 until ll.numsectors) {
+            sector = ll.sectors[i]
+            if (!C2JUtils.eval(sector.special.toInt())) {
+                continue
             }
-
-            switch (sector.special) {
-                case 1:
-                    // FLICKERING LIGHTS
-                    P_SpawnLightFlash: {
-                        SpawnLightFlash(sector);
-                    }
-                    break;
-
-                case 2:
-                    // STROBE FAST
-                    P_SpawnStrobeFlash: {
-                        SpawnStrobeFlash(sector, FASTDARK, 0);
-                    }
-                    break;
-
-                case 3:
-                    // STROBE SLOW
-                    P_SpawnStrobeFlash: {
-                        SpawnStrobeFlash(sector, SLOWDARK, 0);
-                    }
-                    break;
-
-                case 4:
+            when (sector.special.toInt()) {
+                1 ->                     // FLICKERING LIGHTS
+                    //P_SpawnLightFlash@ {
+                        SpawnLightFlash(sector)
+                    //}
+                2 ->                     // STROBE FAST
+                    //P_SpawnStrobeFlash@ {
+                        SpawnStrobeFlash(sector, DoorDefines.FASTDARK, 0)
+                    //}
+                3 ->                     // STROBE SLOW
+                    //P_SpawnStrobeFlash@ {
+                        SpawnStrobeFlash(sector, DoorDefines.SLOWDARK, 0)
+                    //}
+                4 -> {
                     // STROBE FAST/DEATH SLIME
-                    P_SpawnStrobeFlash: {
-                        SpawnStrobeFlash(sector, FASTDARK, 0);
-                    }
-                    sector.special = 4;
-                    break;
-
-                case 8:
-                    // GLOWING LIGHT
-                    P_SpawnGlowingLight: {
-                        SpawnGlowingLight(sector);
-                    }
-                    break;
-                case 9:
-                    // SECRET SECTOR
-                    D.totalsecret++;
-                    break;
-
-                case 10:
-                    // DOOR CLOSE IN 30 SECONDS
-                    SpawnDoorCloseIn30: {
-                        SpawnDoorCloseIn30(sector);
-                    }
-                    break;
-
-                case 12:
-                    // SYNC STROBE SLOW
-                    P_SpawnStrobeFlash: {
-                        SpawnStrobeFlash(sector, SLOWDARK, 1);
-                    }
-                    break;
-
-                case 13:
-                    // SYNC STROBE FAST
-                    P_SpawnStrobeFlash: {
-                        SpawnStrobeFlash(sector, FASTDARK, 1);
-                    }
-                    break;
-
-                case 14:
-                    // DOOR RAISE IN 5 MINUTES
-                    P_SpawnDoorRaiseIn5Mins: {
-                        SpawnDoorRaiseIn5Mins(sector, i);
-                    }
-                    break;
-
-                case 17:
-                    P_SpawnFireFlicker: {
-                        SpawnFireFlicker(sector);
-                    }
-                    break;
+                    //P_SpawnStrobeFlash@ run {
+                        SpawnStrobeFlash(sector, DoorDefines.FASTDARK, 0)
+                    //}
+                    sector.special = 4
+                }
+                8 ->                     // GLOWING LIGHT
+                    //P_SpawnGlowingLight@ {
+                        SpawnGlowingLight(sector)
+                    //}
+                9 ->                     // SECRET SECTOR
+                    D.totalsecret++
+                10 ->                     // DOOR CLOSE IN 30 SECONDS
+                    //SpawnDoorCloseIn30@ {
+                        SpawnDoorCloseIn30(sector)
+                    //}
+                12 ->                     // SYNC STROBE SLOW
+                    //P_SpawnStrobeFlash@ {
+                        SpawnStrobeFlash(sector, DoorDefines.SLOWDARK, 1)
+                    //}
+                13 ->                     // SYNC STROBE FAST
+                    //P_SpawnStrobeFlash@ {
+                        SpawnStrobeFlash(sector, DoorDefines.FASTDARK, 1)
+                    //}
+                14 ->                     // DOOR RAISE IN 5 MINUTES
+                    //P_SpawnDoorRaiseIn5Mins@ {
+                        SpawnDoorRaiseIn5Mins(sector, i)
+                    //}
+                17 -> //P_SpawnFireFlicker@ {
+                    SpawnFireFlicker(sector)
+                //}
             }
         }
 
         //  Init line EFFECTs
-        sp.numlinespecials = 0;
-        for (int i = 0; i < ll.numlines; i++) {
-            switch (ll.lines[i].special) {
-                case 48:
+        sp.numlinespecials = 0
+        for (i in 0 until ll.numlines) {
+            when (ll.lines[i].special.toInt()) {
+                48 -> {
                     // EFFECT FIRSTCOL SCROLL+
                     // Maes 6/4/2012: removed length limit.
-                    if (sp.numlinespecials == sp.linespeciallist.length) {
-                        sp.resizeLinesSpecialList();
+                    if (sp.numlinespecials.toInt() == sp.linespeciallist.size) {
+                        sp.resizeLinesSpecialList()
                     }
-                    sp.linespeciallist[sp.numlinespecials] = ll.lines[i];
-                    sp.numlinespecials++;
-                    break;
+                    sp.linespeciallist[sp.numlinespecials.toInt()] = ll.lines[i]
+                    sp.numlinespecials++
+                }
             }
         }
 
         //  Init other misc stuff
-        for (int i = 0; i < this.getMaxCeilings(); i++) {
-            this.getActiveCeilings()[i] = null;
+        for (i in 0 until this.getMaxCeilings()) {
+            this.getActiveCeilings()[i] = null
         }
-        
-        getSwitches().initButtonList();
+        switches.initButtonList()
 
         // UNUSED: no horizonal sliders.
         // if (SL!=null) {
@@ -221,60 +167,59 @@ public interface ActionsThinkers extends ActionsSectors, ThinkerList {
     /**
      * P_RespawnSpecials
      */
-    default void RespawnSpecials() {
-        final RespawnQueue resp = contextRequire(KEY_RESP_QUEUE);
-        int x, y, z; // fixed
-
-        subsector_t ss;
-        mobj_t mo;
-        mapthing_t mthing;
-
-        int i;
+    fun RespawnSpecials() {
+        val resp = contextRequire<RespawnQueue>(ActionsSectors.KEY_RESP_QUEUE)
+        val x: Int
+        val y: Int
+        val z: Int // fixed
+        val ss: subsector_t
+        var mo: mobj_t
+        val mthing: mapthing_t
+        var i: Int
 
         // only respawn items in deathmatch (deathmatch!=2)
         if (!DOOM().altdeath) {
-            return; // 
+            return  // 
         }
         // nothing left to respawn?
         if (resp.iquehead == resp.iquetail) {
-            return;
+            return
         }
 
         // wait at least 30 seconds
         if (LevelTime() - resp.itemrespawntime[resp.iquetail] < 30 * 35) {
-            return;
+            return
         }
-
-        mthing = resp.itemrespawnque[resp.iquetail];
-
-        x = mthing.x << FRACBITS;
-        y = mthing.y << FRACBITS;
+        mthing = resp.itemrespawnque[resp.iquetail]!!
+        x = mthing.x.toInt() shl FRACBITS
+        y = mthing.y.toInt() shl FRACBITS
 
         // spawn a teleport fog at the new spot
-        ss = levelLoader().PointInSubsector(x, y);
-        mo = SpawnMobj(x, y, ss.sector.floorheight, mobjtype_t.MT_IFOG);
-        StartSound(mo, sounds.sfxenum_t.sfx_itmbk);
+        ss = levelLoader().PointInSubsector(x, y)
+        mo = SpawnMobj(x, y, ss.sector!!.floorheight, mobjtype_t.MT_IFOG)
+        StartSound(mo, sfxenum_t.sfx_itmbk)
 
         // find which type to spawn
-        for (i = 0; i < mobjtype_t.NUMMOBJTYPES.ordinal(); i++) {
-            if (mthing.type == mobjinfo[i].doomednum) {
-                break;
+        i = 0
+        while (i < mobjtype_t.NUMMOBJTYPES.ordinal) {
+            if (mthing.type.toInt() == info.mobjinfo[i].doomednum) {
+                break
             }
+            i++
         }
 
         // spawn it
-        if (eval(mobjinfo[i].flags & MF_SPAWNCEILING)) {
-            z = ONCEILINGZ;
+        z = if (C2JUtils.eval(info.mobjinfo[i].flags and mobj_t.MF_SPAWNCEILING)) {
+            Defines.ONCEILINGZ
         } else {
-            z = ONFLOORZ;
+            Defines.ONFLOORZ
         }
-
-        mo = SpawnMobj(x, y, z, mobjtype_t.values()[i]);
-        mo.spawnpoint = mthing;
-        mo.angle = ANG45 * (mthing.angle / 45);
+        mo = SpawnMobj(x, y, z, mobjtype_t.values()[i])
+        mo.spawnpoint = mthing
+        mo.angle = Tables.ANG45 * (mthing.angle / 45)
 
         // pull it from the que
-        resp.iquetail = (resp.iquetail + 1) & (ITEMQUESIZE - 1);
+        resp.iquetail = resp.iquetail + 1 and Defines.ITEMQUESIZE - 1
     }
 
     //
@@ -287,50 +232,49 @@ public interface ActionsThinkers extends ActionsSectors, ThinkerList {
     //
     // P_RunThinkers
     //
-    default void RunThinkers() {
-        thinker_t thinker = getThinkerCap().next;
-        while (thinker != getThinkerCap()) {
-            if (thinker.thinkerFunction == ActiveStates.NOP) {
+    fun RunThinkers() {
+        var thinker = getThinkerCap().next
+        while (thinker !== getThinkerCap()) {
+            if (thinker!!.thinkerFunction == ActiveStates.NOP) {
                 // time to remove it
-                thinker.next.prev = thinker.prev;
-                thinker.prev.next = thinker.next;
+                thinker.next!!.prev = thinker.prev
+                thinker.prev!!.next = thinker.next
                 // Z_Free (currentthinker);
-            } else {
-                if (thinker.thinkerFunction.isParamType(MobjConsumer.class)) {
-                    thinker.thinkerFunction.fun(MobjConsumer.class).accept(DOOM().actions, (mobj_t) thinker);
-                } else if (thinker.thinkerFunction.isParamType(ThinkerConsumer.class)) {
-                    thinker.thinkerFunction.fun(ThinkerConsumer.class).accept(DOOM().actions, thinker);
+            } else if(thinker.thinkerFunction != null){
+                val thinkerFunction = thinker.thinkerFunction!!
+                if (thinkerFunction.activeState is MobjActiveStates) {
+                    thinkerFunction.activeState.accept(DOOM().actions, MobjConsumer(thinker as mobj_t))
+                } else if (thinkerFunction.activeState is ThinkerActiveStates) {
+                    thinkerFunction.activeState.accept(DOOM().actions, ThinkerConsumer(thinker))
                 }
             }
-            thinker = thinker.next;
+            thinker = thinker.next
         }
     }
 
     //
     //P_Ticker
     //
-    default void Ticker() {
+    fun Ticker() {
         // run the tic
         if (IsPaused()) {
-            return;
+            return
         }
 
         // pause if in menu and at least one tic has been run
-        if (!IsNetGame() && IsMenuActive() && !IsDemoPlayback() && getPlayer(ConsolePlayerNumber()).viewz != 1) {
-            return;
+        if (!IsNetGame() && IsMenuActive() && !IsDemoPlayback() && getPlayer(ConsolePlayerNumber())!!.viewz != 1) {
+            return
         }
-
-        for (int i = 0; i < MAXPLAYERS; i++) {
+        for (i in 0 until Limits.MAXPLAYERS) {
             if (PlayerInGame(i)) {
-                getPlayer(i).PlayerThink();
+                getPlayer(i)!!.PlayerThink()
             }
         }
-
-        RunThinkers();
-        getSpecials().UpdateSpecials(); // In specials. Merge?
-        RespawnSpecials();
+        RunThinkers()
+        specials.UpdateSpecials() // In specials. Merge?
+        RespawnSpecials()
 
         // for par times
-        DOOM().leveltime++;
+        DOOM().leveltime++
     }
 }

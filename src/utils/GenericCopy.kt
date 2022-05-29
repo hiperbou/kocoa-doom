@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,153 +15,176 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package utils;
+package utils
 
-import java.util.Arrays;
-import java.util.function.IntFunction;
-import java.util.function.Supplier;
 
-public class GenericCopy {
-    private static final boolean[] BOOL_0 = {false};
-    private static final byte[] BYTE_0 = {0};
-    private static final short[] SHORT_0 = {0};
-    private static final char[] CHAR_0 = {0};
-    private static final int[] INT_0 = {0};
-    private static final float[] FLOAT_0 = {0};
-    private static final long[] LONG_0 = {0};
-    private static final double[] DOUBLE_0 = {0};
-    
-    public static void memset(long[] array, int start, int length, long... value) {
+import java.util.*
+import java.util.function.IntFunction
+import java.util.function.Supplier
+
+object GenericCopy {
+    private val BOOL_0 = booleanArrayOf(false)
+    private val BYTE_0 = byteArrayOf(0)
+    private val SHORT_0 = shortArrayOf(0)
+    private val CHAR_0 = charArrayOf(0.toChar())
+    private val INT_0 = intArrayOf(0)
+    private val FLOAT_0 = floatArrayOf(0f)
+    private val LONG_0 = longArrayOf(0)
+    private val DOUBLE_0 = doubleArrayOf(0.0)
+    fun memset(array: LongArray?, start: Int, length: Int, vararg value: Long) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = LONG_0;
+            if (value.size == 0) {
+                value = GenericCopy.LONG_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    public static void memset(int[] array, int start, int length, int... value) {
+    fun memset(array: IntArray?, start: Int, length: Int, vararg value: Int) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = INT_0;
+            if (value.size == 0) {
+                value = GenericCopy.INT_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    public static void memset(short[] array, int start, int length, short... value) {
+    fun memset(array: ShortArray?, start: Int, length: Int, vararg value: Short) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = SHORT_0;
+            if (value.size == 0) {
+                value = GenericCopy.SHORT_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    public static void memset(char[] array, int start, int length, char... value) {
+    fun memset(array: CharArray?, start: Int, length: Int, vararg value: Char) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = CHAR_0;
+            if (value.size == 0) {
+                value = GenericCopy.CHAR_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    public static void memset(byte[] array, int start, int length, byte... value) {
+    fun memset(array: ByteArray?, start: Int, length: Int, vararg value: Byte) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = BYTE_0;
+            if (value.size == 0) {
+                value = GenericCopy.BYTE_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    public static void memset(double[] array, int start, int length, double... value) {
+    fun memset(array: DoubleArray?, start: Int, length: Int, vararg value: Double) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = DOUBLE_0;
+            if (value.size == 0) {
+                value = GenericCopy.DOUBLE_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    public static void memset(float[] array, int start, int length, float... value) {
+    fun memset(array: FloatArray?, start: Int, length: Int, vararg value: Float) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = FLOAT_0;
+            if (value.size == 0) {
+                value = GenericCopy.FLOAT_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    public static void memset(boolean[] array, int start, int length, boolean... value) {
+    fun memset(array: BooleanArray?, start: Int, length: Int, vararg value: Boolean) {
+        var value = value
         if (length > 0) {
-            if (value.length == 0) {
-                value = BOOL_0;
+            if (value.size == 0) {
+                value = GenericCopy.BOOL_0
             }
-            System.arraycopy(value, 0, array, start, value.length);
-        
-            for (int i = value.length; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, 0, array, start, value.size)
+            var i = value.size
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
 
-    @SuppressWarnings("SuspiciousSystemArraycopy")
-    public static <T> void memset(T array, int start, int length, T value, int valueStart, int valueLength) {
+    fun <T> memset(array: T, start: Int, length: Int, value: T, valueStart: Int, valueLength: Int) {
         if (length > 0 && valueLength > 0) {
-            System.arraycopy(value, valueStart, array, start, valueLength);
-        
-            for (int i = valueLength; i < length; i += i) {
-                System.arraycopy(array, start, array, start + i, ((length - i) < i) ? (length - i) : i);
+            System.arraycopy(value, valueStart, array, start, valueLength)
+            var i = valueLength
+            while (i < length) {
+                System.arraycopy(array, start, array, start + i, if (length - i < i) length - i else i)
+                i += i
             }
         }
     }
-    
-    @SuppressWarnings("SuspiciousSystemArraycopy")
-    public static <T> void memcpy(T srcArray, int srcStart, T dstArray, int dstStart, int length) {
-        System.arraycopy(srcArray, srcStart, dstArray, dstStart, length);
+
+    fun <T> memcpy(srcArray: T, srcStart: Int, dstArray: T, dstStart: Int, length: Int) {
+        System.arraycopy(srcArray, srcStart, dstArray, dstStart, length)
     }
-    
-    public static <T> T[] malloc(final ArraySupplier<T> supplier, final IntFunction<T[]> generator, final int length) {
-        final T[] array = generator.apply(length);
-        Arrays.setAll(array, supplier::getWithInt);
-        return array;
+
+    //fun <T> malloc(supplier: ()->T, generator: IntFunction<Array<T>>, length: Int): Array<T> {
+    inline fun <reified T> malloc(supplier: ()->T, length: Int): Array<T> {
+        return  Array(length) { supplier() }
     }
-    
-    public interface ArraySupplier<T> extends Supplier<T> {
-        default T getWithInt(int ignoredInt) {
-            return get();
+
+    inline fun <reified T> malloc(supplier: ArraySupplier<T>, length: Int): Array<T> {
+        return  Array(length) { supplier.getWithInt(length) }
+    }
+
+    fun <T> malloc(supplier: ArraySupplier<T>, generator: IntFunction<Array<T>?>, length: Int): Array<T>? {
+        val array = generator.apply(length)
+        Arrays.setAll(array) { ignoredInt: Int -> supplier.getWithInt(ignoredInt) }
+        return array
+    }
+
+
+    fun interface ArraySupplier<T> : Supplier<T> {
+        fun getWithInt(ignoredInt: Int): T {
+            return get()
         }
     }
-    
-    private GenericCopy() {}
 }

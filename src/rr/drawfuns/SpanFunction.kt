@@ -1,14 +1,11 @@
-package rr.drawfuns;
+package rr.drawfuns
+
 
 /** Either draws a column or a span
- * 
- * @author velktron
  *
+ * @author velktron
  */
-
-public interface SpanFunction<T,V> {
-    public void invoke();
-    
-	public void invoke(SpanVars<T,V> dsvars);
-
+interface SpanFunction<T, V> {
+    operator fun invoke()
+    operator fun invoke(dsvars: SpanVars<T, V>)
 }

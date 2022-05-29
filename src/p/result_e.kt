@@ -1,7 +1,6 @@
-package p;
+package p
 
-public enum result_e {
-        ok,
-        crushed,
-        pastdest
+
+enum class result_e {
+    ok, crushed, pastdest
 }

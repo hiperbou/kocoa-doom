@@ -1,16 +1,4 @@
-package automap;
+package automap
 
-public class fpoint_t
-{
-    int x, y;
-    
-    public fpoint_t(){
-        this(0,0);
-    }
-    
-    public fpoint_t(int x, int y){
-        this.x=x;
-        this.y=y;
-    }
-    
-}
+
+class fpoint_t @JvmOverloads constructor(var x: Int = 0, var y: Int = 0)

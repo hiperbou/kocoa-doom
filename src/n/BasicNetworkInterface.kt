@@ -1,22 +1,12 @@
-package n;
+package n
 
-import static data.Limits.MAXNETNODES;
-import doom.CommandVariable;
-import doom.DoomMain;
-import static doom.NetConsts.CMD_GET;
-import static doom.NetConsts.CMD_SEND;
-import static doom.NetConsts.DOOMCOM_ID;
-import doom.doomcom_t;
-import doom.doomdata_t;
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
-import w.DoomBuffer;
+import data.Limits
+import doom.*
+import w.DoomBuffer
+import java.io.IOException
+import java.net.*
+import java.nio.channels.IllegalBlockingModeException
+
 
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
@@ -24,6 +14,7 @@ import w.DoomBuffer;
 // $Id: BasicNetworkInterface.java,v 1.5 2011/05/26 13:39:06 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -61,48 +52,10 @@ import w.DoomBuffer;
 // DESCRIPTION:
 //
 //-----------------------------------------------------------------------------
-public class BasicNetworkInterface implements DoomSystemNetworking {
-
-    protected DoomMain<?, ?> DOOM;
-
-    public BasicNetworkInterface(DoomMain<?, ?> DOOM) {
-        this.DOOM = DOOM;
-        //this.myargv=DM.myargv;
-        //this.myargc=DM.myargc;
-        sendData = new doomdata_t();
-        recvData = new doomdata_t();
-        // We can do that since the buffer is reused.
-        // Note: this will effectively tie doomdata and the datapacket.
-        recvPacket = new DatagramPacket(recvData.cached(), recvData.cached().length);
-        sendPacket = new DatagramPacket(sendData.cached(), sendData.cached().length);
-    }
-
+class BasicNetworkInterface(protected var DOOM: DoomMain<*, *>) : DoomSystemNetworking {
     // Bind it to the ones inside DN and DM;  
     //doomdata_t netbuffer;
-    doomcom_t doomcom;
-
-    // For some odd reason...
-    /**
-     * Changes endianness of a number
-     */
-    public static int ntohl(int x) {
-        return ((((x & 0x000000ff) << 24)
-                | ((x & 0x0000ff00) << 8)
-                | ((x & 0x00ff0000) >>> 8)
-                | ((x & 0xff000000) >>> 24)));
-    }
-
-    public static short ntohs(short x) {
-        return (short) (((x & 0x00ff) << 8) | ((x & 0xff00) >>> 8));
-    }
-
-    public static int htonl(int x) {
-        return ntohl(x);
-    }
-
-    public static short htons(short x) {
-        return ntohs(x);
-    }
+    var doomcom: doomcom_t? = null
 
     //void    NetSend ();
     //boolean NetListen ();
@@ -110,44 +63,40 @@ public class BasicNetworkInterface implements DoomSystemNetworking {
     // NETWORKING
     //
     // Maes: come on, we all know it's 666.
-    int DOOMPORT = 666;//(IPPORT_USERRESERVED +0x1d );
+    var DOOMPORT = 666 //(IPPORT_USERRESERVED +0x1d );
 
     //_D_: for testing purposes. If testing on the same machine, we can't have two UDP servers on the same port
-    int RECVPORT = DOOMPORT;
-    int SENDPORT = DOOMPORT;
+    var RECVPORT = DOOMPORT
+    var SENDPORT = DOOMPORT
 
     //DatagramSocket         sendsocket;
-    DatagramSocket insocket;
+    var insocket: DatagramSocket? = null
 
     // MAES: closest java equivalent
-    DatagramSocket /*InetAddress*/ sendaddress[] = new DatagramSocket/*InetAddress*/[MAXNETNODES];
+    var   /*InetAddress*/sendaddress = arrayOfNulls<DatagramSocket>(Limits.MAXNETNODES)
 
     interface NetFunction {
-
-        public void invoke();
+        operator fun invoke()
     }
 
     // To use inside packetsend. Declare once and reuse to save on heap costs.
-    private final doomdata_t sendData;
-    private final doomdata_t recvData;
+    private val sendData: doomdata_t
+    private val recvData: doomdata_t
 
     // We also reuse always the same DatagramPacket, "peged" to sw's byte buffer.
-    private final DatagramPacket recvPacket;
-    private final DatagramPacket sendPacket;
-
-    public void sendSocketPacket(DatagramSocket ds, DatagramPacket dp) throws IOException {
-        ds.send(dp);
+    private val recvPacket: DatagramPacket
+    private val sendPacket: DatagramPacket
+    @Throws(IOException::class)
+    fun sendSocketPacket(ds: DatagramSocket?, dp: DatagramPacket?) {
+        ds!!.send(dp)
     }
 
-    public PacketSend packetSend = new PacketSend();
+    var packetSend = PacketSend()
 
-    public class PacketSend implements NetFunction {
-
-        @Override
-        public void invoke() {
-            int c;
-
-            doomdata_t netbuffer = DOOM.netbuffer;
+    inner class PacketSend : NetFunction {
+        override fun invoke() {
+            var c: Int
+            val netbuffer = DOOM.netbuffer!!
 
             // byte swap: so this is transferred as little endian? Ugh
             /*sendData.checksum = htonl(netbuffer.checksum);
@@ -166,9 +115,9 @@ public class BasicNetworkInterface implements DoomSystemNetworking {
           }
              */
             //printf ("sending %i\n",gametic);      
-            sendData.copyFrom(netbuffer);
+            sendData.copyFrom(netbuffer)
             // MAES: This will force the buffer to be refreshed.
-            byte[] bytes = sendData.pack();
+            val bytes = sendData.pack()
 
             /*System.out.print("SEND >> Thisplayer: "+DM.consoleplayer+" numtics: "+sendData.numtics+" consistency: ");
           for (doom.ticcmd_t t: sendData.cmds)
@@ -176,92 +125,94 @@ public class BasicNetworkInterface implements DoomSystemNetworking {
           System.out.println();*/
             // The socket already contains the address it needs,
             // and the packet's buffer is already modified. Send away.
-            sendPacket.setData(bytes, 0, doomcom.datalength);
-            DatagramSocket sendsocket;
+            sendPacket.setData(bytes, 0, doomcom!!.datalength.toInt())
+            val sendsocket: DatagramSocket?
             try {
-                sendsocket = sendaddress[doomcom.remotenode];
-                sendPacket.setSocketAddress(sendsocket.getRemoteSocketAddress());
-                sendSocketPacket(sendsocket, sendPacket);
-            } catch (Exception e) {
-                e.printStackTrace();
-                DOOM.doomSystem.Error("SendPacket error: %s", e.getMessage());
+                sendsocket = sendaddress[doomcom!!.remotenode.toInt()]
+                sendPacket.socketAddress = sendsocket!!.remoteSocketAddress
+                sendSocketPacket(sendsocket, sendPacket)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                DOOM.doomSystem.Error("SendPacket error: %s", e.message)
             }
 
             //  if (c == -1)
             //      I_Error ("SendPacket error: %s",strerror(errno));
         }
-
     }
 
-    public void socketGetPacket(DatagramSocket ds, DatagramPacket dp) throws IOException {
-        ds.receive(dp);
+    @Throws(IOException::class)
+    fun socketGetPacket(ds: DatagramSocket?, dp: DatagramPacket?) {
+        ds!!.receive(dp)
     }
 
     // Used inside PacketGet
-    private boolean first = true;
+    private var first = true
+    var packetGet = PacketGet()
 
-    public PacketGet packetGet = new PacketGet();
-
-    public class PacketGet implements NetFunction {
-
-        @Override
-        public void invoke() {
-            int i;
-            int c;
+    inner class PacketGet : NetFunction {
+        override fun invoke() {
+            var i: Int
+            var c: Int
 
             // Receive back into swp.
             try {
                 //recvPacket.setSocketAddress(insocket.getLocalSocketAddress());
-                socketGetPacket(insocket, recvPacket);
-            } catch (SocketTimeoutException e) {
-                doomcom.remotenode = -1;       // no packet
-                return;
-            } catch (Exception e) {
-                if (e.getClass() != java.nio.channels.IllegalBlockingModeException.class) {
-                    DOOM.doomSystem.Error("GetPacket: %s", (Object[]) e.getStackTrace());
+                socketGetPacket(insocket, recvPacket)
+            } catch (e: SocketTimeoutException) {
+                doomcom!!.remotenode = -1 // no packet
+                return
+            } catch (e: Exception) {
+                if (e.javaClass != IllegalBlockingModeException::class.java) {
+                    DOOM.doomSystem.Error("GetPacket: %s", *e.stackTrace as Array<Any?>)
                 }
             }
-
-            recvData.unpack(recvPacket.getData());
-            InetAddress fromaddress = recvPacket.getAddress();
+            recvData.unpack(recvPacket.data)
+            val fromaddress = recvPacket.address
 
             /*System.out.print("RECV << Thisplayer: "+DM.consoleplayer+" numtics: "+recvData.numtics+" consistency: ");
           for (doom.ticcmd_t t: recvData.cmds)
               System.out.print(t.consistancy+",");
-          System.out.println();*/
-            {
+          System.out.println();*/run {
                 //static int first=1;
                 if (first) {
-                    sb.setLength(0);
-                    sb.append("(").append(DOOM.consoleplayer).append(") PacketRECV len=");
-                    sb.append(recvPacket.getLength());
-                    sb.append(":p=[0x");
-                    sb.append(Integer.toHexString(recvData.checksum));
-                    sb.append(" 0x");
-                    sb.append(DoomBuffer.getBEInt(recvData.retransmitfrom, recvData.starttic, recvData.player, recvData.numtics));
-                    sb.append("numtics: ").append(recvData.numtics);
-                    System.out.println(sb.toString());
-                    first = false;
+                    sb.setLength(0)
+                    sb.append("(").append(DOOM.consoleplayer).append(") PacketRECV len=")
+                    sb.append(recvPacket.length)
+                    sb.append(":p=[0x")
+                    sb.append(Integer.toHexString(recvData.checksum))
+                    sb.append(" 0x")
+                    sb.append(
+                        DoomBuffer.getBEInt(
+                            recvData.retransmitfrom,
+                            recvData.starttic,
+                            recvData.player,
+                            recvData.numtics
+                        )
+                    )
+                    sb.append("numtics: ").append(recvData.numtics.toInt())
+                    println(sb.toString())
+                    first = false
                 }
             }
 
             // find remote node number
-            for (i = 0; i < doomcom.numnodes; i++) {
+            i = 0
+            while (i < doomcom!!.numnodes) {
                 if (sendaddress[i] != null) {
-                    if (fromaddress.equals(sendaddress[i].getInetAddress())) {
-                        break;
+                    if (fromaddress == sendaddress[i]!!.inetAddress) {
+                        break
                     }
                 }
+                i++
             }
-
-            if (i == doomcom.numnodes) {
+            if (i == doomcom!!.numnodes.toInt()) {
                 // packet is not from one of the players (new game broadcast)
-                doomcom.remotenode = -1;       // no packet
-                return;
+                doomcom!!.remotenode = -1 // no packet
+                return
             }
-
-            doomcom.remotenode = (short) i;            // good packet from a game player
-            doomcom.datalength = (short) recvPacket.getLength();
+            doomcom!!.remotenode = i.toShort() // good packet from a game player
+            doomcom!!.datalength = recvPacket.length.toShort()
 
             //_D_: temporary hack to test two player on single machine
             //doomcom.remotenode = (short)(RECVPORT-DOOMPORT);
@@ -281,127 +232,150 @@ public class BasicNetworkInterface implements DoomSystemNetworking {
               netbuffer.cmds[c].consistancy = ntohs(recvData.cmds[c].consistancy);
               netbuffer.cmds[c].chatchar = recvData.cmds[c].chatchar;
               netbuffer.cmds[c].buttons = recvData.cmds[c].buttons;
-          } */
-            DOOM.netbuffer.copyFrom(recvData);
-
+          } */DOOM.netbuffer!!.copyFrom(recvData)
         }
-
-    };
+    }
 
     // Maes: oh great. More function pointer "fun".
-    NetFunction netget = packetGet;
-    NetFunction netsend = packetSend;
+    var netget: NetFunction = packetGet
+    var netsend: NetFunction = packetSend
 
     //
     // I_InitNetwork
     //
-    @Override
-    public void InitNetwork() {
+    override fun InitNetwork() {
         //struct hostent* hostentry;  // host information entry
-
-        doomcom = new doomcom_t();
+        doomcom = doomcom_t()
         //netbuffer = new doomdata_t();
-        DOOM.setDoomCom(doomcom);
+        DOOM.setDoomCom(doomcom)
         //DM.netbuffer = netbuffer;
 
         // set up for network
-        if (!DOOM.cVarManager.with(CommandVariable.DUP, 0, (Character c) -> {
-            doomcom.ticdup = (short) (c - '0');
-            if (doomcom.ticdup < 1) {
-                doomcom.ticdup = 1;
-            }
-            if (doomcom.ticdup > 9) {
-                doomcom.ticdup = 9;
-            }
-        })) {
-            doomcom.ticdup = 1;
+        if (!DOOM.cVarManager.with(CommandVariable.DUP, 0) { c: Char? ->
+                doomcom!!.ticdup = (c!!.code - '0'.code).toShort()
+                if (doomcom!!.ticdup < 1) {
+                    doomcom!!.ticdup = 1
+                }
+                if (doomcom!!.ticdup > 9) {
+                    doomcom!!.ticdup = 9
+                }
+            }) {
+            doomcom!!.ticdup = 1
         }
-
         if (DOOM.cVarManager.bool(CommandVariable.EXTRATIC)) {
-            doomcom.extratics = 1;
+            doomcom!!.extratics = 1
         } else {
-            doomcom.extratics = 0;
+            doomcom!!.extratics = 0
         }
-
-        DOOM.cVarManager.with(CommandVariable.PORT, 0, (Integer port) -> {
-            DOOMPORT = port;
-            System.out.println("using alternate port " + DOOMPORT);
-        });
+        DOOM.cVarManager.with(CommandVariable.PORT, 0) { port: Int? ->
+            DOOMPORT = port!!
+            println("using alternate port $DOOMPORT")
+        }
 
         // parse network game options,
         //  -net <consoleplayer> <host> <host> ...
         if (!DOOM.cVarManager.present(CommandVariable.NET)) {
             // single player game
-            DOOM.netgame = false;
-            doomcom.id = DOOMCOM_ID;
-            doomcom.numplayers = doomcom.numnodes = 1;
-            doomcom.deathmatch = 0; // false
-            doomcom.consoleplayer = 0;
-            return;
+            DOOM.netgame = false
+            doomcom!!.id = NetConsts.DOOMCOM_ID
+            doomcom!!.numnodes = 1
+            doomcom!!.numplayers = doomcom!!.numnodes
+            doomcom!!.deathmatch = 0 // false
+            doomcom!!.consoleplayer = 0
+            return
         }
-
-        DOOM.netgame = true;
+        DOOM.netgame = true
 
         // parse player number and host list
-        doomcom.consoleplayer = (short) (DOOM.cVarManager.get(CommandVariable.NET, Character.class, 0).get() - '1');
-
-        RECVPORT = SENDPORT = DOOMPORT;
-        if (doomcom.consoleplayer == 0) {
-            SENDPORT++;
+        doomcom!!.consoleplayer =
+            (DOOM.cVarManager.get(CommandVariable.NET, Char::class.java, 0).get().code - '1'.code).toShort()
+        SENDPORT = DOOMPORT
+        RECVPORT = SENDPORT
+        if (doomcom!!.consoleplayer.toInt() == 0) {
+            SENDPORT++
         } else {
-            RECVPORT++;
+            RECVPORT++
         }
-
-        doomcom.numnodes = 1;  // this node for sure
-
-        String[] hosts = DOOM.cVarManager.get(CommandVariable.NET, String[].class, 1).get();
-        for (String host: hosts) {
+        doomcom!!.numnodes = 1 // this node for sure
+        val hosts = DOOM.cVarManager.get(CommandVariable.NET, Array<String>::class.java, 1).get()
+        for (host in hosts) {
             try {
-                InetAddress addr = InetAddress.getByName(host);
-                DatagramSocket ds = new DatagramSocket(null);
-                ds.setReuseAddress(true);
-                ds.connect(addr, SENDPORT);
-
-                sendaddress[doomcom.numnodes] = ds;
-            } catch (SocketException | UnknownHostException e) {
-                e.printStackTrace();
+                val addr = InetAddress.getByName(host)
+                val ds = DatagramSocket(null)
+                ds.reuseAddress = true
+                ds.connect(addr, SENDPORT)
+                sendaddress[doomcom!!.numnodes.toInt()] = ds
+            } catch (e: SocketException) {
+                e.printStackTrace()
+            } catch (e: UnknownHostException) {
+                e.printStackTrace()
             }
-
-            doomcom.numnodes++;
+            doomcom!!.numnodes++
         }
-
-        doomcom.id = DOOMCOM_ID;
-        doomcom.numplayers = doomcom.numnodes;
+        doomcom!!.id = NetConsts.DOOMCOM_ID
+        doomcom!!.numplayers = doomcom!!.numnodes
 
         // build message to receive
         try {
-            insocket = new DatagramSocket(null);
-            insocket.setReuseAddress(true);
-            insocket.setSoTimeout(1);
-            insocket.bind(new InetSocketAddress(RECVPORT));
-        } catch (SocketException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
+            insocket = DatagramSocket(null)
+            insocket!!.reuseAddress = true
+            insocket!!.soTimeout = 1
+            insocket!!.bind(InetSocketAddress(RECVPORT))
+        } catch (e1: SocketException) {
+            e1.printStackTrace()
         }
     }
 
-    @Override
-    public void NetCmd() {
+    override fun NetCmd() {
         if (insocket == null) //HACK in case "netgame" is due to "addbot"
         {
-            return;
+            return
         }
-
-        if (DOOM.doomcom.command == CMD_SEND) {
-            netsend.invoke();
-        } else if (doomcom.command == CMD_GET) {
-            netget.invoke();
+        if (DOOM.doomcom!!.command == NetConsts.CMD_SEND) {
+            netsend.invoke()
+        } else if (doomcom!!.command == NetConsts.CMD_GET) {
+            netget.invoke()
         } else {
-            DOOM.doomSystem.Error("Bad net cmd: %i\n", doomcom.command);
+            DOOM.doomSystem.Error("Bad net cmd: %i\n", doomcom!!.command)
         }
-
     }
 
     // Instance StringBuilder
-    private StringBuilder sb = new StringBuilder();
+    private val sb = StringBuilder()
+
+    init {
+        //this.myargv=DM.myargv;
+        //this.myargc=DM.myargc;
+        sendData = doomdata_t()
+        recvData = doomdata_t()
+        // We can do that since the buffer is reused.
+        // Note: this will effectively tie doomdata and the datapacket.
+        recvPacket = DatagramPacket(recvData.cached(), recvData.cached().size)
+        sendPacket = DatagramPacket(sendData.cached(), sendData.cached().size)
+    }
+
+    companion object {
+        // For some odd reason...
+        /**
+         * Changes endianness of a number
+         */
+        fun ntohl(x: Int): Int {
+            return (x and 0x000000ff shl 24
+                    or (x and 0x0000ff00 shl 8)
+                    or (x and 0x00ff0000 ushr 8)
+                    or (x and -0x1000000 ushr 24))
+        }
+
+        fun ntohs(x: Short): Short {
+            return (x.toInt() and 0x00ff shl 8 or (x.toInt() and 0xff00 ushr 8)).toShort()
+        }
+
+        fun htonl(x: Int): Int {
+            return ntohl(x)
+        }
+
+        fun htons(x: Short): Short {
+            return ntohs(x)
+        }
+    }
 }

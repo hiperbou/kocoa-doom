@@ -1,32 +1,20 @@
-package pooling;
+package pooling
 
-import s.AudioChunk;
+
+import s.AudioChunk
 
 // Referenced classes of package pooling:
 //            ObjectPool
-
-public class AudioChunkPool extends ObjectQueuePool<AudioChunk>
-{
-
-    public AudioChunkPool()    
-    {
-    	// A reasonable time limit for Audio chunks
-    	super(10000L);
+class AudioChunkPool : ObjectQueuePool<AudioChunk?>(10000L) {
+    override fun create(): AudioChunk {
+        return AudioChunk()
     }
 
-    protected AudioChunk create()
-    {
-        return new AudioChunk();
+    override fun expire(o: AudioChunk?) {
+        o!!.free = true
     }
 
-    public void expire(AudioChunk o)
-    {
-        o.free = true;
+    override fun validate(o: AudioChunk?): Boolean {
+        return o!!.free
     }
-
-    public boolean validate(AudioChunk o)
-    {
-        return o.free;
-    }
-
 }

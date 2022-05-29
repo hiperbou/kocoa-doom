@@ -1,71 +1,70 @@
-package pooling;
+package pooling
 
-import java.util.Arrays;
 
-public abstract class GenericIntMap<K> {
-    protected static final int DEFAULT_CAPACITY = 16;
-    
+import java.util.*
+
+abstract class GenericIntMap<K> internal constructor() {
+    fun containsKey(lump: Int): Boolean {
+        return indexOf(lump) >= 0
+    }
+
+    operator fun get(lump: Int): K? {
+        val index = indexOf(lump)
+        return if (index >= 0) {
+            patches[index]
+        } else {
+            null
+        }
+    }
+
+    fun put(lump: Int, patch: K) {
+        val index = indexOf(lump)
+        if (index >= 0) {
+            patches[index] = patch
+        } else {
+            ensureCapacity(numEntries + 1)
+            val newIndex = index.inv()
+            val moveCount = numEntries - newIndex
+            if (moveCount > 0) {
+                System.arraycopy(lumps, newIndex, lumps, newIndex + 1, moveCount)
+                System.arraycopy(patches, newIndex, patches, newIndex + 1, moveCount)
+            }
+            lumps[newIndex] = lump
+            patches[newIndex] = patch
+            ++numEntries
+        }
+    }
+
+    protected fun ensureCapacity(cap: Int) {
+        while (lumps.size <= cap) {
+            lumps = Arrays.copyOf(lumps, Math.max(lumps.size * 2, GenericIntMap.DEFAULT_CAPACITY))
+        }
+        while (patches.size <= cap) {
+            patches = Arrays.copyOf(patches, Math.max(patches.size * 2, GenericIntMap.DEFAULT_CAPACITY))
+        }
+    }
+
+    protected fun indexOf(lump: Int): Int {
+        return Arrays.binarySearch(lumps, 0, numEntries, lump)
+        //for (int i=0;i<numEntries;i++)
+        //	if (lumps[i]==lump) return i;
+        //
+        //return -1;
+    }
+
+    protected var lumps: IntArray
+    protected var numEntries = 0
+    protected lateinit var patches: Array<K>
+
     /** Concrete implementations must allocate patches
-     *  
+     *
      */
-    GenericIntMap() {
-    
-    	lumps = new int[DEFAULT_CAPACITY];
+    init {
+        lumps = IntArray(GenericIntMap.DEFAULT_CAPACITY)
         // patches = new K[DEFAULT_CAPACITY];
     }
-    
-    public boolean containsKey(int lump) {
-        return indexOf(lump) >= 0;
+
+    companion object {
+        const val DEFAULT_CAPACITY = 16
     }
-    
-    public K get(int lump) {
-        int index = indexOf(lump);
-        if (index >= 0) {
-            return patches[index];
-        } else {
-            return null;
-        }
-    }
-    
-    public void put(int lump, K patch) {
-        int index = indexOf(lump);
-        if (index >= 0) {
-            patches[index] = patch;
-        } else {
-            ensureCapacity(numEntries + 1);
-            int newIndex = ~index;
-            int moveCount = numEntries - newIndex;
-            if (moveCount > 0) {
-                System.arraycopy(lumps, newIndex, lumps, newIndex+1, moveCount);
-                System.arraycopy(patches, newIndex, patches, newIndex+1, moveCount);
-            }
-            lumps[newIndex] = lump;
-            patches[newIndex] = patch;
-            ++ numEntries;
-        }
-    }
-    
-    protected void ensureCapacity(int cap) {
-        while (lumps.length <= cap) {
-            lumps =
-                Arrays.copyOf(lumps, Math.max(lumps.length * 2, DEFAULT_CAPACITY));
-        }
-        while (patches.length <= cap) {
-            patches =
-                Arrays.copyOf(patches, Math.max(patches.length * 2, DEFAULT_CAPACITY));
-        }
-    }
-    protected int indexOf(int lump) {
-         return Arrays.binarySearch(lumps, 0, numEntries, lump);
-    	//for (int i=0;i<numEntries;i++)
-    	//	if (lumps[i]==lump) return i;
-    	//
-    	//return -1;
-    	
-    }
-    
-    
-    protected int[] lumps;
-    protected int numEntries;
-    protected K[] patches;
 }

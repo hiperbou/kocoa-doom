@@ -1,38 +1,23 @@
-package f;
+package f
 
-import static data.Defines.FF_FRAMEMASK;
-import static data.Defines.HU_FONTSIZE;
-import static data.Defines.HU_FONTSTART;
-import static data.Defines.PU_CACHE;
-import static data.Defines.PU_LEVEL;
-import static data.Limits.MAXPLAYERS;
-import static data.info.mobjinfo;
-import static data.info.states;
-import data.mobjtype_t;
-import data.sounds.musicenum_t;
-import data.sounds.sfxenum_t;
-import data.state_t;
-import defines.*;
-import doom.DoomMain;
-import doom.SourceCode.F_Finale;
-import static doom.SourceCode.F_Finale.F_Responder;
-import static doom.englsh.*;
-import doom.event_t;
-import doom.evtype_t;
-import doom.gameaction_t;
-import java.awt.Rectangle;
-import java.io.IOException;
-import m.Settings;
-import mochadoom.Engine;
-import rr.flat_t;
-import rr.patch_t;
-import rr.spritedef_t;
-import rr.spriteframe_t;
-import static utils.C2JUtils.*;
-import static v.DoomGraphicSystem.*;
-import v.graphics.Blocks;
-import v.renderers.DoomScreen;
-import static v.renderers.DoomScreen.*;
+import data.*
+import data.sounds.sfxenum_t
+import data.sounds.musicenum_t
+import defines.GameMode
+import defines.gamestate_t
+import defines.statenum_t
+import doom.*
+import doom.SourceCode.F_Finale
+import m.Settings
+import mochadoom.Engine
+import rr.flat_t
+import rr.patch_t
+import utils.C2JUtils
+import v.DoomGraphicSystem
+import v.graphics.Blocks
+import v.renderers.DoomScreen
+import java.awt.Rectangle
+
 
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
@@ -40,6 +25,7 @@ import static v.renderers.DoomScreen.*;
 // $Id: Finale.java,v 1.28 2012/09/24 17:16:23 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -55,650 +41,554 @@ import static v.renderers.DoomScreen.*;
 //  Game completion, final screen animation.
 //
 //-----------------------------------------------------------------------------
+class Finale<T>(val DOOM: DoomMain<T, *>) {
+    var finalestage = 0
+    var finalecount = 0
+    var finaletext: String? = null
+    var finaleflat: String? = null
 
-public class Finale<T> {
+    /**
+     * F_StartFinale
+     */
+    fun StartFinale() {
+        DOOM.setGameAction( gameaction_t.ga_nothing )
+        DOOM.gamestate = gamestate_t.GS_FINALE
+        DOOM.viewactive = false
+        DOOM.automapactive = false
 
-	final DoomMain<T, ?> DOOM;
-	int finalestage;
-	int finalecount;
-
-	private static final int TEXTSPEED = 3;
-	private static final int TEXTWAIT = 250;
-
-	final static String[] doom_text = { E1TEXT, E2TEXT, E3TEXT, E4TEXT };
-	final static String[] doom2_text = { C1TEXT, C2TEXT, C3TEXT, C4TEXT, C5TEXT, C6TEXT };
-	final static String[] plut_text = { P1TEXT, P2TEXT, P3TEXT, P4TEXT, P5TEXT, P6TEXT };
-	final static String[] tnt_text = { T1TEXT, T2TEXT, T3TEXT, T4TEXT, T5TEXT, T6TEXT };
-	String finaletext;
-	String finaleflat;
-
-	/**
-	 * F_StartFinale
-	 */
-	public void StartFinale() {
-		DOOM.setGameAction(gameaction_t.ga_nothing);
-		DOOM.gamestate = gamestate_t.GS_FINALE;
-		DOOM.viewactive = false;
-		DOOM.automapactive = false;
-		String[] texts = null;
-
-		// Pick proper text.
-		switch (DOOM.getGameMode()) {
-		case commercial:
-		case pack_xbla:
-        case freedoom2:
-        case freedm:
-			texts = doom2_text;
-			break;
-		case pack_tnt:
-			texts = tnt_text;
-			break;
-		case pack_plut:
-			texts = plut_text;
-			break;
-		case shareware:
-		case registered:
-		case retail:
-        case freedoom1:
-			texts = doom_text;
-			break;
-        default:
-        	break;
-		}
-
-		// Okay - IWAD dependend stuff.
-		// This has been changed severly, and
-		// some stuff might have changed in the process.
-		switch (DOOM.getGameMode()) {
-
-		// DOOM 1 - E1, E3 or E4, but each nine missions
-        case freedoom1:
-		case shareware:
-		case registered:
-		case retail: {
-			DOOM.doomSound.ChangeMusic(musicenum_t.mus_victor, true);
-
-			switch (DOOM.gameepisode) {
-			case 1:
-				finaleflat = "FLOOR4_8";
-				finaletext = texts[0];
-				break;
-			case 2:
-				finaleflat = "SFLR6_1";
-				finaletext = texts[1];
-				break;
-			case 3:
-				finaleflat = "MFLR8_4";
-				finaletext = texts[2];
-				break;
-			case 4:
-				finaleflat = "MFLR8_3";
-				finaletext = texts[3];
-				break;
-			default:
-				// Ouch.
-				break;
-			}
-			break;
-		}
-
-			// DOOM II and missions packs with E1, M34
-        case freedm:
-        case freedoom2:
-		case commercial:
-		case pack_xbla:
-		case pack_tnt:
-		case pack_plut: {
-			DOOM.doomSound.ChangeMusic(musicenum_t.mus_read_m, true);
-
-			switch (DOOM.gamemap) {
-			case 6:
-				finaleflat = "SLIME16";
-				finaletext = texts[0];
-				break;
-			case 11:
-				finaleflat = "RROCK14";
-				finaletext = texts[1];
-				break;
-			case 20:
-				finaleflat = "RROCK07";
-				finaletext = texts[2];
-				break;
-			case 30:
-				finaleflat = "RROCK17";
-				finaletext = texts[3];
-				break;
-			case 15:
-				finaleflat = "RROCK13";
-				finaletext = texts[4];
-				break;
-			case 31:
-				finaleflat = "RROCK19";
-				finaletext = texts[5];
-				break;
-			default:
-				// Ouch.
-				break;
-			}
-			break;
-		}
-
-			// Indeterminate.
-		default:
-			DOOM.doomSound.ChangeMusic(musicenum_t.mus_read_m, true);
-			finaleflat = "F_SKY1"; // Not used anywhere else.
-			finaletext = doom2_text[1];
-			break;
-		}
-
-		finalestage = 0;
-		finalecount = 0;
-
-	}
-
-    @F_Finale.C(F_Responder)
-	public boolean Responder(event_t event) {
-		if (finalestage == 2)
-			return CastResponder(event);
-
-		return false;
-	}
-
-	/**
-	 * F_Ticker
-	 */
-
-	public void Ticker() {
-
-		// check for skipping
-		if ((DOOM.isCommercial()) && (finalecount > 50)) {
-    		int i;
-			// go on to the next level
-			for (i = 0; i < MAXPLAYERS; i++) {
-				if (DOOM.players[i].cmd.buttons != 0) {
-					break;
-                }
-            }
-
-			if (i < MAXPLAYERS) {
-				if (DOOM.gamemap == 30) {
-					StartCast();
-                } else {
-					DOOM.setGameAction(gameaction_t.ga_worlddone);
-                }
-			}
-		}
-
-		// advance animation
-		finalecount++;
-
-		if (finalestage == 2) {
-			CastTicker();
-			return;
-		}
-
-		if (DOOM.isCommercial()) {
-			return;
+        val texts: Array<String?> = when (DOOM.getGameMode()) {
+            GameMode.commercial, GameMode.pack_xbla, GameMode.freedoom2, GameMode.freedm -> doom2_text
+            GameMode.pack_tnt -> tnt_text
+            GameMode.pack_plut -> plut_text
+            GameMode.shareware, GameMode.registered, GameMode.retail, GameMode.freedoom1 -> doom_text
+            else -> arrayOf()
         }
-        
-		// MAES: this is when we can transition to bunny.
-		if ((finalestage == 0) && finalecount > finaletext.length() * TEXTSPEED + TEXTWAIT) {
-			finalecount = 0;
-			finalestage = 1;
-			DOOM.wipegamestate = gamestate_t.GS_MINUS_ONE; // force a wipe
-            
-			if (DOOM.gameepisode == 3) {
-				DOOM.doomSound.StartMusic(musicenum_t.mus_bunny);
+        when (DOOM.getGameMode()) {
+            GameMode.freedoom1, GameMode.shareware, GameMode.registered, GameMode.retail -> {
+                DOOM.doomSound.ChangeMusic(sounds.musicenum_t.mus_victor, true)
+                when (DOOM.gameepisode) {
+                    1 -> {
+                        finaleflat = "FLOOR4_8"
+                        finaletext = texts[0]
+                    }
+                    2 -> {
+                        finaleflat = "SFLR6_1"
+                        finaletext = texts[1]
+                    }
+                    3 -> {
+                        finaleflat = "MFLR8_4"
+                        finaletext = texts[2]
+                    }
+                    4 -> {
+                        finaleflat = "MFLR8_3"
+                        finaletext = texts[3]
+                    }
+                    else -> {}
+                }
             }
-		}
-	}
+            GameMode.freedm, GameMode.freedoom2, GameMode.commercial, GameMode.pack_xbla, GameMode.pack_tnt, GameMode.pack_plut -> {
+                DOOM.doomSound.ChangeMusic(sounds.musicenum_t.mus_read_m, true)
+                when (DOOM.gamemap) {
+                    6 -> {
+                        finaleflat = "SLIME16"
+                        finaletext = texts[0]
+                    }
+                    11 -> {
+                        finaleflat = "RROCK14"
+                        finaletext = texts[1]
+                    }
+                    20 -> {
+                        finaleflat = "RROCK07"
+                        finaletext = texts[2]
+                    }
+                    30 -> {
+                        finaleflat = "RROCK17"
+                        finaletext = texts[3]
+                    }
+                    15 -> {
+                        finaleflat = "RROCK13"
+                        finaletext = texts[4]
+                    }
+                    31 -> {
+                        finaleflat = "RROCK19"
+                        finaletext = texts[5]
+                    }
+                    else -> {}
+                }
+            }
+            else -> {
+                DOOM.doomSound.ChangeMusic(sounds.musicenum_t.mus_read_m, true)
+                finaleflat = "F_SKY1" // Not used anywhere else.
+                finaletext = doom2_text[1]
+            }
+        }
+        finalestage = 0
+        finalecount = 0
+    }
 
-	//
-	// F_TextWrite
-	//
+    @F_Finale.C(F_Finale.F_Responder)
+    fun Responder(event: event_t): Boolean {
+        return if (finalestage == 2) CastResponder(event) else false
+    }
 
-	// #include "hu_stuff.h"
-	patch_t[] hu_font;
+    /**
+     * F_Ticker
+     */
+    fun Ticker() {
 
-	@SuppressWarnings("unchecked")
-    public void TextWrite() {
-		// erase the entire screen to a tiled background
-		byte[] src = DOOM.wadLoader.CacheLumpName(finaleflat, PU_CACHE, flat_t.class).data;
-        if (Engine.getConfig().equals(Settings.scale_screen_tiles, Boolean.TRUE)) {
-            final Object scaled = ((Blocks<Object, DoomScreen>) DOOM.graphicSystem)
-                .ScaleBlock(DOOM.graphicSystem.convertPalettedBlock(src), 64, 64,
+        // check for skipping
+        if (DOOM.isCommercial() && finalecount > 50) {
+            var i: Int
+            // go on to the next level
+            i = 0
+            while (i < Limits.MAXPLAYERS) {
+                if (DOOM.players[i].cmd.buttons.code != 0) {
+                    break
+                }
+                i++
+            }
+            if (i < Limits.MAXPLAYERS) {
+                if (DOOM.gamemap == 30) {
+                    StartCast()
+                } else {
+                    DOOM.setGameAction(gameaction_t.ga_worlddone)
+                }
+            }
+        }
+
+        // advance animation
+        finalecount++
+        if (finalestage == 2) {
+            CastTicker()
+            return
+        }
+        if (DOOM.isCommercial()) {
+            return
+        }
+
+        // MAES: this is when we can transition to bunny.
+        if (finalestage == 0 && finalecount > finaletext!!.length * TEXTSPEED + TEXTWAIT) {
+            finalecount = 0
+            finalestage = 1
+            DOOM.wipegamestate = gamestate_t.GS_MINUS_ONE // force a wipe
+            if (DOOM.gameepisode == 3) {
+                DOOM.doomSound.StartMusic(sounds.musicenum_t.mus_bunny)
+            }
+        }
+    }
+
+    //
+    // F_TextWrite
+    //
+    // #include "hu_stuff.h"
+    var hu_font: Array<patch_t>
+    fun TextWrite() {
+        // erase the entire screen to a tiled background
+        val src = DOOM.wadLoader.CacheLumpName(finaleflat!!, Defines.PU_CACHE, flat_t::class.java).data
+        if (Engine.getConfig().equals(Settings.scale_screen_tiles, java.lang.Boolean.TRUE)) {
+            val scaled = (DOOM.graphicSystem as Blocks<Any, DoomScreen>)
+                .ScaleBlock(
+                    DOOM.graphicSystem.convertPalettedBlock(*src), 64, 64,
                     DOOM.graphicSystem.getScalingX(), DOOM.graphicSystem.getScalingY()
-                );
-            
-            ((Blocks<Object, DoomScreen>) DOOM.graphicSystem)
-                .TileScreen(FG, scaled, new Rectangle(0, 0,
-                    64 * DOOM.graphicSystem.getScalingX(), 64 * DOOM.graphicSystem.getScalingY())
-                );
+                )
+            (DOOM.graphicSystem as Blocks<Any, DoomScreen>)
+                .TileScreen(
+                    DoomScreen.FG, scaled, Rectangle(
+                        0, 0,
+                        64 * DOOM.graphicSystem.getScalingX(), 64 * DOOM.graphicSystem.getScalingY()
+                    )
+                )
         } else {
-            ((Blocks<Object, DoomScreen>) DOOM.graphicSystem)
-                .TileScreen(FG, DOOM.graphicSystem.convertPalettedBlock(src),
-                    new Rectangle(0, 0, 64, 64)
-                );
+            (DOOM.graphicSystem as Blocks<Any, DoomScreen>)
+                .TileScreen(
+                    DoomScreen.FG, DOOM.graphicSystem.convertPalettedBlock(*src),
+                    Rectangle(0, 0, 64, 64)
+                )
         }
 
-		// draw some of the text onto the screen
-		int cx = 10, cy = 10;
-		final char[] ch = finaletext.toCharArray();
-
-		int count = (finalecount - 10) / TEXTSPEED;
-		if (count < 0) {
-			count = 0;
+        // draw some of the text onto the screen
+        var cx = 10
+        var cy = 10
+        val ch = finaletext!!.toCharArray()
+        var count = (finalecount - 10) / TEXTSPEED
+        if (count < 0) {
+            count = 0
         }
 
-		// _D_: added min between count and ch.length, so that the text is not
-		// written all at once
-		for (int i = 0; i < Math.min(ch.length, count); i++) {
-			int c = ch[i];
-			if (c == 0)
-				break;
-			if (c == '\n') {
-				cx = 10;
-				cy += 11;
-				continue;
-			}
-
-			c = Character.toUpperCase(c) - HU_FONTSTART;
-			if (c < 0 || c > HU_FONTSIZE) {
-				cx += 4;
-				continue;
-			}
-
-			if (cx + hu_font[c].width > DOOM.vs.getScreenWidth()) {
-				break;
+        // _D_: added min between count and ch.length, so that the text is not
+        // written all at once
+        for (i in 0 until Math.min(ch.size, count)) {
+            var c = ch[i].code
+            if (c == 0) break
+            if (c == '\n'.code) {
+                cx = 10
+                cy += 11
+                continue
             }
-			DOOM.graphicSystem.DrawPatchScaled(FG, hu_font[c], DOOM.vs, cx, cy);
-			cx += hu_font[c].width;
-		}
-
-	}
-
-	private final castinfo_t[] castorder;
-
-	int castnum;
-	int casttics;
-	state_t caststate;
-	boolean castdeath;
-	int castframes;
-	int castonmelee;
-	boolean castattacking;
-
-	//
-	// F_StartCast
-	//
-	// extern gamestate_t wipegamestate;
-
-	public void StartCast() {
-		DOOM.wipegamestate = gamestate_t.GS_MINUS_ONE; // force a screen wipe
-		castnum = 0;
-		caststate = states[mobjinfo[castorder[castnum].type.ordinal()].seestate.ordinal()];
-		casttics = caststate.tics;
-		castdeath = false;
-		finalestage = 2;
-		castframes = 0;
-		castonmelee = 0;
-		castattacking = false;
-		DOOM.doomSound.ChangeMusic(musicenum_t.mus_evil, true);
-	}
-
-	//
-	// F_CastTicker
-	//
-	public void CastTicker() {
-		if (--casttics > 0)
-			return; // not time to change state yet
-
-		if (caststate.tics == -1 || caststate.nextstate == statenum_t.S_NULL || caststate.nextstate == null) {
-			// switch from deathstate to next monster
-			castnum++;
-			castdeath = false;
-			if (castorder[castnum].name == null) {
-				castnum = 0;
+            c = c.uppercaseChar() - Defines.HU_FONTSTART
+            if (c < 0 || c > Defines.HU_FONTSIZE) {
+                cx += 4
+                continue
             }
-            
-			if (mobjinfo[castorder[castnum].type.ordinal()].seesound.ordinal() != 0) {
-    			DOOM.doomSound.StartSound(null, mobjinfo[castorder[castnum].type.ordinal()].seesound);
+            if (cx + hu_font[c].width > DOOM.vs.getScreenWidth()) {
+                break
             }
-            
-			caststate = states[mobjinfo[castorder[castnum].type.ordinal()].seestate.ordinal()];
-			castframes = 0;
-		} else {
-    		final sfxenum_t sfx;
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, hu_font[c], DOOM.vs, cx, cy)
+            cx += hu_font[c].width.toInt()
+        }
+    }
 
-			// just advance to next state in animation
-			if (caststate == states[statenum_t.S_PLAY_ATK1.ordinal()]) {
-				stopattack(); // Oh, gross hack!
-				afterstopattack();
-				return; // bye ...
-			}
+    private val castorder: Array<castinfo_t>
+    var castnum = 0
+    var casttics = 0
+    var caststate: state_t? = null
+    var castdeath = false
+    var castframes = 0
+    var castonmelee = 0
+    var castattacking = false
 
-			final statenum_t st = caststate.nextstate;
-			caststate = states[st.ordinal()];
-			castframes++;
+    //
+    // F_StartCast
+    //
+    // extern gamestate_t wipegamestate;
+    fun StartCast() {
+        DOOM.wipegamestate = gamestate_t.GS_MINUS_ONE // force a screen wipe
+        castnum = 0
+        caststate = info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].seestate.ordinal]
+        casttics = caststate!!.tics
+        castdeath = false
+        finalestage = 2
+        castframes = 0
+        castonmelee = 0
+        castattacking = false
+        DOOM.doomSound.ChangeMusic(sounds.musicenum_t.mus_evil, true)
+    }
 
-			// sound hacks....
-			switch (st) {
-			case S_PLAY_ATK1:
-				sfx = sfxenum_t.sfx_dshtgn;
-				break;
-			case S_POSS_ATK2:
-				sfx = sfxenum_t.sfx_pistol;
-				break;
-			case S_SPOS_ATK2:
-				sfx = sfxenum_t.sfx_shotgn;
-				break;
-			case S_VILE_ATK2:
-				sfx = sfxenum_t.sfx_vilatk;
-				break;
-			case S_SKEL_FIST2:
-				sfx = sfxenum_t.sfx_skeswg;
-				break;
-			case S_SKEL_FIST4:
-				sfx = sfxenum_t.sfx_skepch;
-				break;
-			case S_SKEL_MISS2:
-				sfx = sfxenum_t.sfx_skeatk;
-				break;
-			case S_FATT_ATK8:
-			case S_FATT_ATK5:
-			case S_FATT_ATK2:
-				sfx = sfxenum_t.sfx_firsht;
-				break;
-			case S_CPOS_ATK2:
-			case S_CPOS_ATK3:
-			case S_CPOS_ATK4:
-				sfx = sfxenum_t.sfx_shotgn;
-				break;
-			case S_TROO_ATK3:
-				sfx = sfxenum_t.sfx_claw;
-				break;
-			case S_SARG_ATK2:
-				sfx = sfxenum_t.sfx_sgtatk;
-				break;
-			case S_BOSS_ATK2:
-			case S_BOS2_ATK2:
-			case S_HEAD_ATK2:
-				sfx = sfxenum_t.sfx_firsht;
-				break;
-			case S_SKULL_ATK2:
-				sfx = sfxenum_t.sfx_sklatk;
-				break;
-			case S_SPID_ATK2:
-			case S_SPID_ATK3:
-				sfx = sfxenum_t.sfx_shotgn;
-				break;
-			case S_BSPI_ATK2:
-				sfx = sfxenum_t.sfx_plasma;
-				break;
-			case S_CYBER_ATK2:
-			case S_CYBER_ATK4:
-			case S_CYBER_ATK6:
-				sfx = sfxenum_t.sfx_rlaunc;
-				break;
-			case S_PAIN_ATK3:
-				sfx = sfxenum_t.sfx_sklatk;
-				break;
-			default:
-				sfx = null;
-				break;
-			}
-
-			if (sfx != null) {// Fixed mute thanks to _D_ 8/6/2011
-				DOOM.doomSound.StartSound(null, sfx);
+    //
+    // F_CastTicker
+    //
+    fun CastTicker() {
+        if (--casttics > 0) return  // not time to change state yet
+        if (caststate!!.tics == -1 || caststate!!.nextstate == statenum_t.S_NULL || caststate!!.nextstate == null) {
+            // switch from deathstate to next monster
+            castnum++
+            castdeath = false
+            if (castorder[castnum].name == null) {
+                castnum = 0
             }
-		}
+            if (info.mobjinfo[castorder[castnum].type!!.ordinal].seesound.ordinal != 0) {
+                DOOM.doomSound.StartSound(null, info.mobjinfo[castorder[castnum].type!!.ordinal].seesound)
+            }
+            caststate = info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].seestate.ordinal]
+            castframes = 0
+        } else {
+            val sfx: sounds.sfxenum_t?
 
-		if (castframes == 12) {
-			// go into attack frame
-			castattacking = true;
-			if (castonmelee != 0) {
-				caststate = states[mobjinfo[castorder[castnum].type.ordinal()].meleestate.ordinal()];
+            // just advance to next state in animation
+            if (caststate === info.states[statenum_t.S_PLAY_ATK1.ordinal]) {
+                stopattack() // Oh, gross hack!
+                afterstopattack()
+                return  // bye ...
+            }
+            val st = caststate!!.nextstate!!
+            caststate = info.states[st.ordinal]
+            castframes++
+            sfx = when (st) {
+                statenum_t.S_PLAY_ATK1 -> sfxenum_t.sfx_dshtgn
+                statenum_t.S_POSS_ATK2 -> sfxenum_t.sfx_pistol
+                statenum_t.S_SPOS_ATK2 -> sfxenum_t.sfx_shotgn
+                statenum_t.S_VILE_ATK2 -> sfxenum_t.sfx_vilatk
+                statenum_t.S_SKEL_FIST2 -> sfxenum_t.sfx_skeswg
+                statenum_t.S_SKEL_FIST4 -> sfxenum_t.sfx_skepch
+                statenum_t.S_SKEL_MISS2 -> sfxenum_t.sfx_skeatk
+                statenum_t.S_FATT_ATK8, statenum_t.S_FATT_ATK5, statenum_t.S_FATT_ATK2 -> sfxenum_t.sfx_firsht
+                statenum_t.S_CPOS_ATK2, statenum_t.S_CPOS_ATK3, statenum_t.S_CPOS_ATK4 -> sfxenum_t.sfx_shotgn
+                statenum_t.S_TROO_ATK3 -> sfxenum_t.sfx_claw
+                statenum_t.S_SARG_ATK2 -> sfxenum_t.sfx_sgtatk
+                statenum_t.S_BOSS_ATK2, statenum_t.S_BOS2_ATK2, statenum_t.S_HEAD_ATK2 -> sfxenum_t.sfx_firsht
+                statenum_t.S_SKULL_ATK2 -> sfxenum_t.sfx_sklatk
+                statenum_t.S_SPID_ATK2, statenum_t.S_SPID_ATK3 -> sfxenum_t.sfx_shotgn
+                statenum_t.S_BSPI_ATK2 -> sfxenum_t.sfx_plasma
+                statenum_t.S_CYBER_ATK2, statenum_t.S_CYBER_ATK4, statenum_t.S_CYBER_ATK6 -> sfxenum_t.sfx_rlaunc
+                statenum_t.S_PAIN_ATK3 -> sfxenum_t.sfx_sklatk
+                else -> null
+            }
+            if (sfx != null) { // Fixed mute thanks to _D_ 8/6/2011
+                DOOM.doomSound.StartSound(null, sfx)
+            }
+        }
+        if (castframes == 12) {
+            // go into attack frame
+            castattacking = true
+            caststate = if (castonmelee != 0) {
+                info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].meleestate.ordinal]
             } else {
-				caststate = states[mobjinfo[castorder[castnum].type.ordinal()].missilestate.ordinal()];
+                info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].missilestate.ordinal]
             }
-			castonmelee ^= 1;
-			if (caststate == states[statenum_t.S_NULL.ordinal()]) {
-				if (castonmelee != 0) {
-					caststate = states[mobjinfo[castorder[castnum].type.ordinal()].meleestate.ordinal()];
+            castonmelee = castonmelee xor 1
+            if (caststate === info.states[statenum_t.S_NULL.ordinal]) {
+                caststate = if (castonmelee != 0) {
+                    info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].meleestate.ordinal]
                 } else {
-					caststate = states[mobjinfo[castorder[castnum].type .ordinal()].missilestate.ordinal()];
+                    info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].missilestate.ordinal]
                 }
-			}
-		}
-
-		if (castattacking) {
-			if (castframes == 24 || caststate == states[mobjinfo[castorder[castnum].type.ordinal()].seestate.ordinal()]) {
-				stopattack();
             }
-		}
-
-		afterstopattack();
-	}
-
-	protected void stopattack() {
-		castattacking = false;
-		castframes = 0;
-		caststate = states[mobjinfo[castorder[castnum].type.ordinal()].seestate.ordinal()];
-	}
-
-	protected void afterstopattack() {
-		casttics = caststate.tics;
-        
-		if (casttics == -1) {
-			casttics = 15;
         }
-	}
-
-	/**
-	 * CastResponder
-	 */
-
-	public boolean CastResponder(event_t ev) {
-		if (!ev.isType(evtype_t.ev_keydown)) {
-			return false;
+        if (castattacking) {
+            if (castframes == 24 || caststate === info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].seestate.ordinal]) {
+                stopattack()
+            }
         }
+        afterstopattack()
+    }
 
-		if (castdeath) {
-			return true; // already in dying frames
+    protected fun stopattack() {
+        castattacking = false
+        castframes = 0
+        caststate = info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].seestate.ordinal]
+    }
+
+    protected fun afterstopattack() {
+        casttics = caststate!!.tics
+        if (casttics == -1) {
+            casttics = 15
         }
+    }
 
-		// go into death frame
-		castdeath = true;
-		caststate = states[mobjinfo[castorder[castnum].type.ordinal()].deathstate.ordinal()];
-		casttics = caststate.tics;
-		castframes = 0;
-		castattacking = false;
-        
-		if (mobjinfo[castorder[castnum].type.ordinal()].deathsound != null) {
-			DOOM.doomSound.StartSound(null, mobjinfo[castorder[castnum].type.ordinal()].deathsound);
+    /**
+     * CastResponder
+     */
+    fun CastResponder(ev: event_t): Boolean {
+        if (!ev.isType(evtype_t.ev_keydown)) {
+            return false
+        }
+        if (castdeath) {
+            return true // already in dying frames
         }
 
-		return true;
-	}
+        // go into death frame
+        castdeath = true
+        caststate = info.states[info.mobjinfo[castorder[castnum].type!!.ordinal].deathstate.ordinal]
+        casttics = caststate!!.tics
+        castframes = 0
+        castattacking = false
+        if (info.mobjinfo[castorder[castnum].type!!.ordinal].deathsound != null) {
+            DOOM.doomSound.StartSound(null, info.mobjinfo[castorder[castnum].type!!.ordinal].deathsound)
+        }
+        return true
+    }
 
-	public void CastPrint(String text) {
-		int c, width = 0;
+    fun CastPrint(text: String) {
+        var c: Int
+        var width = 0
 
-		// find width
-		final char[] ch = text.toCharArray();
+        // find width
+        val ch = text.toCharArray()
+        for (i in ch.indices) {
+            c = ch[i].code
+            if (c == 0) break
+            c = c.uppercaseChar() - Defines.HU_FONTSTART
+            if (c < 0 || c > Defines.HU_FONTSIZE) {
+                width += 4
+                continue
+            }
+            width += hu_font[c].width.toInt()
+        }
 
-		for (int i = 0; i < ch.length; i++) {
-			c = ch[i];
-			if (c == 0)
-				break;
-			c = Character.toUpperCase(c) - HU_FONTSTART;
-			if (c < 0 || c > HU_FONTSIZE) {
-				width += 4;
-				continue;
-			}
+        // draw it
+        var cx = 160 - width / 2
+        // ch = text;
+        for (i in ch.indices) {
+            c = ch[i].code
+            if (c == 0) break
+            c = c.uppercaseChar() - Defines.HU_FONTSTART
+            if (c < 0 || c > Defines.HU_FONTSIZE) {
+                cx += 4
+                continue
+            }
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, hu_font[c], DOOM.vs, cx, 180)
+            cx += hu_font[c].width.toInt()
+        }
+    }
 
-			width += hu_font[c].width;
-		}
+    /**
+     * F_CastDrawer
+     *
+     * @throws IOException
+     */
+    // public void V_DrawPatchFlipped (int x, int y, int scrn, patch_t patch);
+    fun CastDrawer() {
+        // erase the entire screen to a background
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.FG,
+            DOOM.wadLoader.CachePatchName("BOSSBACK", Defines.PU_CACHE),
+            DOOM.vs,
+            0,
+            0
+        )
+        CastPrint(castorder[castnum].name!!)
 
-		// draw it
-		int cx = 160 - width / 2;
-		// ch = text;
-		for (int i = 0; i < ch.length; i++) {
-			c = ch[i];
-			if (c == 0)
-				break;
-			c = Character.toUpperCase(c) - HU_FONTSTART;
-			if (c < 0 || c > HU_FONTSIZE) {
-				cx += 4;
-				continue;
-			}
-
-			DOOM.graphicSystem.DrawPatchScaled(FG, hu_font[c], DOOM.vs, cx, 180);
-			cx += hu_font[c].width;
-		}
-	}
-
-	/**
-	 * F_CastDrawer
-	 * 
-	 * @throws IOException
-	 */
-
-	// public void V_DrawPatchFlipped (int x, int y, int scrn, patch_t patch);
-
-	public void CastDrawer() {
-		// erase the entire screen to a background
-		DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("BOSSBACK", PU_CACHE), DOOM.vs, 0, 0);
-		this.CastPrint(castorder[castnum].name);
-
-		// draw the current frame in the middle of the screen
-		final spritedef_t sprdef = DOOM.spriteManager.getSprite(caststate.sprite.ordinal());
-		final spriteframe_t sprframe = sprdef.spriteframes[caststate.frame & FF_FRAMEMASK];
-		final int lump = sprframe.lump[0];
-		final boolean flip = eval(sprframe.flip[0]);
-		// flip=false;
-		// lump=0;
-
-		final patch_t patch = DOOM.wadLoader.CachePatchNum(lump + DOOM.spriteManager.getFirstSpriteLump());
-
-		if (flip) {
-			DOOM.graphicSystem.DrawPatchScaled(FG, patch, DOOM.vs, 160, 170, V_FLIPPEDPATCH);
+        // draw the current frame in the middle of the screen
+        val sprdef = DOOM.spriteManager.getSprite(caststate!!.sprite!!.ordinal)
+        val sprframe = sprdef.spriteframes[caststate!!.frame and Defines.FF_FRAMEMASK]!!
+        val lump = sprframe.lump[0]
+        val flip = C2JUtils.eval(sprframe.flip[0].toInt())
+        // flip=false;
+        // lump=0;
+        val patch = DOOM.wadLoader.CachePatchNum(lump + DOOM.spriteManager.getFirstSpriteLump())
+        if (flip) {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                patch,
+                DOOM.vs,
+                160,
+                170,
+                DoomGraphicSystem.V_FLIPPEDPATCH
+            )
         } else {
-			DOOM.graphicSystem.DrawPatchScaled(FG, patch, DOOM.vs, 160, 170);
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, patch, DOOM.vs, 160, 170)
         }
-	}
+    }
 
-	protected int laststage;
+    protected var laststage = 0
 
-	/**
-	 * F_BunnyScroll
-	 */
-	public void BunnyScroll() {
-		final patch_t p1 = DOOM.wadLoader.CachePatchName("PFUB2", PU_LEVEL);
-		final patch_t p2 = DOOM.wadLoader.CachePatchName("PFUB1", PU_LEVEL);
+    /**
+     * F_BunnyScroll
+     */
+    fun BunnyScroll() {
+        val p1 = DOOM.wadLoader.CachePatchName("PFUB2", Defines.PU_LEVEL)
+        val p2 = DOOM.wadLoader.CachePatchName("PFUB1", Defines.PU_LEVEL)
 
-		//V.MarkRect(0, 0, DOOM.vs.getScreenWidth(), DOOM.vs.getScreenHeight());
-
-		int scrolled = 320 - (finalecount - 230) / 2;
-        
-		if (scrolled > 320) {
-			scrolled = 320;
+        //V.MarkRect(0, 0, DOOM.vs.getScreenWidth(), DOOM.vs.getScreenHeight());
+        var scrolled = 320 - (finalecount - 230) / 2
+        if (scrolled > 320) {
+            scrolled = 320
         }
-		
         if (scrolled < 0) {
-			scrolled = 0;
+            scrolled = 0
         }
-
-		for (int x = 0; x < 320; x++) {
-			if (x + scrolled < 320) {
-                DOOM.graphicSystem.DrawPatchColScaled(FG, p1, DOOM.vs, x, x + scrolled);
+        for (x in 0..319) {
+            if (x + scrolled < 320) {
+                DOOM.graphicSystem.DrawPatchColScaled(DoomScreen.FG, p1, DOOM.vs, x, x + scrolled)
             } else {
-                DOOM.graphicSystem.DrawPatchColScaled(FG, p2, DOOM.vs, x, x + scrolled - 320);
+                DOOM.graphicSystem.DrawPatchColScaled(DoomScreen.FG, p2, DOOM.vs, x, x + scrolled - 320)
             }
-		}
-
-		if (finalecount < 1130) {
-			return;
-        } else if (finalecount < 1180) {
-			DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("END0", PU_CACHE), DOOM.vs, (320 - 13 * 8) / 2, ((200 - 8 * 8) / 2));
-			laststage = 0;
-			return;
-		}
-
-		int stage = (finalecount - 1180) / 5;
-        
-		if (stage > 6) {
-			stage = 6;
         }
-        
-		if (stage > laststage) {
-			DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pistol);
-			laststage = stage;
-		}
+        if (finalecount < 1130) {
+            return
+        } else if (finalecount < 1180) {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                DOOM.wadLoader.CachePatchName("END0", Defines.PU_CACHE),
+                DOOM.vs,
+                (320 - 13 * 8) / 2,
+                (200 - 8 * 8) / 2
+            )
+            laststage = 0
+            return
+        }
+        var stage = (finalecount - 1180) / 5
+        if (stage > 6) {
+            stage = 6
+        }
+        if (stage > laststage) {
+            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pistol)
+            laststage = stage
+        }
+        val name = "END$stage"
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.FG,
+            DOOM.wadLoader.CachePatchName(name, Defines.PU_CACHE),
+            DOOM.vs,
+            (320 - 13 * 8) / 2,
+            (200 - 8 * 8) / 2
+        )
+    }
 
-		final String name = ("END" + stage);
-		DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName(name, PU_CACHE), DOOM.vs, (320 - 13 * 8) / 2, ((200 - 8 * 8) / 2));
-	}
-
-	//
-	// F_Drawer
-	//
-	public void Drawer() {
-		if (finalestage == 2) {
-			CastDrawer();
-			return;
-		}
-
-		if (finalestage == 0) {
-			TextWrite();
+    //
+    // F_Drawer
+    //
+    fun Drawer() {
+        if (finalestage == 2) {
+            CastDrawer()
+            return
+        }
+        if (finalestage == 0) {
+            TextWrite()
         } else {
-			switch (DOOM.gameepisode) {
-			case 1:
-				if (DOOM.isCommercial() || DOOM.isRegistered())
-					DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("CREDIT", PU_CACHE), this.DOOM.vs, 0, 0);
-				else
-					// Fun fact: Registered/Ultimate Doom has no "HELP2" lump.
-					DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("HELP2", PU_CACHE), this.DOOM.vs, 0, 0);
-				break;
-			case 2:
-				DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("VICTORY2", PU_CACHE), this.DOOM.vs, 0, 0);
-				break;
-			case 3:
-				BunnyScroll();
-				break;
-			case 4:
-				DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("ENDPIC", PU_CACHE), this.DOOM.vs, 0, 0);
-				break;
-			}
-		}
+            when (DOOM.gameepisode) {
+                1 -> if (DOOM.isCommercial() || DOOM.isRegistered()) DOOM.graphicSystem.DrawPatchScaled(
+                    DoomScreen.FG,
+                    DOOM.wadLoader.CachePatchName("CREDIT", Defines.PU_CACHE),
+                    DOOM.vs,
+                    0,
+                    0
+                ) else  // Fun fact: Registered/Ultimate Doom has no "HELP2" lump.
+                    DOOM.graphicSystem.DrawPatchScaled(
+                        DoomScreen.FG,
+                        DOOM.wadLoader.CachePatchName("HELP2", Defines.PU_CACHE),
+                        DOOM.vs,
+                        0,
+                        0
+                    )
+                2 -> DOOM.graphicSystem.DrawPatchScaled(
+                    DoomScreen.FG,
+                    DOOM.wadLoader.CachePatchName("VICTORY2", Defines.PU_CACHE),
+                    DOOM.vs,
+                    0,
+                    0
+                )
+                3 -> BunnyScroll()
+                4 -> DOOM.graphicSystem.DrawPatchScaled(
+                    DoomScreen.FG,
+                    DOOM.wadLoader.CachePatchName("ENDPIC", Defines.PU_CACHE),
+                    DOOM.vs,
+                    0,
+                    0
+                )
+            }
+        }
+    }
 
-	}
+    init {
+        hu_font = DOOM.headsUp.getHUFonts()
 
-	public Finale(DoomMain<T, ?> DOOM) {
-		this.DOOM = DOOM;
-		hu_font = DOOM.headsUp.getHUFonts();
+        //castinfo_t shit = new castinfo_t(CC_ZOMBIE, mobjtype_t.MT_POSSESSED);
+        castorder = arrayOf(
+            castinfo_t(englsh.CC_ZOMBIE, mobjtype_t.MT_POSSESSED),
+            castinfo_t(englsh.CC_SHOTGUN, mobjtype_t.MT_SHOTGUY),
+            castinfo_t(englsh.CC_HEAVY, mobjtype_t.MT_CHAINGUY),
+            castinfo_t(englsh.CC_IMP, mobjtype_t.MT_TROOP),
+            castinfo_t(englsh.CC_DEMON, mobjtype_t.MT_SERGEANT),
+            castinfo_t(englsh.CC_LOST, mobjtype_t.MT_SKULL),
+            castinfo_t(englsh.CC_CACO, mobjtype_t.MT_HEAD),
+            castinfo_t(englsh.CC_HELL, mobjtype_t.MT_KNIGHT),
+            castinfo_t(englsh.CC_BARON, mobjtype_t.MT_BRUISER),
+            castinfo_t(englsh.CC_ARACH, mobjtype_t.MT_BABY),
+            castinfo_t(englsh.CC_PAIN, mobjtype_t.MT_PAIN),
+            castinfo_t(englsh.CC_REVEN, mobjtype_t.MT_UNDEAD),
+            castinfo_t(englsh.CC_MANCU, mobjtype_t.MT_FATSO),
+            castinfo_t(englsh.CC_ARCH, mobjtype_t.MT_VILE),
+            castinfo_t(englsh.CC_SPIDER, mobjtype_t.MT_SPIDER),
+            castinfo_t(englsh.CC_CYBER, mobjtype_t.MT_CYBORG),
+            castinfo_t(englsh.CC_HERO, mobjtype_t.MT_PLAYER),
+            castinfo_t(null, null)
+        )
+    }
 
-		//castinfo_t shit = new castinfo_t(CC_ZOMBIE, mobjtype_t.MT_POSSESSED);
-		castorder = new castinfo_t[]{
-            new castinfo_t(CC_ZOMBIE, mobjtype_t.MT_POSSESSED),
-            new castinfo_t(CC_SHOTGUN, mobjtype_t.MT_SHOTGUY),
-            new castinfo_t(CC_HEAVY, mobjtype_t.MT_CHAINGUY),
-            new castinfo_t(CC_IMP, mobjtype_t.MT_TROOP),
-            new castinfo_t(CC_DEMON, mobjtype_t.MT_SERGEANT),
-            new castinfo_t(CC_LOST, mobjtype_t.MT_SKULL),
-            new castinfo_t(CC_CACO, mobjtype_t.MT_HEAD),
-            new castinfo_t(CC_HELL, mobjtype_t.MT_KNIGHT),
-            new castinfo_t(CC_BARON, mobjtype_t.MT_BRUISER),
-            new castinfo_t(CC_ARACH, mobjtype_t.MT_BABY),
-            new castinfo_t(CC_PAIN, mobjtype_t.MT_PAIN),
-            new castinfo_t(CC_REVEN, mobjtype_t.MT_UNDEAD),
-            new castinfo_t(CC_MANCU, mobjtype_t.MT_FATSO),
-            new castinfo_t(CC_ARCH, mobjtype_t.MT_VILE),
-            new castinfo_t(CC_SPIDER, mobjtype_t.MT_SPIDER),
-            new castinfo_t(CC_CYBER, mobjtype_t.MT_CYBORG),
-            new castinfo_t(CC_HERO, mobjtype_t.MT_PLAYER),
-            new castinfo_t(null, null)
-        };
-	}
+    companion object {
+        private const val TEXTSPEED = 3
+        private const val TEXTWAIT = 250
+        val doom_text = arrayOf<String?>(englsh.E1TEXT, englsh.E2TEXT, englsh.E3TEXT, englsh.E4TEXT)
+        val doom2_text =
+            arrayOf<String?>(englsh.C1TEXT, englsh.C2TEXT, englsh.C3TEXT, englsh.C4TEXT, englsh.C5TEXT, englsh.C6TEXT)
+        val plut_text =
+            arrayOf<String?>(englsh.P1TEXT, englsh.P2TEXT, englsh.P3TEXT, englsh.P4TEXT, englsh.P5TEXT, englsh.P6TEXT)
+        val tnt_text =
+            arrayOf<String?>(englsh.T1TEXT, englsh.T2TEXT, englsh.T3TEXT, englsh.T4TEXT, englsh.T5TEXT, englsh.T6TEXT)
+    }
 }
 
-// /$Log
+private fun Int.uppercaseChar(): Int {
+    return Character.toUpperCase(this)
+}

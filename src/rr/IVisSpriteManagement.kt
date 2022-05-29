@@ -1,29 +1,20 @@
-package rr;
+package rr
 
 /** A sprite manager does everything but drawing the sprites. It creates lists
- *  of sprites-per-sector, sorts them, and stuff like that.
- *  that gory visibiliy
- *  
+ * of sprites-per-sector, sorts them, and stuff like that.
+ * that gory visibiliy
+ *
  * @author velkton
  *
  * @param <V>
- */
+</V> */
+interface IVisSpriteManagement<V> : ILimitResettable {
+    fun AddSprites(sec: sector_t)
 
-
-public interface IVisSpriteManagement<V> extends ILimitResettable {
-    
-    void AddSprites(sector_t sec);
-    
-    /** Cache the sprite manager, if possible */
-    
-    void cacheSpriteManager(ISpriteManager SM);
-    
-    void SortVisSprites();
-
-    int getNumVisSprites();
-
-    vissprite_t<V>[] getVisSprites();
-
-    void ClearSprites();
-    
+    /** Cache the sprite manager, if possible  */
+    fun cacheSpriteManager(SM: ISpriteManager)
+    fun SortVisSprites()
+    fun getNumVisSprites(): Int
+    fun getVisSprites(): Array<vissprite_t<V?>>
+    fun ClearSprites()
 }

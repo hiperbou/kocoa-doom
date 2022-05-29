@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,102 +16,84 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import static data.Defines.ITEMQUESIZE;
-import static data.Defines.MELEERANGE;
-import data.mapthing_t;
-import data.mobjtype_t;
-import defines.statenum_t;
-import doom.SourceCode.P_Map;
-import static doom.SourceCode.P_Map.PIT_ChangeSector;
-import doom.SourceCode.fixed_t;
-import java.util.logging.Logger;
-import static m.BBox.BOXBOTTOM;
-import static m.BBox.BOXLEFT;
-import static m.BBox.BOXRIGHT;
-import static m.BBox.BOXTOP;
-import mochadoom.Loggers;
-import p.AbstractLevelLoader;
-import p.ActiveStates;
-import p.divline_t;
-import p.floor_e;
-import p.floormove_t;
-import p.mobj_t;
-import static p.mobj_t.MF_DROPPED;
-import static p.mobj_t.MF_SHOOTABLE;
-import static p.mobj_t.MF_SOLID;
-import p.result_e;
-import rr.line_t;
-import static rr.line_t.ML_TWOSIDED;
-import rr.sector_t;
-import rr.side_t;
-import static utils.C2JUtils.eval;
-import utils.TraitFactory.ContextKey;
 
-public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoors, ActionsCeilings, ActionsSlideDoors {
+import data.Defines
+import data.mapthing_t
+import data.mobjtype_t
+import defines.statenum_t
+import doom.SourceCode
+import doom.SourceCode.P_Map
+import m.BBox
+import mochadoom.Loggers
+import p.*
+import p.Actions.ActionTrait.Companion.ACTION_KEY_CHAIN
+import rr.line_t
+import rr.sector_t
+import rr.side_t
+import utils.C2JUtils
+import utils.TraitFactory.ContextKey
 
-    ContextKey<RespawnQueue> KEY_RESP_QUEUE = ACTION_KEY_CHAIN.newKey(ActionsSectors.class, RespawnQueue::new);
-    ContextKey<Spawn> KEY_SPAWN = ACTION_KEY_CHAIN.newKey(ActionsSectors.class, Spawn::new);
-    ContextKey<Crushes> KEY_CRUSHES = ACTION_KEY_CHAIN.newKey(ActionsSectors.class, Crushes::new);
+interface ActionsSectors : ActionsLights, ActionsFloors, ActionsDoors, ActionsCeilings, ActionsSlideDoors {
+    fun RemoveMobj(thing: mobj_t)
+    fun DamageMobj(thing: mobj_t, tmthing: mobj_t?, tmthing0: mobj_t?, damage: Int)
+    fun SpawnMobj(
+        @SourceCode.fixed_t x: Int,
+        @SourceCode.fixed_t y: Int,
+        @SourceCode.fixed_t z: Int,
+        type: mobjtype_t
+    ): mobj_t
 
-    void RemoveMobj(mobj_t thing);
-    void DamageMobj(mobj_t thing, mobj_t tmthing, mobj_t tmthing0, int damage);
-    mobj_t SpawnMobj(@fixed_t int x, @fixed_t int y, @fixed_t int z, mobjtype_t type);
-
-    final class Crushes {
-
-        boolean crushchange;
-        boolean nofit;
+    class Crushes {
+        var crushchange = false
+        var nofit = false
     }
 
-    final class RespawnQueue {
-
+    class RespawnQueue {
         //
         // P_RemoveMobj
         //
-        mapthing_t[] itemrespawnque = new mapthing_t[ITEMQUESIZE];
-        int[] itemrespawntime = new int[ITEMQUESIZE];
-        int iquehead;
-        int iquetail;
+        var itemrespawnque = arrayOfNulls<mapthing_t>(Defines.ITEMQUESIZE)
+        var itemrespawntime = IntArray(Defines.ITEMQUESIZE)
+        var iquehead = 0
+        var iquetail = 0
     }
 
-    final class Spawn {
-
-        final static Logger LOGGER = Loggers.getLogger(ActionsSectors.class.getName());
-
+    class Spawn {
         /**
          * who got hit (or NULL)
          */
-        public mobj_t linetarget;
+        var linetarget: mobj_t? = null
 
-        @fixed_t
-        public int attackrange;
+        @SourceCode.fixed_t
+        var attackrange = 0
+        var shootthing: mobj_t? = null
 
-        public mobj_t shootthing;
         // Height if not aiming up or down
         // ???: use slope for monsters?
-        @fixed_t
-        public int shootz;
+        @SourceCode.fixed_t
+        var shootz = 0
+        var la_damage = 0
 
-        public int la_damage;
-
-        @fixed_t
-        public int aimslope;
-
-        public divline_t trace = new divline_t();
-
-        public int topslope, bottomslope; // slopes to top and bottom of target
+        @SourceCode.fixed_t
+        var aimslope = 0
+        var trace = divline_t()
+        var topslope = 0
+        var bottomslope // slopes to top and bottom of target
+                = 0
 
         //
         // P_BulletSlope
         // Sets a slope so a near miss is at aproximately
         // the height of the intended target
         //
-        public int bulletslope;
+        var bulletslope = 0
+        val isMeleeRange: Boolean
+            get() = attackrange == Defines.MELEERANGE
 
-        boolean isMeleeRange() {
-            return attackrange == MELEERANGE;
+        companion object {
+            val LOGGER = Loggers.getLogger(ActionsSectors::class.java.name)
         }
     }
 
@@ -130,79 +113,73 @@ public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoo
     //  the way it was and call P_ChangeSector again
     //  to undo the changes.
     //
-    default boolean ChangeSector(sector_t sector, boolean crunch) {
-        final Crushes cr = contextRequire(KEY_CRUSHES);
-        int x;
-        int y;
-
-        cr.nofit = false;
-        cr.crushchange = crunch;
+    fun ChangeSector(sector: sector_t, crunch: Boolean): Boolean {
+        val cr = contextRequire<Crushes>(ActionsSectors.KEY_CRUSHES)
+        var x: Int
+        var y: Int
+        cr.nofit = false
+        cr.crushchange = crunch
 
         // re-check heights for all things near the moving sector
-        for (x = sector.blockbox[BOXLEFT]; x <= sector.blockbox[BOXRIGHT]; x++) {
-            for (y = sector.blockbox[BOXBOTTOM]; y <= sector.blockbox[BOXTOP]; y++) {
-                this.BlockThingsIterator(x, y, this::ChangeSector);
+        x = sector.blockbox[BBox.BOXLEFT]
+        while (x <= sector.blockbox[BBox.BOXRIGHT]) {
+            y = sector.blockbox[BBox.BOXBOTTOM]
+            while (y <= sector.blockbox[BBox.BOXTOP]) {
+                BlockThingsIterator(x, y) { thing: mobj_t -> this.ChangeSector(thing) }
+                y++
             }
+            x++
         }
-
-        return cr.nofit;
+        return cr.nofit
     }
 
     /**
      * PIT_ChangeSector
      */
-    @P_Map.C(PIT_ChangeSector)
-    default boolean ChangeSector(mobj_t thing) {
-        final Crushes cr = contextRequire(KEY_CRUSHES);
-        mobj_t mo;
-
+    @P_Map.C(P_Map.PIT_ChangeSector)
+    fun ChangeSector(thing: mobj_t): Boolean {
+        val cr = contextRequire<Crushes>(ActionsSectors.KEY_CRUSHES)
+        val mo: mobj_t
         if (ThingHeightClip(thing)) {
             // keep checking
-            return true;
+            return true
         }
 
         // crunch bodies to giblets
         if (thing.health <= 0) {
-            thing.SetMobjState(statenum_t.S_GIBS);
-
-            thing.flags &= ~MF_SOLID;
-            thing.height = 0;
-            thing.radius = 0;
+            thing.SetMobjState(statenum_t.S_GIBS)
+            thing.flags = thing.flags and mobj_t.MF_SOLID.inv()
+            thing.height = 0
+            thing.radius = 0
 
             // keep checking
-            return true;
+            return true
         }
 
         // crunch dropped items
-        if (eval(thing.flags & MF_DROPPED)) {
-            RemoveMobj(thing);
+        if (C2JUtils.eval(thing.flags and mobj_t.MF_DROPPED)) {
+            RemoveMobj(thing)
 
             // keep checking
-            return true;
+            return true
         }
-
-        if (!eval(thing.flags & MF_SHOOTABLE)) {
+        if (!C2JUtils.eval(thing.flags and mobj_t.MF_SHOOTABLE)) {
             // assume it is bloody gibs or something
-            return true;
+            return true
         }
-
-        cr.nofit = true;
-
-        if (cr.crushchange && !eval(LevelTime() & 3)) {
-            DamageMobj(thing, null, null, 10);
+        cr.nofit = true
+        if (cr.crushchange && !C2JUtils.eval(LevelTime() and 3)) {
+            DamageMobj(thing, null, null, 10)
 
             // spray blood in a random direction
-            mo = SpawnMobj(thing.x, thing.y, thing.z + thing.height / 2, mobjtype_t.MT_BLOOD);
-
-            mo.momx = (P_Random() - P_Random()) << 12;
-            mo.momy = (P_Random() - P_Random()) << 12;
+            mo = SpawnMobj(thing._x, thing._y, thing._z + thing.height / 2, mobjtype_t.MT_BLOOD)
+            mo.momx = P_Random() - P_Random() shl 12
+            mo.momy = P_Random() - P_Random() shl 12
         }
 
         // keep checking (crush other things)   
-        return true;
+        return true
     }
-
-    ;
 
     /**
      * Move a plane (floor or ceiling) and check for crushing
@@ -214,121 +191,108 @@ public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoo
      * @param floorOrCeiling
      * @param direction
      */
-    @Override
-    default result_e MovePlane(sector_t sector, int speed, int dest, boolean crush, int floorOrCeiling, int direction) {
-        boolean flag;
-        @fixed_t
-        int lastpos;
-
-        switch (floorOrCeiling) {
-            case 0:
-                // FLOOR
-                switch (direction) {
-                    case -1:
-                        // DOWN
-                        if (sector.floorheight - speed < dest) {
-                            lastpos = sector.floorheight;
-                            sector.floorheight = dest;
-                            flag = ChangeSector(sector, crush);
-                            if (flag == true) {
-                                sector.floorheight = lastpos;
-                                ChangeSector(sector, crush);
-                                //return crushed;
-                            }
-                            return result_e.pastdest;
-                        } else {
-                            lastpos = sector.floorheight;
-                            sector.floorheight -= speed;
-                            flag = ChangeSector(sector, crush);
-                            if (flag == true) {
-                                sector.floorheight = lastpos;
-                                ChangeSector(sector, crush);
-                                return result_e.crushed;
-                            }
+    override fun MovePlane(
+        sector: sector_t,
+        speed: Int,
+        dest: Int,
+        crush: Boolean,
+        floorOrCeiling: Int,
+        direction: Int
+    ): result_e {
+        val flag: Boolean
+        @SourceCode.fixed_t val lastpos: Int
+        when (floorOrCeiling) {
+            0 -> when (direction) {
+                -1 ->                         // DOWN
+                    if (sector.floorheight - speed < dest) {
+                        lastpos = sector.floorheight
+                        sector.floorheight = dest
+                        flag = ChangeSector(sector, crush)
+                        if (flag == true) {
+                            sector.floorheight = lastpos
+                            ChangeSector(sector, crush)
+                            //return crushed;
                         }
-                        break;
-
-                    case 1:
-                        // UP
-                        if (sector.floorheight + speed > dest) {
-                            lastpos = sector.floorheight;
-                            sector.floorheight = dest;
-                            flag = ChangeSector(sector, crush);
-                            if (flag == true) {
-                                sector.floorheight = lastpos;
-                                ChangeSector(sector, crush);
-                                //return crushed;
-                            }
-                            return result_e.pastdest;
-                        } else {
-                            // COULD GET CRUSHED
-                            lastpos = sector.floorheight;
-                            sector.floorheight += speed;
-                            flag = ChangeSector(sector, crush);
-                            if (flag == true) {
-                                if (crush == true) {
-                                    return result_e.crushed;
-                                }
-                                sector.floorheight = lastpos;
-                                ChangeSector(sector, crush);
-                                return result_e.crushed;
-                            }
+                        return result_e.pastdest
+                    } else {
+                        lastpos = sector.floorheight
+                        sector.floorheight -= speed
+                        flag = ChangeSector(sector, crush)
+                        if (flag == true) {
+                            sector.floorheight = lastpos
+                            ChangeSector(sector, crush)
+                            return result_e.crushed
                         }
-                        break;
-                }
-                break;
-
-            case 1:
-                // CEILING
-                switch (direction) {
-                    case -1:
-                        // DOWN
-                        if (sector.ceilingheight - speed < dest) {
-                            lastpos = sector.ceilingheight;
-                            sector.ceilingheight = dest;
-                            flag = ChangeSector(sector, crush);
-
-                            if (flag == true) {
-                                sector.ceilingheight = lastpos;
-                                ChangeSector(sector, crush);
-                                //return crushed;
-                            }
-                            return result_e.pastdest;
-                        } else {
-                            // COULD GET CRUSHED
-                            lastpos = sector.ceilingheight;
-                            sector.ceilingheight -= speed;
-                            flag = ChangeSector(sector, crush);
-
-                            if (flag == true) {
-                                if (crush == true) {
-                                    return result_e.crushed;
-                                }
-                                sector.ceilingheight = lastpos;
-                                ChangeSector(sector, crush);
-                                return result_e.crushed;
-                            }
+                    }
+                1 ->                         // UP
+                    if (sector.floorheight + speed > dest) {
+                        lastpos = sector.floorheight
+                        sector.floorheight = dest
+                        flag = ChangeSector(sector, crush)
+                        if (flag == true) {
+                            sector.floorheight = lastpos
+                            ChangeSector(sector, crush)
+                            //return crushed;
                         }
-                        break;
-
-                    case 1:
-                        // UP
-                        if (sector.ceilingheight + speed > dest) {
-                            lastpos = sector.ceilingheight;
-                            sector.ceilingheight = dest;
-                            flag = ChangeSector(sector, crush);
-                            if (flag == true) {
-                                sector.ceilingheight = lastpos;
-                                ChangeSector(sector, crush);
-                                //return crushed;
+                        return result_e.pastdest
+                    } else {
+                        // COULD GET CRUSHED
+                        lastpos = sector.floorheight
+                        sector.floorheight += speed
+                        flag = ChangeSector(sector, crush)
+                        if (flag == true) {
+                            if (crush == true) {
+                                return result_e.crushed
                             }
-                            return result_e.pastdest;
-                        } else {
-                            lastpos = sector.ceilingheight;
-                            sector.ceilingheight += speed;
-                            flag = ChangeSector(sector, crush);
-                            // UNUSED
-                            /*
+                            sector.floorheight = lastpos
+                            ChangeSector(sector, crush)
+                            return result_e.crushed
+                        }
+                    }
+            }
+            1 -> when (direction) {
+                -1 ->                         // DOWN
+                    if (sector.ceilingheight - speed < dest) {
+                        lastpos = sector.ceilingheight
+                        sector.ceilingheight = dest
+                        flag = ChangeSector(sector, crush)
+                        if (flag == true) {
+                            sector.ceilingheight = lastpos
+                            ChangeSector(sector, crush)
+                            //return crushed;
+                        }
+                        return result_e.pastdest
+                    } else {
+                        // COULD GET CRUSHED
+                        lastpos = sector.ceilingheight
+                        sector.ceilingheight -= speed
+                        flag = ChangeSector(sector, crush)
+                        if (flag == true) {
+                            if (crush == true) {
+                                return result_e.crushed
+                            }
+                            sector.ceilingheight = lastpos
+                            ChangeSector(sector, crush)
+                            return result_e.crushed
+                        }
+                    }
+                1 ->                         // UP
+                    if (sector.ceilingheight + speed > dest) {
+                        lastpos = sector.ceilingheight
+                        sector.ceilingheight = dest
+                        flag = ChangeSector(sector, crush)
+                        if (flag == true) {
+                            sector.ceilingheight = lastpos
+                            ChangeSector(sector, crush)
+                            //return crushed;
+                        }
+                        return result_e.pastdest
+                    } else {
+                        lastpos = sector.ceilingheight
+                        sector.ceilingheight += speed
+                        flag = ChangeSector(sector, crush)
+                        // UNUSED
+                        /*
                             if (flag == true)
                             {
                                 sector.ceilingheight = lastpos;
@@ -336,13 +300,10 @@ public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoo
                                 return crushed;
                             }
                              */
-                        }
-                        break;
-                }
-                break;
-
+                    }
+            }
         }
-        return result_e.ok;
+        return result_e.ok
     }
 
     /**
@@ -351,81 +312,77 @@ public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoo
      * (I'm sure it has something to do with John Romero's obsession with fucking stuff and making them his bitches).
      *
      * @param line
-     *
      */
-    @Override
-    default boolean DoDonut(line_t line) {
-        sector_t s1;
-        sector_t s2;
-        sector_t s3;
-        int secnum;
-        boolean rtn;
-        int i;
-        floormove_t floor;
-
-        secnum = -1;
-        rtn = false;
-        while ((secnum = FindSectorFromLineTag(line, secnum)) >= 0) {
-            s1 = levelLoader().sectors[secnum];
+    override fun DoDonut(line: line_t): Boolean {
+        var s1: sector_t
+        var s2: sector_t
+        var s3: sector_t
+        var secnum: Int
+        var rtn: Boolean
+        var i: Int
+        var floor: floormove_t
+        secnum = -1
+        rtn = false
+        while (FindSectorFromLineTag(line, secnum).also { secnum = it } >= 0) {
+            s1 = levelLoader().sectors[secnum]
 
             // ALREADY MOVING?  IF SO, KEEP GOING...
             if (s1.specialdata != null) {
-                continue;
+                continue
             }
-
-            rtn = true;
-            s2 = s1.lines[0].getNextSector(s1);
-            for (i = 0; i < s2.linecount; i++) {
-                if ((!eval(s2.lines[i].flags & ML_TWOSIDED)) || (s2.lines[i].backsector == s1)) {
-                    continue;
+            rtn = true
+            s2 = s1.lines!![0]!!.getNextSector(s1)!!
+            i = 0
+            while (i < s2.linecount) {
+                if (!C2JUtils.eval(s2.lines!![i]!!.flags.toInt() and line_t.ML_TWOSIDED) || s2.lines!![i]!!.backsector === s1) {
+                    i++
+                    continue
                 }
-                s3 = s2.lines[i].backsector;
+                s3 = s2.lines!![i]!!.backsector!!
 
                 //  Spawn rising slime
-                floor = new floormove_t();
-                s2.specialdata = floor;
-                floor.thinkerFunction = ActiveStates.T_MoveFloor;
-                AddThinker(floor);
-                floor.type = floor_e.donutRaise;
-                floor.crush = false;
-                floor.direction = 1;
-                floor.sector = s2;
-                floor.speed = FLOORSPEED / 2;
-                floor.texture = s3.floorpic;
-                floor.newspecial = 0;
-                floor.floordestheight = s3.floorheight;
+                floor = floormove_t()
+                s2.specialdata = floor
+                floor.thinkerFunction = ActiveStates.T_MoveFloor
+                AddThinker(floor)
+                floor.type = floor_e.donutRaise
+                floor.crush = false
+                floor.direction = 1
+                floor.sector = s2
+                floor.speed = ActionsFloors.FLOORSPEED / 2
+                floor.texture = s3.floorpic
+                floor.newspecial = 0
+                floor.floordestheight = s3.floorheight
 
                 //  Spawn lowering donut-hole
-                floor = new floormove_t();
-                s1.specialdata = floor;
-                floor.thinkerFunction = ActiveStates.T_MoveFloor;
-                AddThinker(floor);
-                floor.type = floor_e.lowerFloor;
-                floor.crush = false;
-                floor.direction = -1;
-                floor.sector = s1;
-                floor.speed = FLOORSPEED / 2;
-                floor.floordestheight = s3.floorheight;
-                break;
+                floor = floormove_t()
+                s1.specialdata = floor
+                floor.thinkerFunction = ActiveStates.T_MoveFloor
+                AddThinker(floor)
+                floor.type = floor_e.lowerFloor
+                floor.crush = false
+                floor.direction = -1
+                floor.sector = s1
+                floor.speed = ActionsFloors.FLOORSPEED / 2
+                floor.floordestheight = s3.floorheight
+                break
+                i++
             }
         }
-        return rtn;
+        return rtn
     }
 
     /**
      * RETURN NEXT SECTOR # THAT LINE TAG REFERS TO
      */
-    @Override
-    default int FindSectorFromLineTag(line_t line, int start) {
-        final AbstractLevelLoader ll = levelLoader();
-
-        for (int i = start + 1; i < ll.numsectors; i++) {
+    override fun FindSectorFromLineTag(line: line_t, start: Int): Int {
+        val ll = levelLoader()
+        for (i in start + 1 until ll.numsectors) {
             if (ll.sectors[i].tag == line.tag) {
-                return i;
+                return i
             }
         }
-
-        return -1;
+        return -1
     }
 
     //
@@ -437,10 +394,9 @@ public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoo
     // given the number of the current sector,
     // the line number, and the side (0/1) that you want.
     //
-    @Override
-    default side_t getSide(int currentSector, int line, int side) {
-        final AbstractLevelLoader ll = levelLoader();
-        return ll.sides[(ll.sectors[currentSector].lines[line]).sidenum[side]];
+    override fun getSide(currentSector: Int, line: Int, side: Int): side_t {
+        val ll = levelLoader()
+        return ll.sides[ll.sectors[currentSector].lines!![line]!!.sidenum[side].code]
     }
 
     /**
@@ -449,10 +405,9 @@ public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoo
      * given the number of the current sector,
      * the line number and the side (0/1) that you want.
      */
-    @Override
-    default sector_t getSector(int currentSector, int line, int side) {
-        final AbstractLevelLoader ll = levelLoader();
-        return ll.sides[(ll.sectors[currentSector].lines[line]).sidenum[side]].sector;
+    override fun getSector(currentSector: Int, line: Int, side: Int): sector_t {
+        val ll = levelLoader()
+        return ll.sides[ll.sectors[currentSector].lines!![line]!!.sidenum[side].code].sector!!
     }
 
     /**
@@ -460,14 +415,21 @@ public interface ActionsSectors extends ActionsLights, ActionsFloors, ActionsDoo
      * Given the sector number and the line number,
      * it will tell you whether the line is two-sided or not.
      */
-    @Override
-    default boolean twoSided(int sector, int line) {
-        return eval((levelLoader().sectors[sector].lines[line]).flags & ML_TWOSIDED);
+    override fun twoSided(sector: Int, line: Int): Boolean {
+        return C2JUtils.eval(levelLoader().sectors[sector].lines!![line]!!.flags.toInt() and line_t.ML_TWOSIDED)
     }
-    
-    default void ClearRespawnQueue() {
+
+    fun ClearRespawnQueue() {
         // clear special respawning que
-        final RespawnQueue rq = contextRequire(KEY_RESP_QUEUE);
-        rq.iquehead = rq.iquetail = 0;
+        val rq = contextRequire(KEY_RESP_QUEUE)
+        rq.iquehead = 0
+        rq.iquetail = 0
+    }
+
+    companion object {
+        var KEY_RESP_QUEUE: ContextKey<RespawnQueue> =
+            ACTION_KEY_CHAIN.newKey(ActionsSectors::class.java) { RespawnQueue() }
+        var KEY_SPAWN: ContextKey<Spawn> = ACTION_KEY_CHAIN.newKey(ActionsSectors::class.java) { Spawn() }
+        var KEY_CRUSHES: ContextKey<Crushes> = ACTION_KEY_CHAIN.newKey(ActionsSectors::class.java) { Crushes() }
     }
 }

@@ -1,15 +1,16 @@
-package m;
+package m
 
-import data.mobjtype_t;
-import p.ActiveStates;
 
-public interface IRandom {
-	public int P_Random ();
-	public int M_Random ();
-	public void ClearRandom ();
-	public int getIndex();
-	public int P_Random(int caller);
-	public int P_Random(String message);
-	public int P_Random(ActiveStates caller, int sequence);
-	public int P_Random(ActiveStates caller, mobjtype_t type,int sequence);
+import data.mobjtype_t
+import p.ActiveStates
+
+interface IRandom {
+    fun P_Random(): Int
+    fun M_Random(): Int
+    fun ClearRandom()
+    val index: Int
+    fun P_Random(caller: Int): Int
+    fun P_Random(message: String?): Int
+    fun P_Random(caller: ActiveStates?, sequence: Int): Int
+    fun P_Random(caller: ActiveStates?, type: mobjtype_t?, sequence: Int): Int
 }

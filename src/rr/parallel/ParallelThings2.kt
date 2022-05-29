@@ -1,96 +1,77 @@
-package rr.parallel;
+package rr.parallel
 
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.Executor;
-import rr.IMaskedDrawer;
-import rr.ISpriteManager;
-import rr.IVisSpriteManagement;
-import rr.SceneRenderer;
-import v.scale.VideoScale;
+
+import rr.IMaskedDrawer
+import rr.ISpriteManager
+import rr.IVisSpriteManagement
+import rr.SceneRenderer
+import v.scale.VideoScale
+import java.util.concurrent.BrokenBarrierException
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executor
 
 /**  Alternate parallel sprite renderer using a split-screen strategy.
- *  For N threads, each thread gets to render only the sprites that are entirely
- *  in its own 1/Nth portion of the screen.
- *  
- *  Sprites that span more than one section, are drawn partially. Each thread
- *  only has to worry with the priority of its own sprites. Similar to the 
- *  split-seg parallel drawer.
- * 
- *  Uses the "masked workers" subsystem, there is no column pipeline: workers
- *  "tap" directly in the sprite sorted table and act accordingly (draw entirely,
- *  draw nothing, draw partially).
- *  
- *  It uses masked workers to perform the actual work, each of which is a complete
- *  Thing Drawer. 
- * 
- * @author velktron
+ * For N threads, each thread gets to render only the sprites that are entirely
+ * in its own 1/Nth portion of the screen.
  *
+ * Sprites that span more than one section, are drawn partially. Each thread
+ * only has to worry with the priority of its own sprites. Similar to the
+ * split-seg parallel drawer.
+ *
+ * Uses the "masked workers" subsystem, there is no column pipeline: workers
+ * "tap" directly in the sprite sorted table and act accordingly (draw entirely,
+ * draw nothing, draw partially).
+ *
+ * It uses masked workers to perform the actual work, each of which is a complete
+ * Thing Drawer.
+ *
+ * @author velktron
  */
+class ParallelThings2<T, V>(vs: VideoScale, R: SceneRenderer<T, V>) : IMaskedDrawer<T, V> {
+    lateinit var maskedworkers: Array<MaskedWorker<T, V>>
+    var maskedbarrier: CyclicBarrier? = null
+    var tp: Executor? = null
+    protected val VIS: IVisSpriteManagement<V>
+    protected val vs: VideoScale
 
-public final class ParallelThings2<T,V> implements IMaskedDrawer<T,V> {
-
-    MaskedWorker<T,V>[] maskedworkers;
-    CyclicBarrier maskedbarrier;
-    Executor tp;
-    protected final IVisSpriteManagement<V> VIS;
-    protected final VideoScale vs;
-    
-    public ParallelThings2(VideoScale vs, SceneRenderer<T,V> R) {
-        this.VIS=R.getVisSpriteManager();
-        this.vs = vs;
+    init {
+        VIS = R.getVisSpriteManager()
+        this.vs = vs
     }
 
-    @Override
-    public void DrawMasked() {
-
-        VIS.SortVisSprites();
-
-        for (int i = 0; i < maskedworkers.length; i++) {
-            tp.execute(maskedworkers[i]);
+    override fun DrawMasked() {
+        VIS.SortVisSprites()
+        for (i in maskedworkers.indices) {
+            tp!!.execute(maskedworkers[i])
         }
-
         try {
-            maskedbarrier.await();
-        } catch (InterruptedException e) {
+            maskedbarrier!!.await()
+        } catch (e: InterruptedException) {
             // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (BrokenBarrierException e) {
+            e.printStackTrace()
+        } catch (e: BrokenBarrierException) {
             // TODO Auto-generated catch block
-            e.printStackTrace();
+            e.printStackTrace()
         }
-
     }
 
-    @Override
-    public void completeColumn() {
+    override fun completeColumn() {
         // Does nothing. Dummy.
     }
 
-    @Override
-    public void setPspriteScale(int scale) {
-        for (int i = 0; i < maskedworkers.length; i++)
-            maskedworkers[i].setPspriteScale(scale);
+    override fun setPspriteScale(scale: Int) {
+        for (i in maskedworkers.indices) maskedworkers[i].setPspriteScale(scale)
     }
 
-    @Override
-    public void setPspriteIscale(int scale) {
-        for (int i = 0; i < maskedworkers.length; i++)
-            maskedworkers[i].setPspriteIscale(scale);
+    override fun setPspriteIscale(scale: Int) {
+        for (i in maskedworkers.indices) maskedworkers[i].setPspriteIscale(scale)
     }
 
-    @Override
-    public void setDetail(int detailshift) {
-        for (int i = 0; i < maskedworkers.length; i++)
-            maskedworkers[i].setDetail(detailshift);
-        
+    override fun setDetail(detailshift: Int) {
+        for (i in maskedworkers.indices) maskedworkers[i].setDetail(detailshift)
     }
 
-    @Override
-    public void cacheSpriteManager(ISpriteManager SM) {
-        for (int i = 0; i < maskedworkers.length; i++)
-            maskedworkers[i].cacheSpriteManager(SM);
-        
+    override fun cacheSpriteManager(SM: ISpriteManager) {
+        for (i in maskedworkers.indices) maskedworkers[i].cacheSpriteManager(SM)
     }
-
 }

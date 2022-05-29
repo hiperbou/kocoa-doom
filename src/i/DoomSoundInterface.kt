@@ -1,4 +1,7 @@
-package i;
+package i
+
+
+import data.sfxinfo_t
 
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
@@ -6,6 +9,7 @@ package i;
 // $Id: DoomSoundInterface.java,v 1.3 2011/02/11 00:11:13 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -22,12 +26,6 @@ package i;
 //	System interface, sound.
 //
 //-----------------------------------------------------------------------------
-
-
-
-import data.sfxinfo_t;
-
-
 /*
 // UNIX hack, to be removed.
 #ifdef SNDSERV
@@ -35,83 +33,80 @@ import data.sfxinfo_t;
 extern FILE* sndserver;
 extern char* sndserver_filename;
 #endif*/
+interface DoomSoundInterface {
+    // Init at program start...
+    fun I_InitSound()
 
+    // ... update sound buffer and audio device at runtime...
+    fun I_UpdateSound()
+    fun I_SubmitSound()
 
-public interface DoomSoundInterface{
+    // ... shut down and relase at program termination.
+    fun I_ShutdownSound()
 
+    //
+    //  SFX I/O
+    //
+    // Initialize channels?
+    fun I_SetChannels()
 
-// Init at program start...
-public void I_InitSound();
+    // Get raw data lump index for sound descriptor.
+    fun I_GetSfxLumpNum(sfxinfo: sfxinfo_t?): Int
 
-// ... update sound buffer and audio device at runtime...
-public void I_UpdateSound();
-public void I_SubmitSound();
+    // Starts a sound in a particular sound channel.
+    fun I_StartSound(
+        id: Int,
+        vol: Int,
+        sep: Int,
+        pitch: Int,
+        priority: Int
+    ): Int
 
-// ... shut down and relase at program termination.
-public void I_ShutdownSound();
+    // Stops a sound channel.
+    fun I_StopSound(handle: Int)
 
+    // Called by S_*() functions
+    //  to see if a channel is still playing.
+    // Returns 0 if no longer playing, 1 if playing.
+    fun I_SoundIsPlaying(handle: Int): Boolean
 
-//
-//  SFX I/O
-//
+    // Updates the volume, separation,
+    //  and pitch of a sound channel.
+    fun I_UpdateSoundParams(
+        handle: Int,
+        vol: Int,
+        sep: Int,
+        pitch: Int
+    )
 
-// Initialize channels?
-void I_SetChannels();
+    //
+    //  MUSIC I/O
+    //
+    fun I_InitMusic()
+    fun I_ShutdownMusic()
 
-// Get raw data lump index for sound descriptor.
-public int I_GetSfxLumpNum (sfxinfo_t sfxinfo );
+    // Volume.
+    fun I_SetMusicVolume(volume: Int)
 
+    // PAUSE game handling.
+    fun I_PauseSong(handle: Int)
+    fun I_ResumeSong(handle: Int)
 
-// Starts a sound in a particular sound channel.
-public int
-I_StartSound
-( int		id,
-  int		vol,
-  int		sep,
-  int		pitch,
-  int		priority );
+    // Registers a song handle to song data.
+    fun I_RegisterSong(data: ByteArray?): Int
 
+    // Called by anything that wishes to start music.
+    //  plays a song, and when the song is done,
+    //  starts playing it again in an endless loop.
+    // Horrible thing to do, considering.
+    fun I_PlaySong(
+        handle: Int,
+        looping: Int
+    )
 
-// Stops a sound channel.
-public void I_StopSound(int handle);
+    // Stops a song over 3 seconds.
+    fun I_StopSong(handle: Int)
 
-// Called by S_*() functions
-//  to see if a channel is still playing.
-// Returns 0 if no longer playing, 1 if playing.
-public boolean I_SoundIsPlaying(int handle);
-
-// Updates the volume, separation,
-//  and pitch of a sound channel.
-public void
-I_UpdateSoundParams
-( int		handle,
-  int		vol,
-  int		sep,
-  int		pitch );
-
-
-//
-//  MUSIC I/O
-//
-public void I_InitMusic();
-public void I_ShutdownMusic();
-// Volume.
-public void I_SetMusicVolume(int volume);
-// PAUSE game handling.
-public void I_PauseSong(int handle);
-public void I_ResumeSong(int handle);
-// Registers a song handle to song data.
-public int I_RegisterSong(byte[] data);
-// Called by anything that wishes to start music.
-//  plays a song, and when the song is done,
-//  starts playing it again in an endless loop.
-// Horrible thing to do, considering.
-public void
-I_PlaySong
-( int		handle,
-  int		looping );
-// Stops a song over 3 seconds.
-public void I_StopSong(int handle);
-// See above (register), then think backwards
-public void I_UnRegisterSong(int handle);
+    // See above (register), then think backwards
+    fun I_UnRegisterSong(handle: Int)
 }

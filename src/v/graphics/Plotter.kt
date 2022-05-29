@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,221 +15,184 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.graphics;
+package v.graphics
 
-import java.lang.reflect.Array;
-import java.util.Objects;
-import static utils.GenericCopy.*;
-import static v.graphics.Direction.*;
+import utils.GenericCopy
+import java.util.*
+import java.lang.reflect.Array
 
 /**
  *
  * @author Good Sign
  */
-public interface Plotter<V> {
-    default Plotter<V> setColorSource(V colorSource) {return setColorSource(colorSource, 0);}
-    Plotter<V> setColorSource(V colorSource, int colorPos);
-    Plotter<V> setPosition(int x, int y);
-    Plotter<V> setThickness(int dupX, int dupY);
-    Plotter<V> plot();
-    Plotter<V> shiftX(int shift);
-    Plotter<V> shiftY(int shift);
-    int getX();
-    int getY();
-    
-    enum Style { Thin, Thick, Deep }
-    
-    default Plotter<V> shift(int shiftX, int shiftY) {
-        return shiftX(shiftX).shiftY(shiftY);
+interface Plotter<V> {
+    fun setColorSource(colorSource: V): Plotter<V>? {
+        return setColorSource(colorSource, 0)
+    }
+
+    fun setColorSource(colorSource: V, colorPos: Int): Plotter<V>
+    fun setPosition(x: Int, y: Int): Plotter<V>
+    fun setThickness(dupX: Int, dupY: Int): Plotter<V>
+    fun plot(): Plotter<V>
+    fun shiftX(shift: Int): Plotter<V>
+    fun shiftY(shift: Int): Plotter<V>
+    fun getX(): Int
+    fun getY(): Int
+    enum class Style {
+        Thin, Thick, Deep
+    }
+
+    fun shift(shiftX: Int, shiftY: Int): Plotter<V>? {
+        return shiftX(shiftX).shiftY(shiftY)
     }
 
     /**
      * Abstract plotter - without a Plot method
      */
-    abstract class Abstract<V> implements Plotter<V> {
-        protected final V screen;
-        protected final int rowShift;
-
-        protected Style style;
-        protected V colorSource;
-        protected int point;
-        protected int x;
-        protected int y;
-
-        Abstract(V screen, int rowShift) {
-            this.screen = screen;
-            this.rowShift = rowShift;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public Plotter<V> setColorSource(V colorSource, int colorPos) {
-            Objects.requireNonNull(colorSource);
+    abstract class Abstract<V> internal constructor(protected val screen: V, protected val rowShift: Int) : Plotter<V> {
+        protected var style: Plotter.Style? = null
+        protected var colorSource: V? = null
+        protected var point = 0
+        protected var _x = 0
+        protected var _y = 0
+        override fun setColorSource(colorSource: V, colorPos: Int): Plotter<V> {
+            Objects.requireNonNull(colorSource)
             // cache only necessary part of the source
-            this.colorSource = (V) Array.newInstance(colorSource.getClass().getComponentType(), 1);
-            memcpy(colorSource, colorPos, this.colorSource, 0, 1);
-            return this;
-        }
-        
-        @Override
-        public Plotter<V> setThickness(int dupX, int dupY) {
-            return this;
+            this.colorSource = Array.newInstance(colorSource!!::class.java.getComponentType(), 1) as V
+            GenericCopy.memcpy(colorSource, colorPos, this.colorSource, 0, 1)
+            return this
         }
 
-        @Override
-        public Plotter<V> setPosition(int x, int y) {
-            this.point = y * rowShift + x;
-            this.x = x;
-            this.y = y;
-            return this;
+        override fun setThickness(dupX: Int, dupY: Int): Plotter<V> {
+            return this
         }
 
-        @Override
-        public Plotter<V> shiftX(int shift) {
-            point += shift;
-            x += shift;
-            return this;
+        override fun setPosition(x: Int, y: Int): Plotter<V> {
+            point = y * rowShift + x
+            this._x = x
+            this._y = y
+            return this
         }
 
-        @Override
-        public Plotter<V> shiftY(int shift) {
+        override fun shiftX(shift: Int): Plotter<V> {
+            point += shift
+            _x += shift
+            return this
+        }
+
+        override fun shiftY(shift: Int): Plotter<V> {
             if (shift > 0) {
-                point += rowShift;
-                ++y;
+                point += rowShift
+                ++_y
             } else {
-                point -= rowShift;
-                --y;
+                point -= rowShift
+                --_y
             }
-
-            return this;
+            return this
         }
 
-        @Override
-        public int getX() {
-            return x;
+        override fun getX(): Int {
+            return _x
         }
 
-        @Override
-        public int getY() {
-            return y;
+        override fun getY(): Int {
+            return _y
         }
     }
-    
-    class Thin<V> extends Abstract<V> {
-        public Thin(V screen, int rowShift) {
-            super(screen, rowShift);
+
+    class Thin<V>(screen: V, rowShift: Int) : Abstract<V>(screen, rowShift) {
+        override fun plot(): Plotter<V> {
+            GenericCopy.memcpy(colorSource, 0, screen, point, 1)
+            return this
         }
-        
-        @Override
-        public Plotter<V> plot() {
-            memcpy(colorSource, 0, screen, point, 1);
-            return this;
-        }
-    }
-    
-    static int getThickness(int dupX) {
-        return Math.max(dupX >> 1, 1);
     }
 
     /**
      * You give it desired scaling level, it makes lines thicker
      */
-    class Thick<V> extends Abstract<V> {
-        protected final int height;
-        protected int xThick;
-        protected int yThick;
-        
-        public Thick(V screen, int width, int height) {
-            super(screen, width);
-            this.height = height;
-            
-            // can overflow!
-            this.xThick = 1;//dupX >> 1;
-            this.yThick = 1;//dupX >> 1;
+    open class Thick<V>     // can overflow!
+    //dupX >> 1;
+    //dupX >> 1;
+        (screen: V, width: Int, protected val height: Int) : Abstract<V>(screen, width) {
+        protected var xThick = 1
+        protected var yThick = 1
+        override fun setThickness(dupX: Int, dupY: Int): Plotter<V> {
+            xThick = dupX
+            yThick = dupY
+            return this
         }
 
-        @Override
-        public Plotter<V> setThickness(int dupX, int dupY) {
-            this.xThick = dupX;
-            this.yThick = dupY;
-            return this;
-        }
-        
-        @Override
-        public Plotter<V> plot() {
+        override fun plot(): Plotter<V> {
             if (xThick == 0 || yThick == 0) {
-                memcpy(colorSource, 0, screen, point, 1);
-                return this;
+                GenericCopy.memcpy(colorSource, 0, screen, point, 1)
+                return this
             }
-            return plotThick(xThick, yThick);
+            return plotThick(xThick, yThick)
         }
-        
-        protected Plotter<V> plotThick(int modThickX, int modThickY) {
-            final int rows = y < modThickY ? y : (height < y + modThickY ? height - y : modThickY);
-            final int spaceLeft = x < modThickX ? 0 : modThickX;
-            final int spaceRight = rowShift < x + modThickX ? rowShift - x : modThickX;
-            
-            for (int row = -rows; row < rows; ++row) {
+
+        protected fun plotThick(modThickX: Int, modThickY: Int): Plotter<V> {
+            val rows = if (_y < modThickY) _y else if (height < _y + modThickY) height - _y else modThickY
+            val spaceLeft = if (_x < modThickX) 0 else modThickX
+            val spaceRight = if (rowShift < _x + modThickX) rowShift - _x else modThickX
+            for (row in -rows until rows) {
                 // color = colorSource[Math.abs(row)]
-                memset(screen, point - spaceLeft + rowShift * row, spaceLeft + spaceRight, colorSource, 0, 1);
+                GenericCopy.memset(
+                    screen,
+                    point - spaceLeft + rowShift * row,
+                    spaceLeft + spaceRight,
+                    colorSource,
+                    0,
+                    1
+                )
             }
-            
-            return this;
+            return this
         }
     }
 
     /**
      * Thick, but the direction of drawing is counted in - i.e., for round borders...
      */
-    class Deep<V> extends Thick<V> {
-        protected Direction direction;
-        
-        public Deep(V screen, int width, int height) {
-            super(screen, width, height);
+    class Deep<V>(screen: V, width: Int, height: Int) : Thick<V>(screen, width, height) {
+        protected var direction: Direction? = null
+        override fun setPosition(x: Int, y: Int): Plotter<V> {
+            direction = Direction.CENTER
+            return super.setPosition(x, y)
         }
 
-        @Override
-        public Plotter<V> setPosition(int x, int y) {
-            direction = CENTER;
-            return super.setPosition(x, y);
+        override fun shiftX(shift: Int): Plotter<V> {
+            direction = direction!!.rotationHor(shift)
+            return super.shiftX(shift)
         }
 
-        @Override
-        public Plotter<V> shiftX(int shift) {
-            direction = direction.rotationHor(shift);
-            return super.shiftX(shift);
+        override fun shiftY(shift: Int): Plotter<V> {
+            direction = direction!!.rotationVert(shift)
+            return super.shiftY(shift)
         }
 
-        @Override
-        public Plotter<V> shiftY(int shift) {
-            direction = direction.rotationVert(shift);
-            return super.shiftY(shift);
+        override fun shift(shiftX: Int, shiftY: Int): Plotter<V>? {
+            direction = direction!!.rotation(shiftX, shiftY)
+            return super.shift(shiftX, shiftY)
         }
 
-        @Override
-        public Plotter<V> shift(int shiftX, int shiftY) {
-            direction = direction.rotation(shiftX, shiftY);
-            return super.shift(shiftX, shiftY);
-        }
-        
-        @Override
-        public Plotter<V> plot() {
+        override fun plot(): Plotter<V> {
             if (xThick <= 1 || yThick <= 1) {
-                return super.plot();
+                return super.plot()
             }
-
-            int modThickX = xThick;
-            int modThickY = yThick;
-
-            if (!direction.hasTop && !direction.hasBottom) {
-                modThickX >>= 1;
+            var modThickX = xThick
+            var modThickY = yThick
+            if (!direction!!.hasTop && !direction!!.hasBottom) {
+                modThickX = modThickX shr 1
             }
-
-            if (!direction.hasLeft && !direction.hasRight) {
-                modThickY >>= 1;
+            if (!direction!!.hasLeft && !direction!!.hasRight) {
+                modThickY = modThickY shr 1
             }
-            
-            return plotThick(modThickX, modThickY);
+            return plotThick(modThickX, modThickY)
+        }
+    }
+
+    companion object {
+        fun getThickness(dupX: Int): Int {
+            return Math.max(dupX shr 1, 1)
         }
     }
 }

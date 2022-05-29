@@ -1,9 +1,7 @@
-package pooling;
+package pooling
 
-public class RoguePatchMap extends GenericIntMap<byte[][]> {
-	
-	public RoguePatchMap(){
-		super();
-		 patches = new byte[DEFAULT_CAPACITY][][];
-	}
+class RoguePatchMap : GenericIntMap<Array<ByteArray?>?>() {
+    init {
+        patches = arrayOfNulls(DEFAULT_CAPACITY)
+    }
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,151 +15,103 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.graphics;
+package v.graphics
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*
 
 /**
  *
  * @author Good Sign
  */
-public enum Direction {
-    LEFT_UP,      UP,      RIGHT_UP,
-    /*  \         ||         /   */
-    /*    \       ||       /     */
-    /*      \     ||     /       */
-    /*        \   ||   /         */
-    LEFT,/*===*/CENTER,/*===*/RIGHT,
-    /*        /   ||   \         */
-    /*      /     ||     \       */
-    /*    /       ||       \     */
-    /*  /         ||         \   */
-    LEFT_DOWN,   DOWN,   RIGHT_DOWN;
-    
-    public static final List<Direction> directions = Collections.unmodifiableList(Arrays.asList(values()));
+enum class Direction {
+    LEFT_UP, UP, RIGHT_UP,  /*  \         ||         /   */ /*    \       ||       /     */ /*      \     ||     /       */ /*        \   ||   /         */
+    LEFT,  /*===*/
+    CENTER,  /*===*/
+    RIGHT,  /*        /   ||   \         */ /*      /     ||     \       */ /*    /       ||       \     */ /*  /         ||         \   */
+    LEFT_DOWN, DOWN, RIGHT_DOWN;
 
     /**
      * Categorization constants
      */
-    
     // LEFT_UP, UP, RIGHT_UP
-    public final boolean hasTop = ordinal() < 3;
-    // LEFT_UP, LEFT, LEFT_DOWN
-    public final boolean hasLeft = ordinal() % 3 == 0;
-    // RIGHT_UP, RIGHT_ RIGHT_DOWN
-    public final boolean hasRight = ordinal() % 3 == 2;
-    // LEFT_DOWN, DOWN, RIGHT_DOWN
-    public final boolean hasBottom = ordinal() > 5;
-    // UP, LEFT, RIGHT, DOWN
-    public final boolean straight = ordinal() % 2 != 0; 
+    val hasTop = ordinal < 3
 
-    public boolean isAdjacent(Direction dir) {
-        return this.straight ^ dir.straight;
+    // LEFT_UP, LEFT, LEFT_DOWN
+    val hasLeft = ordinal % 3 == 0
+
+    // RIGHT_UP, RIGHT_ RIGHT_DOWN
+    val hasRight = ordinal % 3 == 2
+
+    // LEFT_DOWN, DOWN, RIGHT_DOWN
+    val hasBottom = ordinal > 5
+
+    // UP, LEFT, RIGHT, DOWN
+    val straight = ordinal % 2 != 0
+    fun isAdjacent(dir: Direction): Boolean {
+        return straight xor dir.straight
     }
-    
+
     /**
      * Conversions
      */
+    operator fun next(): Direction {
+        return if (this == Direction.RIGHT_DOWN) Direction.LEFT_UP else Direction.directions.get(ordinal + 1)
+    }
 
-    public Direction next() {
-        if (this == RIGHT_DOWN)
-            return LEFT_UP;
-        
-        return directions.get(ordinal() + 1);
-    }
-    
-    public Direction opposite() {
-        switch(this) {
-            case LEFT_UP:
-                return RIGHT_DOWN;
-            case UP:
-                return DOWN;
-            case RIGHT_UP:
-                return LEFT_DOWN;
-            case LEFT:
-                return RIGHT;
-            default: // CENTER
-                return this;
-            case RIGHT:
-                return LEFT;
-            case LEFT_DOWN:
-                return RIGHT_UP;
-            case DOWN:
-                return UP;
-            case RIGHT_DOWN:
-                return LEFT_UP;
+    fun opposite(): Direction {
+        return when (this) {
+            Direction.LEFT_UP -> Direction.RIGHT_DOWN
+            Direction.UP -> Direction.DOWN
+            Direction.RIGHT_UP -> Direction.LEFT_DOWN
+            Direction.LEFT -> Direction.RIGHT
+            Direction.RIGHT -> Direction.LEFT
+            Direction.LEFT_DOWN -> Direction.RIGHT_UP
+            Direction.DOWN -> Direction.UP
+            Direction.RIGHT_DOWN -> Direction.LEFT_UP
+            else -> this
         }
     }
-    
-    public Direction rotationHor(int sign) {
-        if (sign == 0)
-            return this;
-        
-        switch(this) {
-            case LEFT_UP:
-                return sign > 0 ? UP : LEFT;
-            case UP:
-                return sign > 0 ? RIGHT_UP : LEFT_UP;
-            case RIGHT_UP:
-                return sign > 0 ? RIGHT : UP;
-            case LEFT:
-                return sign > 0 ? CENTER : this;
-            default: // CENTER
-                return sign > 0 ? RIGHT : LEFT;
-            case RIGHT:
-                return sign > 0 ? CENTER : this;
-            case LEFT_DOWN:
-                return sign > 0 ? DOWN : LEFT;
-            case DOWN:
-                return sign > 0 ? RIGHT_DOWN : LEFT_DOWN;
-            case RIGHT_DOWN:
-                return sign > 0 ? RIGHT : DOWN;
+
+    fun rotationHor(sign: Int): Direction {
+        return if (sign == 0) this else when (this) {
+            Direction.LEFT_UP -> if (sign > 0) Direction.UP else Direction.LEFT
+            Direction.UP -> if (sign > 0) Direction.RIGHT_UP else Direction.LEFT_UP
+            Direction.RIGHT_UP -> if (sign > 0) Direction.RIGHT else Direction.UP
+            Direction.LEFT -> if (sign > 0) Direction.CENTER else this
+            Direction.RIGHT -> if (sign > 0) Direction.CENTER else this
+            Direction.LEFT_DOWN -> if (sign > 0) Direction.DOWN else Direction.LEFT
+            Direction.DOWN -> if (sign > 0) Direction.RIGHT_DOWN else Direction.LEFT_DOWN
+            Direction.RIGHT_DOWN -> if (sign > 0) Direction.RIGHT else Direction.DOWN
+            else -> if (sign > 0) Direction.RIGHT else Direction.LEFT
         }
     }
-    
-    public Direction rotationVert(int sign) {
-        if (sign == 0)
-            return this;
-        
-        switch(this) {
-            case LEFT_UP:
-                return sign > 0 ? LEFT : UP;
-            case UP:
-                return sign > 0 ? CENTER : this;
-            case RIGHT_UP:
-                return sign > 0 ? RIGHT : UP;
-            case LEFT:
-                return sign > 0 ? LEFT_DOWN : LEFT_UP;
-            default: // CENTER
-                return sign > 0 ? DOWN : UP;
-            case RIGHT:
-                return sign > 0 ? RIGHT_DOWN : RIGHT_UP;
-            case LEFT_DOWN:
-                return sign > 0 ? DOWN : LEFT;
-            case DOWN:
-                return sign < 0 ? CENTER : this;
-            case RIGHT_DOWN:
-                return sign > 0 ? DOWN : RIGHT;
+
+    fun rotationVert(sign: Int): Direction {
+        return if (sign == 0) this else when (this) {
+            Direction.LEFT_UP -> if (sign > 0) Direction.LEFT else Direction.UP
+            Direction.UP -> if (sign > 0) Direction.CENTER else this
+            Direction.RIGHT_UP -> if (sign > 0) Direction.RIGHT else Direction.UP
+            Direction.LEFT -> if (sign > 0) Direction.LEFT_DOWN else Direction.LEFT_UP
+            Direction.RIGHT -> if (sign > 0) Direction.RIGHT_DOWN else Direction.RIGHT_UP
+            Direction.LEFT_DOWN -> if (sign > 0) Direction.DOWN else Direction.LEFT
+            Direction.DOWN -> if (sign < 0) Direction.CENTER else this
+            Direction.RIGHT_DOWN -> if (sign > 0) Direction.DOWN else Direction.RIGHT
+            else -> if (sign > 0) Direction.DOWN else Direction.UP
         }
     }
-    
-    public Direction rotation(int signX, int signY) {
-        final Direction rotX = rotationHor(signX), rotY = rotationHor(signY);
-        
+
+    fun rotation(signX: Int, signY: Int): Direction {
+        val rotX = rotationHor(signX)
+        val rotY = rotationHor(signY)
         if (rotX.isAdjacent(rotY)) {
-            if (signX > 0 && signY > 0)
-                return RIGHT_DOWN;
-            else if (signX > 0 && signY < 0)
-                return RIGHT_UP;
-            else if (signX < 0 && signY > 0)
-                return LEFT_DOWN;
-            else if (signX < 0 && signY < 0)
-                return LEFT_UP;
+            if (signX > 0 && signY > 0) return Direction.RIGHT_DOWN else if (signX > 0 && signY < 0) return Direction.RIGHT_UP else if (signX < 0 && signY > 0) return Direction.LEFT_DOWN else if (signX < 0 && signY < 0) return Direction.LEFT_UP
         }
-        
+
         // otherwise, 2nd takes precedence
-        return rotY;
+        return rotY
+    }
+
+    companion object {
+        val directions = Collections.unmodifiableList(Arrays.asList(*Direction.values()))
     }
 }

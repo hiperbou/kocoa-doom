@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,91 +16,84 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates.MonsterStates;
+package p.Actions.ActiveStates.MonsterStatesimportimport
 
-import static data.Defines.MISSILERANGE;
-import data.sounds;
-import p.Actions.ActionTrait;
-import p.mobj_t;
 
-public interface Zombies extends ActionTrait {
-    void A_FaceTarget(mobj_t actor);
+import data.Defines
+import data.info
+import data.sounds.sfxenum_t
+import p.Actions.ActionTrait
+import p.mobj_t
+
+interface Zombies : ActionTrait {
+    fun A_FaceTarget(actor: mobj_t?)
 
     //
     // A_PosAttack
     //
-    default void A_PosAttack(mobj_t actor) {
-        int angle;
-        int damage;
-        int slope;
-
+    fun A_PosAttack(actor: mobj_t) {
+        var angle: Int
+        val damage: Int
+        val slope: Int
         if (actor.target == null) {
-            return;
+            return
         }
-        A_FaceTarget(actor);
-        angle = (int) actor.angle;
-        slope = getAttacks().AimLineAttack(actor, angle, MISSILERANGE);
-
-        StartSound(actor, sounds.sfxenum_t.sfx_pistol);
-        angle += (P_Random() - P_Random()) << 20;
-        damage = ((P_Random() % 5) + 1) * 3;
-        getAttacks().LineAttack(actor, angle, MISSILERANGE, slope, damage);
+        A_FaceTarget(actor)
+        angle = actor.angle.toInt()
+        slope = attacks.AimLineAttack(actor, angle.toLong(), Defines.MISSILERANGE)
+        StartSound(actor, sfxenum_t.sfx_pistol)
+        angle += P_Random() - P_Random() shl 20
+        damage = (P_Random() % 5 + 1) * 3
+        attacks.LineAttack(actor, angle.toLong(), Defines.MISSILERANGE, slope, damage)
     }
 
-    default void A_SPosAttack(mobj_t actor) {
-        int i;
-        long angle;
-        long bangle;
-        int damage;
-        int slope;
-
+    fun A_SPosAttack(actor: mobj_t) {
+        var i: Int
+        var angle: Long
+        val bangle: Long
+        var damage: Int
+        val slope: Int
         if (actor.target == null) {
-            return;
+            return
         }
-
-        StartSound(actor, sounds.sfxenum_t.sfx_shotgn);
-        A_FaceTarget(actor);
-        bangle = actor.angle;
-        slope = getAttacks().AimLineAttack(actor, bangle, MISSILERANGE);
-
-        for (i = 0; i < 3; i++) {
-            angle = bangle + ((P_Random() - P_Random()) << 20);
-            damage = ((P_Random() % 5) + 1) * 3;
-            getAttacks().LineAttack(actor, angle, MISSILERANGE, slope, damage);
+        StartSound(actor, sfxenum_t.sfx_shotgn)
+        A_FaceTarget(actor)
+        bangle = actor.angle
+        slope = attacks.AimLineAttack(actor, bangle, Defines.MISSILERANGE)
+        i = 0
+        while (i < 3) {
+            angle = bangle + (P_Random() - P_Random() shl 20)
+            damage = (P_Random() % 5 + 1) * 3
+            attacks.LineAttack(actor, angle, Defines.MISSILERANGE, slope, damage)
+            i++
         }
     }
 
-    default void A_CPosAttack(mobj_t actor) {
-        long angle;
-        long bangle;
-        int damage;
-        int slope;
-
+    fun A_CPosAttack(actor: mobj_t) {
+        val angle: Long
+        val bangle: Long
+        val damage: Int
+        val slope: Int
         if (actor.target == null) {
-            return;
+            return
         }
-
-        StartSound(actor, sounds.sfxenum_t.sfx_shotgn);
-        A_FaceTarget(actor);
-        bangle = actor.angle;
-        slope = getAttacks().AimLineAttack(actor, bangle, MISSILERANGE);
-
-        angle = bangle + ((P_Random() - P_Random()) << 20);
-        damage = ((P_Random() % 5) + 1) * 3;
-        getAttacks().LineAttack(actor, angle, MISSILERANGE, slope, damage);
+        StartSound(actor, sfxenum_t.sfx_shotgn)
+        A_FaceTarget(actor)
+        bangle = actor.angle
+        slope = attacks.AimLineAttack(actor, bangle, Defines.MISSILERANGE)
+        angle = bangle + (P_Random() - P_Random() shl 20)
+        damage = (P_Random() % 5 + 1) * 3
+        attacks.LineAttack(actor, angle, Defines.MISSILERANGE, slope, damage)
     }
 
-    default void A_CPosRefire(mobj_t actor) {
+    fun A_CPosRefire(actor: mobj_t) {
         // keep firing unless target got out of sight
-        A_FaceTarget(actor);
-
+        A_FaceTarget(actor)
         if (P_Random() < 40) {
-            return;
+            return
         }
-
-        if (actor.target == null || actor.target.health <= 0 || !getEnemies().CheckSight(actor, actor.target)) {
-            actor.SetMobjState(actor.info.seestate);
+        if (actor.target == null || actor.target!!.health <= 0 || !enemies.CheckSight(actor, actor.target!!)) {
+            actor.SetMobjState(actor.info!!.seestate)
         }
     }
-
 }

@@ -1,64 +1,35 @@
-package p;
+package p
 
-import static boom.Compatibility.*;
-import boom.DeepBSPNodesV4;
-import static boom.E6Y.NO_INDEX;
-import boom.mapglvertex_t;
-import boom.mapnode_v4_t;
-import boom.mapnode_znod_t;
-import boom.mapseg_v4_t;
-import boom.mapseg_znod_t;
-import boom.mapsubsector_v4_t;
-import boom.mapsubsector_znod_t;
-import static data.Defines.*;
-import data.Limits;
-import data.maplinedef_t;
-import data.mapnode_t;
-import data.mapsector_t;
-import data.mapseg_t;
-import data.mapsidedef_t;
-import data.mapsubsector_t;
-import data.mapthing_t;
-import data.mapvertex_t;
-import defines.skill_t;
-import defines.slopetype_t;
-import doom.CommandVariable;
-import doom.DoomMain;
-import doom.DoomStatus;
-import doom.SourceCode;
-import doom.SourceCode.CauseOfDesyncProbability;
-import doom.SourceCode.P_Setup;
-import static doom.SourceCode.P_Setup.P_LoadThings;
-import static doom.SourceCode.P_Setup.P_SetupLevel;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Arrays;
-import java.util.function.IntFunction;
-import m.BBox;
-import static m.BBox.*;
-import m.fixed_t;
-import static m.fixed_t.FRACBITS;
-import static m.fixed_t.FRACUNIT;
-import rr.RendererState;
-import rr.line_t;
-import static rr.line_t.ML_TWOSIDED;
-import rr.node_t;
-import rr.sector_t;
-import rr.seg_t;
-import rr.side_t;
-import rr.subsector_t;
-import rr.vertex_t;
-import rr.z_vertex_t;
-import s.degenmobj_t;
-import utils.C2JUtils;
-import static utils.C2JUtils.flags;
-import static utils.C2JUtils.unsigned;
-import utils.GenericCopy.ArraySupplier;
-import static utils.GenericCopy.malloc;
-import w.CacheableDoomObjectContainer;
-import w.DoomBuffer;
-import w.wadfile_info_t;
+
+import boom.*
+import boom.DeepBSPNodesV4
+import data.*
+import defines.skill_t
+import defines.slopetype_t
+import doom.CommandVariable
+import doom.DoomMain
+import doom.DoomStatus
+import doom.SourceCode.CauseOfDesyncProbability
+import doom.SourceCode.P_Setup
+import doom.SourceCode.Suspicious
+import m.BBox
+import m.fixed_t.Companion.FRACBITS
+import m.fixed_t.Companion.FRACUNIT
+import m.fixed_t.Companion.FixedDiv
+import rr.*
+import s.degenmobj_t
+import utils.C2JUtils
+import utils.GenericCopy
+import utils.GenericCopy.ArraySupplier
+import w.CacheableDoomObject
+import w.CacheableDoomObjectContainer
+import w.DoomBuffer
+import w.wadfile_info_t
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.*
+import java.util.function.IntFunction
 
 /*
  * Emacs style mode select -*- C++ -*-
@@ -81,71 +52,34 @@ import w.wadfile_info_t;
  * 
  * MAES 30/9/2011: This is a direct translation of prBoom+'s 2.5.0.8 p_setup.c
  * and p_setup.h.
- * 
+ *
+ * Copyright (C) 2022 hiperbou
  * 
  * 
  * -----------------------------------------------------------------------------
  */
-
-public class BoomLevelLoader extends AbstractLevelLoader {
-
-    public BoomLevelLoader(DoomMain<?,?> DM) {
-        super(DM);
-        // TODO Auto-generated constructor stub
-    }
-
+class BoomLevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
     // OpenGL related.
-    byte[] map_subsectors;
-
-    // //////////////////////////////////////////////////////////////////////////////////////////
-    // figgi 08/21/00 -- finalants and globals for glBsp support
-    public static final int gNd2 = 0x32644E67; // figgi -- suppport for new
-                                               // GL_VERT format v2.0
-
-    public static final int gNd3 = 0x33644E67;
-
-    public static final int gNd4 = 0x34644E67;
-
-    public static final int gNd5 = 0x35644E67;
-
-    public static final int ZNOD = 0x444F4E5A;
-
-    public static final int ZGLN = 0x4E4C475A;
-
-    public static final int GL_VERT_OFFSET = 4;
-
-    int firstglvertex = 0;
-
-    int nodesVersion = 0;
-
-    boolean forceOldBsp = false;
+    lateinit var map_subsectors: ByteArray
+    var firstglvertex = 0
+    var nodesVersion = 0
+    var forceOldBsp = false
 
     // figgi 08/21/00 -- glSegs
-    class glseg_t {
-        char v1; // start vertex (16 bit)
-
-        char v2; // end vertex (16 bit)
-
-        char linedef; // linedef, or -1 for minisegs
-
-        short side; // side on linedef: 0 for right, 1 for left
-
-        short partner; // corresponding partner seg, or -1 on one-sided walls
+    internal inner class glseg_t {
+        var v1 // start vertex (16 bit)
+                = 0.toChar()
+        var v2 // end vertex (16 bit)
+                = 0.toChar()
+        var linedef // linedef, or -1 for minisegs
+                = 0.toChar()
+        var side // side on linedef: 0 for right, 1 for left
+                : Short = 0
+        var partner // corresponding partner seg, or -1 on one-sided walls
+                : Short = 0
     }
 
-    public static final int ML_GL_LABEL = 0; // A separator name, GL_ExMx or
-                                             // GL_MAPxx
-
-    public static final int ML_GL_VERTS = 1; // Extra Vertices
-
-    public static final int ML_GL_SEGS = 2; // Segs, from linedefs & minisegs
-
-    public static final int ML_GL_SSECT = 3; // SubSectors, list of segs
-
-    public static final int ML_GL_NODES = 4; // GL BSP nodes
-
     // //////////////////////////////////////////////////////////////////////////////////////////
-
     //
     // REJECT
     // For fast sight rejection.
@@ -154,162 +88,137 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     // Without the special effect, this could
     // be used as a PVS lookup as well.
     //
-
-    private int rejectlump = -1;// cph - store reject lump num if cached
-
-    private int current_episode = -1;
-
-    private int current_map = -1;
-
-    private int current_nodesVersion = -1;
-
-    private boolean samelevel = false;
+    private var rejectlump = -1 // cph - store reject lump num if cached
+    private var current_episode = -1
+    private var current_map = -1
+    private var current_nodesVersion = -1
+    private var samelevel = false
 
     /**
      * e6y: Smart malloc Used by P_SetupLevel() for smart data loading. Do
      * nothing if level is the same. Passing a null array forces allocation.
-     * 
+     *
      * @param p
-     *        generically typed array to consider
+     * generically typed array to consider
      * @param numstuff
-     *        elements to realloc
+     * elements to realloc
      */
-
-    private <T> T[] malloc_IfSameLevel(T[] p, int numstuff, ArraySupplier<T> supplier, IntFunction<T[]> generator) {
-        if (!samelevel || (p == null)) {
-            return malloc(supplier, generator, numstuff);
-        }
-        return p;
+    private inline fun <reified T> malloc_IfSameLevel(
+        p: Array<T>?,
+        numstuff: Int,
+        supplier: ArraySupplier<T>//,
+        //generator: IntFunction<Array<T>>
+    ): Array<T> {
+        return if (!samelevel || p == null) {
+            GenericCopy.malloc(supplier, numstuff)
+        } else p
     }
 
     // e6y: Smart calloc
     // Used by P_SetupLevel() for smart data loading
     // Clear the memory without allocation if level is the same
-    private <T extends Resettable> T[] calloc_IfSameLevel(T[] p, int numstuff, ArraySupplier<T> supplier, IntFunction<T[]> generator) {
-        if (!samelevel) {
-            return malloc(supplier, generator, numstuff);
+    private inline fun <reified T : Resettable?> calloc_IfSameLevel(
+        p: Array<T>?,
+        numstuff: Int,
+        supplier: ArraySupplier<T>//,
+        //generator: IntFunction<Array<T>>
+    ): Array<T> {
+        return if (!samelevel) {
+            GenericCopy.malloc(supplier, numstuff)
         } else {
             // TODO: stuff should be resetted!
-            C2JUtils.resetAll(p);
-            return p;
+            C2JUtils.resetAll(p as Array<Resettable>)
+            p
         }
     }
 
     //
     // P_CheckForZDoomNodes
     //
-
-    private boolean P_CheckForZDoomNodes(int lumpnum, int gl_lumpnum) {
-        byte[] data;
-        int check;
-        
-        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ML_NODES, 0);
-        check = ByteBuffer.wrap(data).getInt();
-        
-        if (check == ZNOD)
-            DOOM.doomSystem.Error("P_CheckForZDoomNodes: ZDoom nodes not supported yet");
-
-        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ML_SSECTORS, 0);
-        check = ByteBuffer.wrap(data).getInt();
-        
-        if (check == ZGLN) {
-            DOOM.doomSystem.Error("P_CheckForZDoomNodes: ZDoom GL nodes not supported yet");
+    private fun P_CheckForZDoomNodes(lumpnum: Int, gl_lumpnum: Int): Boolean {
+        var data: ByteArray?
+        var check: Int
+        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ILevelLoader.ML_NODES, 0)
+        check = ByteBuffer.wrap(data).int
+        if (check == BoomLevelLoader.ZNOD) DOOM.doomSystem.Error("P_CheckForZDoomNodes: ZDoom nodes not supported yet")
+        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ILevelLoader.ML_SSECTORS, 0)
+        check = ByteBuffer.wrap(data).int
+        if (check == BoomLevelLoader.ZGLN) {
+            DOOM.doomSystem.Error("P_CheckForZDoomNodes: ZDoom GL nodes not supported yet")
         }
 
         // Unlock them to force different buffering interpretation.
-        DOOM.wadLoader.UnlockLumpNum(lumpnum + ML_NODES);
-        DOOM.wadLoader.UnlockLumpNum(lumpnum + ML_SSECTORS);
-
-        return false;
+        DOOM.wadLoader.UnlockLumpNum(lumpnum + ILevelLoader.ML_NODES)
+        DOOM.wadLoader.UnlockLumpNum(lumpnum + ILevelLoader.ML_SSECTORS)
+        return false
     }
 
     //
     // P_CheckForDeePBSPv4Nodes
     // http://www.sbsoftware.com/files/DeePBSPV4specs.txt
     //
-
-    private boolean P_CheckForDeePBSPv4Nodes(int lumpnum, int gl_lumpnum) {
-        byte[] data;
-        boolean result = false;
-
-        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ML_NODES, 0);
-        byte[] compare = Arrays.copyOfRange(data, 0, 7);
-
+    private fun P_CheckForDeePBSPv4Nodes(lumpnum: Int, gl_lumpnum: Int): Boolean {
+        val data: ByteArray
+        var result = false
+        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ILevelLoader.ML_NODES, 0)
+        val compare = Arrays.copyOfRange(data, 0, 7)
         if (Arrays.equals(compare, DeepBSPNodesV4.DeepBSPHeader)) {
-            System.out.println("P_CheckForDeePBSPv4Nodes: DeePBSP v4 Extended nodes are detected\n");
-            result = true;
+            println("P_CheckForDeePBSPv4Nodes: DeePBSP v4 Extended nodes are detected\n")
+            result = true
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lumpnum + ML_NODES);
-
-        return result;
+        DOOM.wadLoader.UnlockLumpNum(lumpnum + ILevelLoader.ML_NODES)
+        return result
     }
 
-    //
-    // P_CheckForZDoomUncompressedNodes
-    // http://zdoom.org/wiki/ZDBSP#Compressed_Nodes
-    //
-
-    private static final int XNOD = 0x584e4f44;
-
-    private boolean P_CheckForZDoomUncompressedNodes(int lumpnum, int gl_lumpnum) {
-        byte[] data;
-        int wrapper;
-        boolean result = false;
-
-        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ML_NODES, 0);
-        wrapper=ByteBuffer.wrap(data).getInt();
-
-        if (wrapper==XNOD) {
-            System.out.println("P_CheckForZDoomUncompressedNodes: ZDoom uncompressed normal nodes are detected\n");
-            result = true;
+    private fun P_CheckForZDoomUncompressedNodes(lumpnum: Int, gl_lumpnum: Int): Boolean {
+        val data: ByteArray
+        val wrapper: Int
+        var result = false
+        data = DOOM.wadLoader.CacheLumpNumAsRawBytes(lumpnum + ILevelLoader.ML_NODES, 0)
+        wrapper = ByteBuffer.wrap(data).int
+        if (wrapper == BoomLevelLoader.XNOD) {
+            println("P_CheckForZDoomUncompressedNodes: ZDoom uncompressed normal nodes are detected\n")
+            result = true
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lumpnum + ML_NODES);
-
-        return result;
+        DOOM.wadLoader.UnlockLumpNum(lumpnum + ILevelLoader.ML_NODES)
+        return result
     }
 
     //
     // P_GetNodesVersion
     //
-
-    public void P_GetNodesVersion(int lumpnum, int gl_lumpnum) {
-        int ver = -1;
-        nodesVersion = 0;
-
-        if ((gl_lumpnum > lumpnum) && (forceOldBsp == false)
-            &&(DoomStatus.compatibility_level>=prboom_2_compatibility)
-                                                             ) {
-
-            byte[] data = DOOM.wadLoader.CacheLumpNumAsRawBytes(gl_lumpnum + ML_GL_VERTS, 0);
-            int wrapper = ByteBuffer.wrap(data).getInt();
-            if (wrapper == gNd2) {
-                data = DOOM.wadLoader.CacheLumpNumAsRawBytes(gl_lumpnum + ML_GL_SEGS, 0);
-                wrapper = ByteBuffer.wrap(data).getInt();
-                if (wrapper == gNd3) {
-                    ver = 3;
+    fun P_GetNodesVersion(lumpnum: Int, gl_lumpnum: Int) {
+        var ver = -1
+        nodesVersion = 0
+        if (gl_lumpnum > lumpnum && forceOldBsp == false && DoomStatus.compatibility_level >= Compatibility.prboom_2_compatibility) {
+            var data = DOOM.wadLoader.CacheLumpNumAsRawBytes(gl_lumpnum + BoomLevelLoader.ML_GL_VERTS, 0)
+            var wrapper = ByteBuffer.wrap(data).int
+            if (wrapper == BoomLevelLoader.gNd2) {
+                data = DOOM.wadLoader.CacheLumpNumAsRawBytes(gl_lumpnum + BoomLevelLoader.ML_GL_SEGS, 0)
+                wrapper = ByteBuffer.wrap(data).int
+                if (wrapper == BoomLevelLoader.gNd3) {
+                    ver = 3
                 } else {
-                    nodesVersion = gNd2;
-                    System.out.println("P_GetNodesVersion: found version 2 nodes\n");
+                    nodesVersion = BoomLevelLoader.gNd2
+                    println("P_GetNodesVersion: found version 2 nodes\n")
                 }
             }
-            if (wrapper == gNd4) {
-                ver = 4;
+            if (wrapper == BoomLevelLoader.gNd4) {
+                ver = 4
             }
-            if (wrapper == gNd5) {
-                ver = 5;
+            if (wrapper == BoomLevelLoader.gNd5) {
+                ver = 5
             }
             // e6y: unknown gl nodes will be ignored
             if (nodesVersion == 0 && ver != -1) {
-                System.out.printf("P_GetNodesVersion: found version %d nodes\n", ver);
-                System.out.printf("P_GetNodesVersion: version %d nodes not supported\n", ver);
+                System.out.printf("P_GetNodesVersion: found version %d nodes\n", ver)
+                System.out.printf("P_GetNodesVersion: version %d nodes not supported\n", ver)
             }
         } else {
-            nodesVersion = 0;
-            System.out.println("P_GetNodesVersion: using normal BSP nodes\n");
+            nodesVersion = 0
+            println("P_GetNodesVersion: using normal BSP nodes\n")
             if (P_CheckForZDoomNodes(lumpnum, gl_lumpnum)) {
-                DOOM.doomSystem.Error("P_GetNodesVersion: ZDoom nodes not supported yet");
+                DOOM.doomSystem.Error("P_GetNodesVersion: ZDoom nodes not supported yet")
             }
         }
     }
@@ -319,178 +228,157 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     //
     // killough 5/3/98: reformatted, cleaned up
     //
-    private void P_LoadVertexes(int lump) {
-        final mapvertex_t[] data; // cph - final
+    private fun P_LoadVertexes(lump: Int) {
 
         // Determine number of lumps:
         // total lump length / vertex record length.
-        numvertexes = DOOM.wadLoader.LumpLength(lump) / mapvertex_t.sizeOf();
+        numvertexes = DOOM.wadLoader.LumpLength(lump) / mapvertex_t.sizeOf()
 
         // Allocate zone memory for buffer.
-        vertexes = calloc_IfSameLevel(vertexes, numvertexes, vertex_t::new, vertex_t[]::new);
+        vertexes = calloc_IfSameLevel(if(isVertexesInitialized()) vertexes else null, numvertexes, { vertex_t() })
 
         // Load data into cache.
         // cph 2006/07/29 - cast to mapvertex_t here, making the loop below much
         // neater
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numvertexes, mapvertex_t::new, mapvertex_t[]::new);
+        var data: Array<mapvertex_t> // cph - final
+
+        data = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            numvertexes,
+            { mapvertex_t() },
+            IntFunction { arrayOfNulls<mapvertex_t>(it) } as IntFunction<Array<mapvertex_t>?>
+        )
 
         // Copy and convert vertex coordinates,
         // internal representation as fixed.
-        for (int i = 0; i < numvertexes; i++) {
-            vertexes[i].x = data[i].x << m.fixed_t.FRACBITS;
-            vertexes[i].y = data[i].y << FRACBITS;
+        for (i in 0 until numvertexes) {
+            vertexes!![i].x = data[i].x.toInt() shl FRACBITS
+            vertexes!![i].y = data[i].y.toInt() shl FRACBITS
         }
 
         // Free buffer memory.
-        DOOM.wadLoader.UnlockLumpNum(lump);
+        DOOM.wadLoader.UnlockLumpNum(lump)
     }
 
     /*******************************************
      * Name : P_LoadVertexes2 * modified : 09/18/00, adapted for PrBoom * author
      * : figgi * what : support for gl nodes
-     * 
+     *
      * @throws IOException
-     *         *
-     *******************************************/
-
+     * *
+     */
     // figgi -- FIXME: Automap showes wrong zoom boundaries when starting game
     // when P_LoadVertexes2 is used with classic BSP nodes.
-
-    private void P_LoadVertexes2(int lump, int gllump) throws IOException {
-        final ByteBuffer gldata;
-        mapvertex_t[] ml;
+    @Throws(IOException::class)
+    private fun P_LoadVertexes2(lump: Int, gllump: Int) {
+        val gldata: ByteBuffer
+        var ml: Array<mapvertex_t>
 
         // GL vertexes come after regular ones.
-        firstglvertex = DOOM.wadLoader.LumpLength(lump) / mapvertex_t.sizeOf();
-        numvertexes = DOOM.wadLoader.LumpLength(lump) / mapvertex_t.sizeOf();
-
+        firstglvertex = DOOM.wadLoader.LumpLength(lump) / mapvertex_t.sizeOf()
+        numvertexes = DOOM.wadLoader.LumpLength(lump) / mapvertex_t.sizeOf()
         if (gllump >= 0) { // check for glVertices
             // Read GL lump into buffer. This allows some flexibility
-            gldata = DOOM.wadLoader.CacheLumpNumAsDoomBuffer(gllump).getBuffer();
-
-            if (nodesVersion == gNd2) { // 32 bit GL_VERT format (16.16 fixed)
+            gldata = DOOM.wadLoader.CacheLumpNumAsDoomBuffer(gllump)._buffer!!
+            if (nodesVersion == BoomLevelLoader.gNd2) { // 32 bit GL_VERT format (16.16 fixed)
                 // These vertexes are double in size than regular Doom vertexes.
                 // Furthermore, we have to skip the first 4 bytes
                 // (GL_VERT_OFFSET)
                 // of the gl lump.
-                numvertexes += (DOOM.wadLoader.LumpLength(gllump) - GL_VERT_OFFSET) / mapglvertex_t.sizeOf();
+                numvertexes += (DOOM.wadLoader.LumpLength(gllump) - BoomLevelLoader.GL_VERT_OFFSET) / mapglvertex_t.sizeOf()
 
                 // Vertexes size accomodates both normal and GL nodes.
-                vertexes = malloc_IfSameLevel(vertexes, numvertexes, vertex_t::new, vertex_t[]::new);
-
-                final mapglvertex_t mgl[] = malloc(mapglvertex_t::new, mapglvertex_t[]::new, numvertexes - firstglvertex);
+                vertexes = malloc_IfSameLevel(vertexes, numvertexes, { vertex_t() })
+                val mgl = GenericCopy.malloc({ mapglvertex_t() }, numvertexes - firstglvertex)
 
                 // Get lump and skip first 4 bytes
-                gldata.rewind();
-                gldata.position(GL_VERT_OFFSET);
-
-                CacheableDoomObjectContainer.unpack(gldata, mgl);
-
-                int mgl_count = 0;
-
-                for (int i = firstglvertex; i < numvertexes; i++) {
-                    vertexes[i].x = mgl[mgl_count].x;
-                    vertexes[i].y = mgl[mgl_count].y;
-                    mgl_count++;
+                gldata.rewind()
+                gldata.position(BoomLevelLoader.GL_VERT_OFFSET)
+                CacheableDoomObjectContainer.unpack(gldata, mgl as Array<CacheableDoomObject>)
+                var mgl_count = 0
+                for (i in firstglvertex until numvertexes) {
+                    vertexes!![i].x = mgl[mgl_count].x
+                    vertexes!![i].y = mgl[mgl_count].y
+                    mgl_count++
                 }
             } else {
                 // Vertexes size accomodates both normal and GL nodes.
-                numvertexes += DOOM.wadLoader.LumpLength(gllump) / mapvertex_t.sizeOf();
-                vertexes = malloc_IfSameLevel(vertexes, numvertexes, vertex_t::new, vertex_t[]::new);
-
-                ml = malloc(mapvertex_t::new, mapvertex_t[]::new, numvertexes - firstglvertex);
+                numvertexes += DOOM.wadLoader.LumpLength(gllump) / mapvertex_t.sizeOf()
+                vertexes = malloc_IfSameLevel(if(isVertexesInitialized()) vertexes else null, numvertexes) { vertex_t() }
+                ml = GenericCopy.malloc({ mapvertex_t() },
+                    numvertexes - firstglvertex
+                )
 
                 // We can read this "directly" because no skipping is involved.
-                gldata.rewind();
-                CacheableDoomObjectContainer.unpack(gldata, ml);
+                gldata.rewind()
+                CacheableDoomObjectContainer.unpack(gldata, ml as Array<CacheableDoomObject> )
                 // ml = W.CacheLumpNumIntoArray(gllump,
                 // numvertexes-firstglvertex,mapvertex_t.class);
-                int ml_count = 0;
-
-                for (int i = firstglvertex; i < numvertexes; i++) {
-                    vertexes[i].x = ml[ml_count].x;
-                    vertexes[i].y = ml[ml_count].y;
-                    ml_count++;
+                var ml_count = 0
+                for (i in firstglvertex until numvertexes) {
+                    vertexes!![i].x = ml[ml_count].x.toInt()
+                    vertexes!![i].y = ml[ml_count].y.toInt()
+                    ml_count++
                 }
             }
-            DOOM.wadLoader.UnlockLumpNum(gllump);
+            DOOM.wadLoader.UnlockLumpNum(gllump)
         }
 
         // Loading of regular lumps (sheesh!)
-        ml = DOOM.wadLoader.CacheLumpNumIntoArray(lump, firstglvertex, mapvertex_t::new, mapvertex_t[]::new);
-
-        for (int i = 0; i < firstglvertex; i++) {
-            vertexes[i].x = ml[i].x;
-            vertexes[i].y = ml[i].y;
+        ml = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            firstglvertex,
+            { mapvertex_t() },
+            IntFunction { arrayOfNulls<mapvertex_t>(it) } as IntFunction<Array<mapvertex_t>?>
+        )
+        for (i in 0 until firstglvertex) {
+            vertexes!![i].x = ml[i].x.toInt()
+            vertexes!![i].y = ml[i].y.toInt()
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump);
-
+        DOOM.wadLoader.UnlockLumpNum(lump)
     }
 
     /*******************************************
      * created : 08/13/00 * modified : 09/18/00, adapted for PrBoom * author :
      * figgi * what : basic functions needed for * computing gl nodes *
-     *******************************************/
-
-    public int checkGLVertex(int num) {
-        if ((num & 0x8000) != 0)
-            num = (num & 0x7FFF) + firstglvertex;
-        return num;
-    }
-
-    public static float GetDistance(int dx, int dy) {
-        float fx = (float) (dx) / FRACUNIT, fy = (float) (dy) / FRACUNIT;
-        return (float) Math.sqrt(fx * fx + fy * fy);
-    }
-
-    public static float GetTexelDistance(int dx, int dy) {
-        // return (float)((int)(GetDistance(dx, dy) + 0.5f));
-        float fx = (float) (dx) / FRACUNIT, fy = (float) (dy) / FRACUNIT;
-        return ((int) (0.5f + (float) Math.sqrt(fx * fx + fy * fy)));
-    }
-
-    public static int GetOffset(vertex_t v1, vertex_t v2) {
-        float a, b;
-        int r;
-        a = (v1.x - v2.x) / (float) FRACUNIT;
-        b = (v1.y - v2.y) / (float) FRACUNIT;
-        r = (int) (Math.sqrt(a * a + b * b) * FRACUNIT);
-        return r;
+     */
+    fun checkGLVertex(num: Int): Int {
+        var num = num
+        if (num and 0x8000 != 0) num = (num and 0x7FFF) + firstglvertex
+        return num
     }
 
     //
     // P_LoadSegs
     //
     // killough 5/3/98: reformatted, cleaned up
+    private fun P_LoadSegs(lump: Int) {
+        val data: Array<mapseg_t>? // cph - final
 
-    private void P_LoadSegs(int lump) {
-        final mapseg_t[] data; // cph - final
-
-        numsegs = DOOM.wadLoader.LumpLength(lump) / mapseg_t.sizeOf();
-        segs = calloc_IfSameLevel(segs, numsegs, seg_t::new, seg_t[]::new);
-
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsegs, mapseg_t::new, mapseg_t[]::new); // cph -
-                                                                       // wad
-                                                                       // lump
-                                                                       // handling
-                                                                       // updated
-
-        if ((data == null) || (numsegs == 0))
-            DOOM.doomSystem.Error("P_LoadSegs: no segs in level");
-
-        for (int i = 0; i < numsegs; i++) {
-            seg_t li = segs[i];
-            final mapseg_t ml = data[i];
-            char v1, v2;
-
-            int side, linedef;
-            line_t ldef;
-
-            li.iSegID = i; // proff 11/05/2000: needed for OpenGL
-
-            v1 = ml.v1;
-            v2 = ml.v2;
+        numsegs = DOOM.wadLoader.LumpLength(lump) / mapseg_t.sizeOf()
+        segs = calloc_IfSameLevel(if(isSegsInitialized()) segs else null, numsegs, { seg_t() })
+        data = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            numsegs,
+            { mapseg_t() },
+            IntFunction { arrayOfNulls<mapseg_t>(it) } as IntFunction<Array<mapseg_t>?>
+        )
+        // wad
+        // lump
+        // handling
+        // updated
+        if (data == null || numsegs == 0) DOOM.doomSystem.Error("P_LoadSegs: no segs in level")
+        for (i in 0 until numsegs) {
+            val li = segs[i]
+            val ml = data[i]
+            var v1: Char
+            var v2: Char
+            var side: Int
+            var linedef: Int
+            var ldef: line_t
+            li.iSegID = i // proff 11/05/2000: needed for OpenGL
+            v1 = ml.v1
+            v2 = ml.v2
 
             // e6y
             // moved down for additional checks to avoid overflow
@@ -498,182 +386,166 @@ public class BoomLevelLoader extends AbstractLevelLoader {
             // see below for more detailed information
             // li.v1 = &vertexes[v1];
             // li.v2 = &vertexes[v2];
-
-            li.miniseg = false; // figgi -- there are no minisegs in classic BSP
-                                // nodes
+            li.miniseg = false // figgi -- there are no minisegs in classic BSP
+            // nodes
 
             // e6y: moved down, see below
             // li.length = GetDistance(li.v2.x - li.v1.x, li.v2.y - li.v1.y);
-
-            li.angle = ml.angle << 16;
-            li.offset = ml.offset << 16;
-            linedef = ml.linedef;
+            li.angle = (ml.angle.code shl 16).toLong()
+            li.offset = ml.offset.code shl 16
+            linedef = ml.linedef.code
 
             // e6y: check for wrong indexes
             if (linedef >= numlines) {
-                DOOM.doomSystem.Error( "P_LoadSegs: seg %d references a non-existent linedef %d", i, linedef);
+                DOOM.doomSystem.Error("P_LoadSegs: seg %d references a non-existent linedef %d", i, linedef)
             }
-
-            ldef = lines[linedef];
-            li.linedef = ldef;
-            side = ml.side;
+            ldef = lines[linedef]
+            li.linedef = ldef
+            side = ml.side.code
 
             // e6y: fix wrong side index
             if (side != 0 && side != 1) {
-                System.err.printf("P_LoadSegs: seg %d contains wrong side index %d. Replaced with 1.\n", i, side);
-                side = 1;
+                System.err.printf("P_LoadSegs: seg %d contains wrong side index %d. Replaced with 1.\n", i, side)
+                side = 1
             }
 
             // e6y: check for wrong indexes
-            if (ldef.sidenum[side] >= (char) numsides) {
+            if (ldef.sidenum[side] >= numsides.toChar()) {
                 DOOM.doomSystem.Error(
                     "P_LoadSegs: linedef %d for seg %d references a non-existent sidedef %d",
                     linedef, i, ldef.sidenum[side]
-                );
+                )
             }
-
-            li.sidedef = sides[ldef.sidenum[side]];
+            li.sidedef = sides[ldef.sidenum[side].code]
 
             /*
              * cph 2006/09/30 - our frontsector can be the second side of the
              * linedef, so must check for NO_INDEX in case we are incorrectly
              * referencing the back of a 1S line
-             */
-            if (ldef.sidenum[side] != NO_INDEX)
-                li.frontsector = sides[ldef.sidenum[side]].sector;
-            else {
-                li.frontsector = null;
-                System.err.printf("P_LoadSegs: front of seg %i has no sidedef\n", i);
+             */if (ldef.sidenum[side] != E6Y.NO_INDEX) li.frontsector =
+                sides[ldef.sidenum[side].code].sector else {
+                li.frontsector = null
+                System.err.printf("P_LoadSegs: front of seg %i has no sidedef\n", i)
             }
-
-            if (flags(ldef.flags, ML_TWOSIDED) && ldef.sidenum[side ^ 1] != NO_INDEX) {
-                li.backsector = sides[ldef.sidenum[side ^ 1]].sector;
+            if (C2JUtils.flags(
+                    ldef.flags.toInt(),
+                    line_t.ML_TWOSIDED
+                ) && ldef.sidenum[side xor 1] != E6Y.NO_INDEX
+            ) {
+                li.backsector = sides[ldef.sidenum[side xor 1].code].sector
             } else {
-                li.backsector = null;
+                li.backsector = null
             }
 
             // e6y
             // check and fix wrong references to non-existent vertexes
             // see e1m9 @ NIVELES.WAD
             // http://www.doomworld.com/idgames/index.php?id=12647
-            if (v1 >= numvertexes || v2 >= numvertexes) {
-                String str = "P_LoadSegs: compatibility loss - seg %d references a non-existent vertex %d\n";
-
+            if (v1.code >= numvertexes || v2.code >= numvertexes) {
+                val str = "P_LoadSegs: compatibility loss - seg %d references a non-existent vertex %d\n"
                 if (DOOM.demorecording) {
                     DOOM.doomSystem.Error(
                         str + "Demo recording on levels with invalid nodes is not allowed",
-                        i, (v1 >= numvertexes ? v1 : v2)
-                    );
+                        i, if (v1.code >= numvertexes) v1 else v2
+                    )
                 }
-
-                if (v1 >= numvertexes) {
-                    System.err.printf(str, i, v1);
+                if (v1.code >= numvertexes) {
+                    System.err.printf(str, i, v1)
                 }
-                if (v2 >= numvertexes) {
-                    System.err.printf(str, i, v2);
+                if (v2.code >= numvertexes) {
+                    System.err.printf(str, i, v2)
                 }
-
-                if (li.sidedef == sides[li.linedef.sidenum[0]]) {
-                    li.v1 = lines[ml.linedef].v1;
-                    li.v2 = lines[ml.linedef].v2;
+                if (li.sidedef === sides[li.linedef!!.sidenum[0].code]) {
+                    li.v1 = lines[ml.linedef.code].v1
+                    li.v2 = lines[ml.linedef.code].v2
                 } else {
-                    li.v1 = lines[ml.linedef].v2;
-                    li.v2 = lines[ml.linedef].v1;
+                    li.v1 = lines[ml.linedef.code].v2
+                    li.v2 = lines[ml.linedef.code].v1
                 }
             } else {
-                li.v1 = vertexes[v1];
-                li.v2 = vertexes[v2];
+                li.v1 = vertexes!![v1.code]
+                li.v2 = vertexes!![v2.code]
             }
-
-            li.assignVertexValues();
+            li.assignVertexValues()
 
             // e6y: now we can calculate it
-            li.length = GetDistance(li.v2x - li.v1x, li.v2y - li.v1y);
+            li.length = BoomLevelLoader.GetDistance(li.v2x - li.v1x, li.v2y - li.v1y)
 
             // Recalculate seg offsets that are sometimes incorrect
             // with certain nodebuilders. Fixes among others, line 20365
             // of DV.wad, map 5
-            li.offset = GetOffset(li.v1, (ml.side != 0 ? ldef.v2 : ldef.v1));
+            li.offset = BoomLevelLoader.GetOffset(li.v1!!, if (ml.side.code != 0) ldef.v2!! else ldef.v1!!)
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
-    private void P_LoadSegs_V4(int lump) {
-        int i;
-        mapseg_v4_t[] data;
-
-        numsegs = DOOM.wadLoader.LumpLength(lump) / mapseg_v4_t.sizeOf();
-        segs = calloc_IfSameLevel(segs, numsegs, seg_t::new, seg_t[]::new);
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsegs, mapseg_v4_t::new, mapseg_v4_t[]::new);
-
-        if ((data == null) || (numsegs == 0))
-            DOOM.doomSystem.Error("P_LoadSegs_V4: no segs in level");
-
-        for (i = 0; i < numsegs; i++) {
-            seg_t li = segs[i];
-            final mapseg_v4_t ml = data[i];
-            int v1, v2;
-
-            int side, linedef;
-            line_t ldef;
-
-            li.iSegID = i; // proff 11/05/2000: needed for OpenGL
-
-            v1 = ml.v1;
-            v2 = ml.v2;
-
-            li.miniseg = false; // figgi -- there are no minisegs in classic BSP
-                                // nodes
-
-            li.angle = ml.angle << 16;
-            li.offset = ml.offset << 16;
-            linedef = ml.linedef;
+    private fun P_LoadSegs_V4(lump: Int) {
+        var i: Int
+        val data: Array<mapseg_v4_t>?
+        numsegs = DOOM.wadLoader.LumpLength(lump) / mapseg_v4_t.sizeOf()
+        segs = calloc_IfSameLevel(segs, numsegs, { seg_t() })
+        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsegs, { mapseg_v4_t() }, IntFunction { arrayOfNulls<mapseg_v4_t>(it) } as IntFunction<Array<mapseg_v4_t>?>)
+        if (data == null || numsegs == 0) DOOM.doomSystem.Error("P_LoadSegs_V4: no segs in level")
+        i = 0
+        while (i < numsegs) {
+            val li = segs[i]
+            val ml = data[i]
+            var v1: Int
+            var v2: Int
+            var side: Int
+            var linedef: Int
+            var ldef: line_t
+            li.iSegID = i // proff 11/05/2000: needed for OpenGL
+            v1 = ml.v1
+            v2 = ml.v2
+            li.miniseg = false // figgi -- there are no minisegs in classic BSP
+            // nodes
+            li.angle = (ml.angle.code shl 16).toLong()
+            li.offset = ml.offset.code shl 16
+            linedef = ml.linedef.code
 
             // e6y: check for wrong indexes
-            if (unsigned(linedef) >= unsigned(numlines)) {
+            if (C2JUtils.unsigned(linedef) >= C2JUtils.unsigned(numlines)) {
                 DOOM.doomSystem.Error(
                     "P_LoadSegs_V4: seg %d references a non-existent linedef %d",
-                    i, unsigned(linedef));
+                    i, C2JUtils.unsigned(linedef)
+                )
             }
-
-            ldef = lines[linedef];
-            li.linedef = ldef;
-            side = ml.side;
+            ldef = lines[linedef]
+            li.linedef = ldef
+            side = ml.side.code
 
             // e6y: fix wrong side index
             if (side != 0 && side != 1) {
-                System.err.printf("P_LoadSegs_V4: seg %d contains wrong side index %d. Replaced with 1.\n", i, side);
-                side = 1;
+                System.err.printf("P_LoadSegs_V4: seg %d contains wrong side index %d. Replaced with 1.\n", i, side)
+                side = 1
             }
 
             // e6y: check for wrong indexes
-            if (unsigned(ldef.sidenum[side]) >= unsigned(numsides)) {
+            if (C2JUtils.unsigned(ldef.sidenum[side].code) >= C2JUtils.unsigned(numsides)) {
                 DOOM.doomSystem.Error(
                     "P_LoadSegs_V4: linedef %d for seg %d references a non-existent sidedef %d",
-                    linedef, i, unsigned(ldef.sidenum[side])
-                );
+                    linedef, i, C2JUtils.unsigned(ldef.sidenum[side].code)
+                )
             }
-
-            li.sidedef = sides[ldef.sidenum[side]];
+            li.sidedef = sides[ldef.sidenum[side].code]
 
             /*
              * cph 2006/09/30 - our frontsector can be the second side of the
              * linedef, so must check for NO_INDEX in case we are incorrectly
              * referencing the back of a 1S line
-             */
-            if (ldef.sidenum[side] != NO_INDEX) {
-                li.frontsector = sides[ldef.sidenum[side]].sector;
+             */if (ldef.sidenum[side] != E6Y.NO_INDEX) {
+                li.frontsector = sides[ldef.sidenum[side].code].sector
             } else {
-                li.frontsector = null;
-                System.err.printf("P_LoadSegs_V4: front of seg %i has no sidedef\n", i);
+                li.frontsector = null
+                System.err.printf("P_LoadSegs_V4: front of seg %i has no sidedef\n", i)
             }
-
-            if (flags(ldef.flags, ML_TWOSIDED)
-                && ldef.sidenum[side ^ 1] != NO_INDEX) {
-                li.backsector = sides[ldef.sidenum[side ^ 1]].sector;
+            if (C2JUtils.flags(ldef.flags.toInt(), line_t.ML_TWOSIDED)
+                && ldef.sidenum[side xor 1] != E6Y.NO_INDEX
+            ) {
+                li.backsector = sides[ldef.sidenum[side xor 1].code].sector
             } else {
-                li.backsector = null;
+                li.backsector = null
             }
 
             // e6y
@@ -681,50 +553,47 @@ public class BoomLevelLoader extends AbstractLevelLoader {
             // see e1m9 @ NIVELES.WAD
             // http://www.doomworld.com/idgames/index.php?id=12647
             if (v1 >= numvertexes || v2 >= numvertexes) {
-                String str = "P_LoadSegs_V4: compatibility loss - seg %d references a non-existent vertex %d\n";
-
+                val str = "P_LoadSegs_V4: compatibility loss - seg %d references a non-existent vertex %d\n"
                 if (DOOM.demorecording) {
                     DOOM.doomSystem.Error(
-                        (str + "Demo recording on levels with invalid nodes is not allowed"),
-                        i, (v1 >= numvertexes ? v1 : v2)
-                    );
+                        str + "Demo recording on levels with invalid nodes is not allowed",
+                        i, if (v1 >= numvertexes) v1 else v2
+                    )
                 }
-
                 if (v1 >= numvertexes) {
-                    System.err.printf(str, i, v1);
+                    System.err.printf(str, i, v1)
                 }
                 if (v2 >= numvertexes) {
-                    System.err.printf(str, i, v2);
+                    System.err.printf(str, i, v2)
                 }
-
-                if (li.sidedef == sides[li.linedef.sidenum[0]]) {
-                    li.v1 = lines[ml.linedef].v1;
-                    li.v2 = lines[ml.linedef].v2;
+                if (li.sidedef === sides[li.linedef!!.sidenum[0].code]) {
+                    li.v1 = lines[ml.linedef.code].v1
+                    li.v2 = lines[ml.linedef.code].v2
                 } else {
-                    li.v1 = lines[ml.linedef].v2;
-                    li.v2 = lines[ml.linedef].v1;
+                    li.v1 = lines[ml.linedef.code].v2
+                    li.v2 = lines[ml.linedef.code].v1
                 }
             } else {
-                li.v1 = vertexes[v1];
-                li.v2 = vertexes[v2];
+                li.v1 = vertexes!![v1]
+                li.v2 = vertexes!![v2]
             }
 
             // e6y: now we can calculate it
-            li.length = GetDistance(li.v2.x - li.v1.x, li.v2.y - li.v1.y);
+            li.length = BoomLevelLoader.GetDistance(li.v2!!.x - li.v1!!.x, li.v2!!.y - li.v1!!.y)
 
             // Recalculate seg offsets that are sometimes incorrect
             // with certain nodebuilders. Fixes among others, line 20365
             // of DV.wad, map 5
-            li.offset = GetOffset(li.v1, (ml.side != 0 ? ldef.v2 : ldef.v1));
+            li.offset = BoomLevelLoader.GetOffset(li.v1!!, if (ml.side.code != 0) ldef.v2!! else ldef.v1!!)
+            i++
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
     /*******************************************
      * Name : P_LoadGLSegs * created : 08/13/00 * modified : 09/18/00, adapted
      * for PrBoom * author : figgi * what : support for gl nodes *
-     *******************************************/
+     */
     /*
      * private void P_LoadGLSegs(int lump) { int i; final glseg_t ml; line_t
      * ldef; numsegs = W.LumpLength(lump) / sizeof(glseg_t); segs =
@@ -749,92 +618,89 @@ public class BoomLevelLoader extends AbstractLevelLoader {
      * segs[i].linedef = NULL; segs[i].sidedef = NULL; segs[i].frontsector =
      * NULL; segs[i].backsector = NULL; } ml++; } W.UnlockLumpNum(lump); }
      */
-
     //
     // P_LoadSubsectors
     //
     // killough 5/3/98: reformatted, cleaned up
-
-    private void P_LoadSubsectors(int lump) {
+    private fun P_LoadSubsectors(lump: Int) {
         /*
          * cph 2006/07/29 - make data a final mapsubsector_t *, so the loop
          * below is simpler & gives no finalness warnings
          */
-        final mapsubsector_t[] data;
-
-        numsubsectors = DOOM.wadLoader.LumpLength(lump) / mapsubsector_t.sizeOf();
-        subsectors = calloc_IfSameLevel(subsectors, numsubsectors, subsector_t::new, subsector_t[]::new);
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsubsectors, mapsubsector_t::new, mapsubsector_t[]::new);
-
-        if ((data == null) || (numsubsectors == 0)) {
-            DOOM.doomSystem.Error("P_LoadSubsectors: no subsectors in level");
+        val data: Array<mapsubsector_t>?
+        numsubsectors = DOOM.wadLoader.LumpLength(lump) / mapsubsector_t.sizeOf()
+        subsectors = calloc_IfSameLevel(if (isSubsectorsInitialized()) subsectors else null, numsubsectors, { subsector_t() })
+        data = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            numsubsectors,
+            { mapsubsector_t() },
+            IntFunction { arrayOfNulls<mapsubsector_t>(it) } as IntFunction<Array<mapsubsector_t>?>
+        )
+        if (data == null || numsubsectors == 0) {
+            DOOM.doomSystem.Error("P_LoadSubsectors: no subsectors in level")
         }
-
-        for (int i = 0; i < numsubsectors; i++) {
+        for (i in 0 until numsubsectors) {
             // e6y: support for extended nodes
-            subsectors[i].numlines = data[i].numsegs;
-            subsectors[i].firstline = data[i].firstseg;
+            subsectors[i].numlines = data[i].numsegs.code
+            subsectors[i].firstline = data[i].firstseg.code
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
-    private void P_LoadSubsectors_V4(int lump) {
+    private fun P_LoadSubsectors_V4(lump: Int) {
         /*
          * cph 2006/07/29 - make data a final mapsubsector_t *, so the loop
          * below is simpler & gives no finalness warnings
          */
-        final mapsubsector_v4_t[] data;
-
-        numsubsectors = DOOM.wadLoader.LumpLength(lump) / mapsubsector_v4_t.sizeOf();
-        subsectors = calloc_IfSameLevel(subsectors, numsubsectors, subsector_t::new, subsector_t[]::new);
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsubsectors, mapsubsector_v4_t::new, mapsubsector_v4_t[]::new);
-
-        if ((data == null) || (numsubsectors == 0))
-            DOOM.doomSystem.Error("P_LoadSubsectors_V4: no subsectors in level");
-
-        for (int i = 0; i < numsubsectors; i++) {
-            subsectors[i].numlines = data[i].numsegs;
-            subsectors[i].firstline = data[i].firstseg;
+        val data: Array<mapsubsector_v4_t>?
+        numsubsectors = DOOM.wadLoader.LumpLength(lump) / mapsubsector_v4_t.sizeOf()
+        subsectors = calloc_IfSameLevel(subsectors, numsubsectors, { subsector_t() })
+        data =
+            DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsubsectors, { mapsubsector_v4_t() }, IntFunction { arrayOfNulls<mapsubsector_v4_t>(it) }as IntFunction<Array<mapsubsector_v4_t>?>)
+        if (data == null || numsubsectors == 0) DOOM.doomSystem.Error("P_LoadSubsectors_V4: no subsectors in level")
+        for (i in 0 until numsubsectors) {
+            subsectors[i].numlines = data[i].numsegs.code
+            subsectors[i].firstline = data[i].firstseg
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
     //
     // P_LoadSectors
     //
     // killough 5/3/98: reformatted, cleaned up
-
-    private void P_LoadSectors(int lump) {
-        final mapsector_t[] data; // cph - final*
-
-        numsectors = DOOM.wadLoader.LumpLength(lump) / mapsector_t.sizeOf();
-        sectors = calloc_IfSameLevel(sectors, numsectors, sector_t::new, sector_t[]::new);
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsectors, mapsector_t::new, mapsector_t[]::new); // cph
-                                                                             // -
-                                                                             // wad
-                                                                             // lump
-                                                                             // handling
-                                                                             // updated
-
-        for (int i = 0; i < numsectors; i++) {
-            sector_t ss = sectors[i];
-            final mapsector_t ms = data[i];
-
-            ss.id = i; // proff 04/05/2000: needed for OpenGL
-            ss.floorheight = ms.floorheight << FRACBITS;
-            ss.ceilingheight = ms.ceilingheight << FRACBITS;
-            ss.floorpic = (short) DOOM.textureManager.FlatNumForName(ms.floorpic);
-            ss.ceilingpic = (short) DOOM.textureManager.FlatNumForName(ms.ceilingpic);
-            ss.lightlevel = ms.lightlevel;
-            ss.special = ms.special;
+    private fun P_LoadSectors(lump: Int) {
+        val data: Array<mapsector_t> // cph - final*
+        numsectors = DOOM.wadLoader.LumpLength(lump) / mapsector_t.sizeOf()
+        val initSectors = if(isSectorsInitialized()) sectors else null
+        sectors = calloc_IfSameLevel(initSectors, numsectors, { sector_t() })
+        data = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            numsectors,
+            { mapsector_t() },
+            IntFunction { arrayOfNulls<mapsector_t>(it) } as IntFunction<Array<mapsector_t>?>
+        ) // cph
+        // -
+        // wad
+        // lump
+        // handling
+        // updated
+        for (i in 0 until numsectors) {
+            val ss = sectors[i]
+            val ms = data[i]
+            ss.id = i // proff 04/05/2000: needed for OpenGL
+            ss.floorheight = ms.floorheight.toInt() shl FRACBITS
+            ss.ceilingheight = ms.ceilingheight.toInt() shl FRACBITS
+            ss.floorpic = DOOM.textureManager.FlatNumForName(ms.floorpic!!).toShort()
+            ss.ceilingpic = DOOM.textureManager.FlatNumForName(ms.ceilingpic!!).toShort()
+            ss.lightlevel = ms.lightlevel
+            ss.special = ms.special
             // ss.oldspecial = ms.special; huh?
-            ss.tag = ms.tag;
-            ss.thinglist = null;
+            ss.tag = ms.tag
+            ss.thinglist = null
             // MAES: link to thinker list and RNG
-            ss.TL = this.DOOM.actions;
-            ss.RND = this.DOOM.random;
+            ss.TL = DOOM.actions
+            ss.RND = DOOM.random
 
             // ss.touching_thinglist = null; // phares 3/14/98
 
@@ -859,358 +725,328 @@ public class BoomLevelLoader extends AbstractLevelLoader {
             // killough 10/98: sky textures coming from sidedefs:
             // ss.sky = 0;
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
     //
     // P_LoadNodes
     //
     // killough 5/3/98: reformatted, cleaned up
-
-    private void P_LoadNodes(int lump) {
-        final mapnode_t[] data; // cph - final*
-
-        numnodes = DOOM.wadLoader.LumpLength(lump) / mapnode_t.sizeOf();
-        nodes = malloc_IfSameLevel(nodes, numnodes, node_t::new, node_t[]::new);
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numnodes, mapnode_t::new, mapnode_t[]::new); // cph
-                                                                         // -
-                                                                         // wad
-                                                                         // lump
-                                                                         // handling
-                                                                         // updated
-
-        if ((data == null) || (numnodes == 0)) {
+    private fun P_LoadNodes(lump: Int) {
+        val data: Array<mapnode_t>? // cph - final*
+        numnodes = DOOM.wadLoader.LumpLength(lump) / mapnode_t.sizeOf()
+        nodes = malloc_IfSameLevel(if(isNodesInitialized()) nodes else null, numnodes, { node_t() })
+        data = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            numnodes,
+            { mapnode_t() },
+            IntFunction { arrayOfNulls<mapnode_t>(it) } as IntFunction<Array<mapnode_t>?>
+        ) // cph
+        // -
+        // wad
+        // lump
+        // handling
+        // updated
+        if (data == null || numnodes == 0) {
             // allow trivial maps
-            if (numsubsectors == 1)
-                System.out
-                        .print("P_LoadNodes: trivial map (no nodes, one subsector)\n");
-            else
-                DOOM.doomSystem.Error("P_LoadNodes: no nodes in level");
+            if (numsubsectors == 1) print("P_LoadNodes: trivial map (no nodes, one subsector)\n") else DOOM.doomSystem.Error(
+                "P_LoadNodes: no nodes in level"
+            )
         }
-
-        for (int i = 0; i < numnodes; i++) {
-            node_t no = nodes[i];
-            final mapnode_t mn = data[i];
-
-            no.x = mn.x << FRACBITS;
-            no.y = mn.y << FRACBITS;
-            no.dx = mn.dx << FRACBITS;
-            no.dy = mn.dy << FRACBITS;
-
-            for (int j = 0; j < 2; j++) {
+        for (i in 0 until numnodes) {
+            val no = nodes[i]
+            val mn = data[i]
+            no.x = mn.x.toInt() shl FRACBITS
+            no.y = mn.y.toInt() shl FRACBITS
+            no.dx = mn.dx.toInt() shl FRACBITS
+            no.dy = mn.dy.toInt() shl FRACBITS
+            for (j in 0..1) {
                 // e6y: support for extended nodes
-                no.children[j] = mn.children[j];
+                no.children[j] = mn.children[j].code
 
                 // e6y: support for extended nodes
                 if (no.children[j] == 0xFFFF) {
-                    no.children[j] = 0xFFFFFFFF;
-                } else if (flags(no.children[j], NF_SUBSECTOR_CLASSIC)) {
+                    no.children[j] = -0x1
+                } else if (C2JUtils.flags(no.children[j], Defines.NF_SUBSECTOR_CLASSIC)) {
                     // Convert to extended type
-                    no.children[j] &= ~NF_SUBSECTOR_CLASSIC;
+                    no.children[j] = no.children[j] and Defines.NF_SUBSECTOR_CLASSIC.inv()
 
                     // haleyjd 11/06/10: check for invalid subsector reference
                     if (no.children[j] >= numsubsectors) {
-                        System.err.printf("P_LoadNodes: BSP tree references invalid subsector %d.\n", no.children[j]);
-                        no.children[j] = 0;
+                        System.err.printf("P_LoadNodes: BSP tree references invalid subsector %d.\n", no.children[j])
+                        no.children[j] = 0
                     }
-
-                    no.children[j] |= NF_SUBSECTOR;
+                    no.children[j] = no.children[j] or Defines.NF_SUBSECTOR
                 }
-
-                for (int k = 0; k < 4; k++) {
-                    no.bbox[j].set(k, mn.bbox[j][k] << FRACBITS);
+                for (k in 0..3) {
+                    no.bbox[j][k] = mn.bbox[j][k].toInt() shl FRACBITS
                 }
             }
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
-    private void P_LoadNodes_V4(int lump) {
-        final DeepBSPNodesV4 data; // cph - final*
-
-        numnodes = (DOOM.wadLoader.LumpLength(lump) - 8) / mapnode_v4_t.sizeOf();
-        nodes = malloc_IfSameLevel(nodes, numnodes, node_t::new, node_t[]::new);
-        data = DOOM.wadLoader.CacheLumpNum(lump, 0, DeepBSPNodesV4.class); // cph
-                                                                               // -
-                                                                               // wad
-                                                                               // lump
-                                                                               // handling
-                                                                               // updated
-
-        if ((data == null) || (numnodes == 0)) {
+    private fun P_LoadNodes_V4(lump: Int) {
+        val data: DeepBSPNodesV4? // cph - final*
+        numnodes = (DOOM.wadLoader.LumpLength(lump) - 8) / mapnode_v4_t.sizeOf()
+        nodes = malloc_IfSameLevel(nodes, numnodes, { node_t() })
+        data = DOOM.wadLoader.CacheLumpNum(lump, 0, DeepBSPNodesV4::class.java) // cph
+        // -
+        // wad
+        // lump
+        // handling
+        // updated
+        if (data == null || numnodes == 0) {
             // allow trivial maps
             if (numsubsectors == 1) {
-                System.out.print("P_LoadNodes_V4: trivial map (no nodes, one subsector)\n");
+                print("P_LoadNodes_V4: trivial map (no nodes, one subsector)\n")
             } else {
-                DOOM.doomSystem.Error("P_LoadNodes_V4: no nodes in level");
+                DOOM.doomSystem.Error("P_LoadNodes_V4: no nodes in level")
             }
-        }
-
-        for (int i = 0; i < numnodes; i++) {
-            node_t no = nodes[i];
-            final mapnode_v4_t mn = data.getNodes()[i];
-
-            no.x = mn.x << FRACBITS;
-            no.y = mn.y << FRACBITS;
-            no.dx = mn.dx << FRACBITS;
-            no.dy = mn.dy << FRACBITS;
-
-            for (int j = 0; j < 2; j++) {
-                no.children[j] = mn.children[j];
-
-                for (int k = 0; k < 4; k++) {
-                    no.bbox[j].bbox[k] = mn.bbox[j][k] << FRACBITS;
+        } else { //data could be null
+            for (i in 0 until numnodes) {
+                val no = nodes[i]
+                val mn = data.nodes[i]
+                no.x = mn.x.toInt() shl FRACBITS
+                no.y = mn.y.toInt() shl FRACBITS
+                no.dx = mn.dx.toInt() shl FRACBITS
+                no.dy = mn.dy.toInt() shl FRACBITS
+                for (j in 0..1) {
+                    no.children[j] = mn.children[j]
+                    for (k in 0..3) {
+                        no.bbox[j].bbox[k] = mn.bbox[j][k].toInt() shl FRACBITS
+                    }
                 }
             }
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
-     private void P_LoadZSegs(ByteBuffer data) throws IOException {
-        final mapseg_znod_t nodes[] = malloc(mapseg_znod_t::new, mapseg_znod_t[]::new, numsegs);
-        CacheableDoomObjectContainer.unpack(data,nodes);
-
-        for (int i = 0; i < numsegs; i++) {
-            line_t ldef;
-            int v1, v2;
-            int linedef;
-            char side;
-            seg_t li = segs[i];
-            final mapseg_znod_t ml = nodes[i];
-
-            v1 = ml.v1;
-            v2 = ml.v2;
-
-            li.iSegID = i; // proff 11/05/2000: needed for OpenGL
-            li.miniseg = false;
-
-            linedef = ml.linedef;
+    @Throws(IOException::class)
+    private fun P_LoadZSegs(data: ByteBuffer) {
+        val nodes = GenericCopy.malloc({ mapseg_znod_t() }, numsegs)
+        CacheableDoomObjectContainer.unpack(data, nodes as Array<CacheableDoomObject>)
+        for (i in 0 until numsegs) {
+            var ldef: line_t
+            var v1: Int
+            var v2: Int
+            var linedef: Int
+            var side: Char
+            val li = segs[i]
+            val ml = nodes[i]
+            v1 = ml.v1
+            v2 = ml.v2
+            li.iSegID = i // proff 11/05/2000: needed for OpenGL
+            li.miniseg = false
+            linedef = ml.linedef.code
 
             // e6y: check for wrong indexes
-            if (unsigned(linedef) >= unsigned(numlines)) {
+            if (C2JUtils.unsigned(linedef) >= C2JUtils.unsigned(numlines)) {
                 DOOM.doomSystem.Error(
                     "P_LoadZSegs: seg %d references a non-existent linedef %d",
-                    i, unsigned(linedef)
-                );
+                    i, C2JUtils.unsigned(linedef)
+                )
             }
-
-            ldef = lines[linedef];
-            li.linedef = ldef;
-            side = (char) ml.side;
+            ldef = lines[linedef]
+            li.linedef = ldef
+            side = Char(ml.side.toUShort())
 
             // e6y: fix wrong side index
-            if (side != 0 && side != 1) {
-                System.err.printf("P_LoadZSegs: seg %d contains wrong side index %d. Replaced with 1.\n", i, side);
-                side = 1;
+            if (side.code != 0 && side.code != 1) {
+                System.err.printf("P_LoadZSegs: seg %d contains wrong side index %d. Replaced with 1.\n", i, side)
+                side = 1.toChar()
             }
 
             // e6y: check for wrong indexes
-            if (unsigned(ldef.sidenum[side]) >= unsigned(numsides)) {
+            if (C2JUtils.unsigned(ldef.sidenum[side.code].code) >= C2JUtils.unsigned(numsides)) {
                 DOOM.doomSystem.Error(
                     "P_LoadZSegs: linedef %d for seg %d references a non-existent sidedef %d",
-                    linedef, i, unsigned(ldef.sidenum[side])
-                );
+                    linedef, i, C2JUtils.unsigned(ldef.sidenum[side.code].code)
+                )
             }
-
-            li.sidedef = sides[ldef.sidenum[side]];
+            li.sidedef = sides[ldef.sidenum[side.code].code]
 
             /*
              * cph 2006/09/30 - our frontsector can be the second side of the
              * linedef, so must check for NO_INDEX in case we are incorrectly
              * referencing the back of a 1S line
-             */
-            if (ldef.sidenum[side] != NO_INDEX) {
-                li.frontsector = sides[ldef.sidenum[side]].sector;
+             */if (ldef.sidenum[side.code] != E6Y.NO_INDEX) {
+                li.frontsector = sides[ldef.sidenum[side.code].code].sector
             } else {
-                li.frontsector = null;
-                System.err.printf("P_LoadZSegs: front of seg %i has no sidedef\n", i);
+                li.frontsector = null
+                System.err.printf("P_LoadZSegs: front of seg %i has no sidedef\n", i)
             }
-
-            if (flags(ldef.flags, ML_TWOSIDED) && (ldef.sidenum[side ^ 1] != NO_INDEX)) {
-                li.backsector = sides[ldef.sidenum[side ^ 1]].sector;
+            if (C2JUtils.flags(
+                    ldef.flags.toInt(),
+                    line_t.ML_TWOSIDED
+                ) && ldef.sidenum[side.code xor 1] != E6Y.NO_INDEX
+            ) {
+                li.backsector = sides[ldef.sidenum[side.code xor 1].code].sector
             } else {
-                li.backsector = null;
+                li.backsector = null
             }
-
-            li.v1 = vertexes[v1];
-            li.v2 = vertexes[v2];
-
-            li.length = GetDistance(li.v2.x - li.v1.x, li.v2.y - li.v1.y);
-            li.offset = GetOffset(li.v1, (side != 0 ? ldef.v2 : ldef.v1));
-            li.angle = RendererState.PointToAngle(segs[i].v1.x, segs[i].v1.y, segs[i].v2.x, segs[i].v2.y);
+            li.v1 = vertexes!![v1]
+            li.v2 = vertexes!![v2]
+            li.length = BoomLevelLoader.GetDistance(li.v2!!.x - li.v1!!.x, li.v2!!.y - li.v1!!.y)
+            li.offset = BoomLevelLoader.GetOffset(li.v1!!, if (side.code != 0) ldef.v2!! else ldef.v1!!)
+            li.angle = RendererState.PointToAngle(segs[i].v1!!.x, segs[i].v1!!.y, segs[i].v2!!.x, segs[i].v2!!.y)
             // li.angle = (int)((float)atan2(li.v2.y - li.v1.y,li.v2.x -
             // li.v1.x) * (ANG180 / M_PI));
         }
     }
 
-    private int CheckZNodesOverflow(int size, int count) {
-        size -= count;
-
+    private fun CheckZNodesOverflow(size: Int, count: Int): Int {
+        var size = size
+        size -= count
         if (size < 0) {
-            DOOM.doomSystem.Error("P_LoadZNodes: incorrect nodes");
+            DOOM.doomSystem.Error("P_LoadZNodes: incorrect nodes")
         }
-
-        return size;
+        return size
     }
-    
-    private void P_LoadZNodes(int lump, int glnodes) throws IOException {
-        ByteBuffer data;
-        int len;
-        int header; // for debugging
 
-        int orgVerts, newVerts;
-        int numSubs, currSeg;
-        int numSegs;
-        int numNodes;
-        vertex_t[] newvertarray = null;
-
-        data = DOOM.wadLoader.CacheLumpNumAsDoomBuffer(lump).getBuffer();
-        data.order(ByteOrder.LITTLE_ENDIAN);
-        len = DOOM.wadLoader.LumpLength(lump);
+    @Throws(IOException::class)
+    private fun P_LoadZNodes(lump: Int, glnodes: Int) {
+        val data: ByteBuffer
+        var len: Int
+        val header: Int // for debugging
+        val orgVerts: Int
+        val newVerts: Int
+        val numSubs: Int
+        var currSeg: Int
+        val numSegs: Int
+        val numNodes: Int
+        var newvertarray: Array<vertex_t?>? = null
+        data = DOOM.wadLoader.CacheLumpNumAsDoomBuffer(lump)._buffer!!
+        data.order(ByteOrder.LITTLE_ENDIAN)
+        len = DOOM.wadLoader.LumpLength(lump)
 
         // skip header
-        len = CheckZNodesOverflow(len, 4);
-        header = data.getInt();
+        len = CheckZNodesOverflow(len, 4)
+        header = data.int
 
         // Read extra vertices added during node building
-        len = CheckZNodesOverflow(len, 4);
-        orgVerts = data.getInt();
-
-        len = CheckZNodesOverflow(len, 4);
-        newVerts = data.getInt();
-
+        len = CheckZNodesOverflow(len, 4)
+        orgVerts = data.int
+        len = CheckZNodesOverflow(len, 4)
+        newVerts = data.int
         if (!samelevel) {
             if (orgVerts + newVerts == numvertexes) {
-                newvertarray = vertexes;
+                newvertarray = vertexes as Array<vertex_t?>
             } else {
-                newvertarray = new vertex_t[orgVerts + newVerts];
+                newvertarray = arrayOfNulls(orgVerts + newVerts)
                 // TODO: avoid creating new objects that will be rewritten instantly - Good Sign 2017/05/07
-                Arrays.setAll(newvertarray, ii -> new vertex_t());
-                System.arraycopy(vertexes, 0, newvertarray, 0, orgVerts);
+                Arrays.setAll(newvertarray) { ii: Int -> vertex_t() }
+                System.arraycopy(vertexes, 0, newvertarray, 0, orgVerts)
             }
 
             //(sizeof(newvertarray[0].x) + sizeof(newvertarray[0].y))
-            len = CheckZNodesOverflow(len, newVerts * vertex_t.sizeOf());
-            z_vertex_t tmp = new z_vertex_t();
-
-            for (int i = 0; i < newVerts; i++) {
-                tmp.unpack(data);
-                newvertarray[i + orgVerts].x = tmp.x;
-                newvertarray[i + orgVerts].y = tmp.y;
+            len = CheckZNodesOverflow(len, newVerts * vertex_t.sizeOf())
+            val tmp = z_vertex_t()
+            for (i in 0 until newVerts) {
+                tmp.unpack(data)
+                newvertarray[i + orgVerts]!!.x = tmp.x
+                newvertarray[i + orgVerts]!!.y = tmp.y
             }
 
             // Extra vertexes read in
             if (vertexes != newvertarray) {
-                for (int i = 0; i < numlines; i++) {
+                for (i in 0 until numlines) {
                     //lines[i].v1 = lines[i].v1 - vertexes + newvertarray;
                     //lines[i].v2 = lines[i].v2 - vertexes + newvertarray;
                     // Find indexes of v1 & v2 inside old vertexes array
                     // (.v1-vertexes) and use that index to re-point inside newvertarray              
-                    lines[i].v1 = newvertarray[C2JUtils.indexOf(vertexes, lines[i].v1)];
-                    lines[i].v2 = newvertarray[C2JUtils.indexOf(vertexes, lines[i].v2)];
+                    lines[i].v1 = newvertarray[C2JUtils.indexOf(vertexes as Array<Any>, lines[i].v1!!)]
+                    lines[i].v2 = newvertarray[C2JUtils.indexOf(vertexes as Array<Any>, lines[i].v2!!)]
                 }
                 // free(vertexes);
-                vertexes = newvertarray;
-                numvertexes = orgVerts + newVerts;
+                vertexes = newvertarray as Array<vertex_t>
+                numvertexes = orgVerts + newVerts
             }
         } else {
             // Skip the reading of all these new vertices and the expensive indexOf searches.
-            int size = newVerts * z_vertex_t.sizeOf();
-            len = CheckZNodesOverflow(len, size);
-            data.position(data.position() + size);
+            val size: Int = newVerts * z_vertex_t.sizeOf()
+            len = CheckZNodesOverflow(len, size)
+            data.position(data.position() + size)
         }
 
         // Read the subsectors
-        len = CheckZNodesOverflow(len, 4);
-        numSubs = data.getInt();
-
-        numsubsectors = numSubs;
+        len = CheckZNodesOverflow(len, 4)
+        numSubs = data.int
+        numsubsectors = numSubs
         if (numsubsectors <= 0) {
-            DOOM.doomSystem.Error("P_LoadZNodes: no subsectors in level");
+            DOOM.doomSystem.Error("P_LoadZNodes: no subsectors in level")
         }
-        subsectors = calloc_IfSameLevel(subsectors, numsubsectors, subsector_t::new, subsector_t[]::new);
-
-        len = CheckZNodesOverflow(len, numSubs * mapsubsector_znod_t.sizeOf());
-        final mapsubsector_znod_t mseg = new mapsubsector_znod_t();
-        for (int i = currSeg = 0; i < numSubs; i++) {
-            mseg.unpack(data);
-
-            subsectors[i].firstline = currSeg;
-            subsectors[i].numlines = (int) mseg.numsegs;
-            currSeg += mseg.numsegs;
+        subsectors = calloc_IfSameLevel(if (isSubsectorsInitialized()) subsectors else null, numsubsectors, { subsector_t() })
+        len = CheckZNodesOverflow(len, numSubs * mapsubsector_znod_t.sizeOf())
+        val mseg = mapsubsector_znod_t()
+        for (i in 0.also { currSeg = it } until numSubs) {
+            mseg.unpack(data)
+            subsectors[i].firstline = currSeg
+            subsectors[i].numlines = mseg.numsegs.toInt()
+            currSeg += mseg.numsegs.toInt()
         }
 
         // Read the segs
-        len = CheckZNodesOverflow(len, 4);
-        numSegs = data.getInt();
+        len = CheckZNodesOverflow(len, 4)
+        numSegs = data.int
 
         // The number of segs stored should match the number of
         // segs used by subsectors.
         if (numSegs != currSeg) {
-            DOOM.doomSystem.Error("P_LoadZNodes: Incorrect number of segs in nodes.");
+            DOOM.doomSystem.Error("P_LoadZNodes: Incorrect number of segs in nodes.")
         }
-
-        numsegs = numSegs;
-        segs = calloc_IfSameLevel(segs, numsegs, seg_t::new, seg_t[]::new);
-
+        numsegs = numSegs
+        segs = calloc_IfSameLevel(if (isSegsInitialized()) segs else null, numsegs, { seg_t() })
         if (glnodes == 0) {
-            len = CheckZNodesOverflow(len, numsegs * mapseg_znod_t.sizeOf());
-            P_LoadZSegs(data);
+            len = CheckZNodesOverflow(len, numsegs * mapseg_znod_t.sizeOf())
+            P_LoadZSegs(data)
         } else {
             //P_LoadGLZSegs (data, glnodes);
-            DOOM.doomSystem.Error("P_LoadZNodes: GL segs are not supported.");
+            DOOM.doomSystem.Error("P_LoadZNodes: GL segs are not supported.")
         }
 
         // Read nodes
-        len = CheckZNodesOverflow(len, 4);
-        numNodes = data.getInt();
-
-        numnodes = numNodes;
-        nodes = calloc_IfSameLevel(nodes, numNodes, node_t::new, node_t[]::new);
-
-        len = CheckZNodesOverflow(len, numNodes * mapnode_znod_t.sizeOf());
-
-        mapnode_znod_t znodes[] = malloc(mapnode_znod_t::new, mapnode_znod_t[]::new, numNodes);
-        CacheableDoomObjectContainer.unpack(data, znodes);
-
-        for (int i = 0; i < numNodes; i++) {
-            int j, k;
-            node_t no = nodes[i];
-            final mapnode_znod_t mn = znodes[i];
-
-            no.x = mn.x << FRACBITS;
-            no.y = mn.y << FRACBITS;
-            no.dx = mn.dx << FRACBITS;
-            no.dy = mn.dy << FRACBITS;
-
-            for (j = 0; j < 2; j++) {
-                no.children[j] = mn.children[j];
-
-                for (k = 0; k < 4; k++) {
-                    no.bbox[j].bbox[k] = mn.bbox[j][k] << FRACBITS;
+        len = CheckZNodesOverflow(len, 4)
+        numNodes = data.int
+        numnodes = numNodes
+        nodes = calloc_IfSameLevel(if(isNodesInitialized()) nodes else null, numNodes, { node_t() })
+        len = CheckZNodesOverflow(len, numNodes * mapnode_znod_t.sizeOf())
+        val znodes = GenericCopy.malloc({ mapnode_znod_t() }, numNodes)
+        CacheableDoomObjectContainer.unpack(data, znodes as Array<CacheableDoomObject>)
+        for (i in 0 until numNodes) {
+            var j: Int
+            var k: Int
+            val no = nodes[i]
+            val mn = znodes[i]
+            no.x = mn.x.toInt() shl FRACBITS
+            no.y = mn.y.toInt() shl FRACBITS
+            no.dx = mn.dx.toInt() shl FRACBITS
+            no.dy = mn.dy.toInt() shl FRACBITS
+            j = 0
+            while (j < 2) {
+                no.children[j] = mn.children[j]
+                k = 0
+                while (k < 4) {
+                    no.bbox[j].bbox[k] = mn.bbox[j][k].toInt() shl FRACBITS
+                    k++
                 }
+                j++
             }
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
-    }
-    
-    private boolean no_overlapped_sprites;
-
-    private int GETXY(mobj_t mobj) {
-        return (mobj.x + (mobj.y >> 16));
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }
 
-    private int dicmp_sprite_by_pos(final Object a, final Object b) {
-        mobj_t m1 = (mobj_t) a;
-        mobj_t m2 = (mobj_t) b;
+    private var no_overlapped_sprites = false
+    private fun GETXY(mobj: mobj_t): Int {
+        return mobj._x + (mobj._y shr 16)
+    }
 
-        int res = GETXY(m2) - GETXY(m1);
-        no_overlapped_sprites = no_overlapped_sprites && (res != 0);
-        return res;
+    private fun dicmp_sprite_by_pos(a: Any, b: Any): Int {
+        val m1 = a as mobj_t
+        val m2 = b as mobj_t
+        val res = GETXY(m2) - GETXY(m1)
+        no_overlapped_sprites = no_overlapped_sprites && res != 0
+        return res
     }
 
     /*
@@ -1218,44 +1054,37 @@ public class BoomLevelLoader extends AbstractLevelLoader {
      * don't write into the lump cache, especially non-idepotent changes like
      * byte order reversals. Take a copy to edit.
      */
-
-    @SourceCode.Suspicious(CauseOfDesyncProbability.LOW)
-    @P_Setup.C(P_LoadThings)
-    private void P_LoadThings(int lump) {
-        int numthings = DOOM.wadLoader.LumpLength(lump) / mapthing_t.sizeOf();
-        final mapthing_t[] data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numthings, mapthing_t::new, mapthing_t[]::new);
-
-        mobj_t mobj;
-        int mobjcount = 0;
-        mobj_t[] mobjlist = new mobj_t[numthings];
-        Arrays.setAll(mobjlist, j -> mobj_t.createOn(DOOM));
-
-        if ((data == null) || (numthings == 0)) {
-            DOOM.doomSystem.Error("P_LoadThings: no things in level");
+    @Suspicious(CauseOfDesyncProbability.LOW)
+    @P_Setup.C(P_Setup.P_LoadThings)
+    private fun P_LoadThings(lump: Int) {
+        val numthings: Int = DOOM.wadLoader.LumpLength(lump) / mapthing_t.sizeOf()
+        val data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numthings, { mapthing_t() }, IntFunction { arrayOfNulls<mapthing_t>(it) } as IntFunction<Array<mapthing_t>?>)
+        var mobj: mobj_t?
+        var mobjcount = 0
+        val mobjlist = arrayOfNulls<mobj_t>(numthings)
+        Arrays.setAll(mobjlist, IntFunction<mobj_t?> { j: Int -> mobj_t.createOn(DOOM) })
+        if (data == null || numthings == 0) {
+            DOOM.doomSystem.Error("P_LoadThings: no things in level")
         }
-
-        for (int i = 0; i < numthings; i++) {
-            mapthing_t mt = data[i];
+        for (i in 0 until numthings) {
+            val mt = data!![i]
 
             /*
              * Not needed. Handled during unmarshaling. mt.x =
              * LittleShort(mt.x); mt.y = LittleShort(mt.y); mt.angle =
              * LittleShort(mt.angle); mt.type = LittleShort(mt.type); mt.options
              * = LittleShort(mt.options);
-             */
-
-            if (!P_IsDoomnumAllowed(mt.type)) {
-                continue;
+             */if (!P_IsDoomnumAllowed(mt.type.toInt())) {
+                continue
             }
 
             // Do spawn all other stuff.
-            mobj = DOOM.actions.SpawnMapThing(mt/* , i */);
-            if (mobj != null && mobj.info.speed == 0) {
-                mobjlist[mobjcount++] = mobj;
+            mobj = DOOM.actions.SpawnMapThing(mt /* , i */)
+            if (mobj != null && mobj.info!!.speed == 0) {
+                mobjlist[mobjcount++] = mobj
             }
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the data
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
         /*
          * #ifdef GL_DOOM if (V_GetMode() == VID_MODEGL) { no_overlapped_sprites
          * = true; qsort(mobjlist, mobjcount, sizeof(mobjlist[0]),
@@ -1266,7 +1095,6 @@ public class BoomLevelLoader extends AbstractLevelLoader {
          * GETXY(m1)) { if (mobjlist[i].index < mo.index) { mo = mobjlist[i]; }
          * i++; } // 'nearest' mo.flags |= MF_FOREGROUND; } i++; } } } #endif
          */
-
     }
 
     /*
@@ -1274,25 +1102,12 @@ public class BoomLevelLoader extends AbstractLevelLoader {
      * src/p_setup.c Return TRUE if the thing in question is expected to be
      * available in the gamemode used.
      */
-
-    boolean P_IsDoomnumAllowed(int doomnum) {
+    fun P_IsDoomnumAllowed(doomnum: Int): Boolean {
         // Do not spawn cool, new monsters if !commercial
-        if (!DOOM.isCommercial())
-            switch (doomnum) {
-            case 64: // Archvile
-            case 65: // Former Human Commando
-            case 66: // Revenant
-            case 67: // Mancubus
-            case 68: // Arachnotron
-            case 69: // Hell Knight
-            case 71: // Pain Elemental
-            case 84: // Wolf SS
-            case 88: // Boss Brain
-            case 89: // Boss Shooter
-                return false;
-            }
-
-        return true;
+        if (!DOOM.isCommercial()) when (doomnum) {
+            64, 65, 66, 67, 68, 69, 71, 84, 88, 89 -> return false
+        }
+        return true
     }
 
     //
@@ -1306,34 +1121,37 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     // killough 4/4/98: split into two functions, to allow sidedef overloading
     //
     // killough 5/3/98: reformatted, cleaned up
-
-    private void P_LoadLineDefs(int lump) {
-        final maplinedef_t[] data; // cph - final*
-
-        numlines = DOOM.wadLoader.LumpLength(lump) / maplinedef_t.sizeOf();
-        lines = calloc_IfSameLevel(lines, numlines, line_t::new, line_t[]::new);
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numlines, maplinedef_t::new, maplinedef_t[]::new); // cph
-                                                                            // -
-                                                                            // wad
-                                                                            // lump
-                                                                            // handling
-                                                                            // updated
-
-        for (int i = 0; i < numlines; i++) {
-            final maplinedef_t mld = data[i];
-            line_t ld = lines[i];
-            ld.id = i;
-            vertex_t v1, v2;
-
-            ld.flags = mld.flags;
-            ld.special = mld.special;
-            ld.tag = mld.tag;
-            v1 = ld.v1 = vertexes[mld.v1];
-            v2 = ld.v2 = vertexes[mld.v2];
-            ld.dx = v2.x - v1.x;
-            ld.dy = v2.y - v1.y;
+    private fun P_LoadLineDefs(lump: Int) {
+        val data: Array<maplinedef_t> // cph - final*
+        numlines = DOOM.wadLoader.LumpLength(lump) / maplinedef_t.sizeOf()
+        lines = calloc_IfSameLevel(if (isLinesInitialized()) lines else null, numlines, { line_t() })
+        data = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            numlines,
+            { maplinedef_t() },
+            IntFunction { arrayOfNulls<maplinedef_t>(it) } as IntFunction<Array<maplinedef_t>?>) // cph
+        // -
+        // wad
+        // lump
+        // handling
+        // updated
+        for (i in 0 until numlines) {
+            val mld = data[i]
+            val ld = lines[i]
+            ld.id = i
+            var v1: vertex_t
+            var v2: vertex_t
+            ld.flags = mld.flags
+            ld.special = mld.special
+            ld.tag = mld.tag
+            ld.v1 = vertexes!![mld.v1.code]
+            v1 = ld.v1!!
+            ld.v2 = vertexes!![mld.v2.code]
+            v2 = ld.v2!!
+            ld.dx = v2.x - v1.x
+            ld.dy = v2.y - v1.y
             // Maes: map value semantics.
-            ld.assignVertexValues();
+            ld.assignVertexValues()
 
             /*
              * #ifdef GL_DOOM // e6y // Rounding the wall length to the nearest
@@ -1341,72 +1159,68 @@ public class BoomLevelLoader extends AbstractLevelLoader {
              * down // There is no more glitches on seams between identical
              * textures. ld.texel_length = GetTexelDistance(ld.dx, ld.dy);
              * #endif
-             */
-            ld.tranlump = -1; // killough 4/11/98: no translucency by default
-
-            ld.slopetype = (ld.dx == 0)
-                ? slopetype_t.ST_VERTICAL
-                : (ld.dy == 0)
-                    ? slopetype_t.ST_HORIZONTAL
-                        : fixed_t.FixedDiv(ld.dy, ld.dx) > 0
-                            ? slopetype_t.ST_POSITIVE
-                            : slopetype_t.ST_NEGATIVE;
-
+             */ld.tranlump = -1 // killough 4/11/98: no translucency by default
+            ld.slopetype =
+                if (ld.dx == 0) slopetype_t.ST_VERTICAL else if (ld.dy == 0) slopetype_t.ST_HORIZONTAL else if (FixedDiv(
+                        ld.dy,
+                        ld.dx
+                    ) > 0
+                ) slopetype_t.ST_POSITIVE else slopetype_t.ST_NEGATIVE
             if (v1.x < v2.x) {
-                ld.bbox[BBox.BOXLEFT] = v1.x;
-                ld.bbox[BBox.BOXRIGHT] = v2.x;
+                ld.bbox[BBox.BOXLEFT] = v1.x
+                ld.bbox[BBox.BOXRIGHT] = v2.x
             } else {
-                ld.bbox[BBox.BOXLEFT] = v2.x;
-                ld.bbox[BBox.BOXRIGHT] = v1.x;
+                ld.bbox[BBox.BOXLEFT] = v2.x
+                ld.bbox[BBox.BOXRIGHT] = v1.x
             }
             if (v1.y < v2.y) {
-                ld.bbox[BBox.BOXBOTTOM] = v1.y;
-                ld.bbox[BBox.BOXTOP] = v2.y;
+                ld.bbox[BBox.BOXBOTTOM] = v1.y
+                ld.bbox[BBox.BOXTOP] = v2.y
             } else {
-                ld.bbox[BBox.BOXBOTTOM] = v2.y;
-                ld.bbox[BBox.BOXTOP] = v1.y;
+                ld.bbox[BBox.BOXBOTTOM] = v2.y
+                ld.bbox[BBox.BOXTOP] = v1.y
             }
 
             /* calculate sound origin of line to be its midpoint */
             // e6y: fix sound origin for large levels
             // no need for comp_sound test, these are only used when comp_sound
             // = 0
-            ld.soundorg = new degenmobj_t(
-                ld.bbox[BBox.BOXLEFT] / 2
-                + ld.bbox[BBox.BOXRIGHT] / 2, ld.bbox[BBox.BOXTOP] / 2
-                + ld.bbox[BBox.BOXBOTTOM] / 2, 0
-            );
+            ld.soundorg = degenmobj_t(
+                ld.bbox[BBox.BOXLEFT] / 2 + ld.bbox[BBox.BOXRIGHT] / 2, ld.bbox[BBox.BOXTOP] / 2 + ld.bbox[BBox.BOXBOTTOM] / 2, 0
+            )
 
             // TODO
             // ld.iLineID=i; // proff 04/05/2000: needed for OpenGL
-            ld.sidenum[0] = mld.sidenum[0];
-            ld.sidenum[1] = mld.sidenum[1];
+            ld.sidenum[0] = mld.sidenum[0]
+            ld.sidenum[1] = mld.sidenum[1]
+            run {
 
-            {
                 /*
                  * cph 2006/09/30 - fix sidedef errors right away. cph
                  * 2002/07/20 - these errors are fatal if not fixed, so apply
                  * them in compatibility mode - a desync is better than a crash!
-                 */
-                for (int j = 0; j < 2; j++) {
-                    if (ld.sidenum[j] != NO_INDEX && ld.sidenum[j] >= numsides) {
-                        ld.sidenum[j] = NO_INDEX;
-                        System.err.printf(
-                            "P_LoadLineDefs: linedef %d has out-of-range sidedef number\n",
-                            numlines - i - 1
-                        );
-                    }
+                 */for (j in 0..1) {
+                if (ld.sidenum[j] != E6Y.NO_INDEX && ld.sidenum[j].code >= numsides) {
+                    ld.sidenum[j] = E6Y.NO_INDEX
+                    System.err.printf(
+                        "P_LoadLineDefs: linedef %d has out-of-range sidedef number\n",
+                        numlines - i - 1
+                    )
                 }
+            }
 
                 // killough 11/98: fix common wad errors (missing sidedefs):
-                if (ld.sidenum[0] == NO_INDEX) {
-                    ld.sidenum[0] = 0; // Substitute dummy sidedef for missing
+                if (ld.sidenum[0] == E6Y.NO_INDEX) {
+                    ld.sidenum[0] = 0.toChar() // Substitute dummy sidedef for missing
                     // right side
                     // cph - print a warning about the bug
-                    System.err.printf("P_LoadLineDefs: linedef %d missing first sidedef\n", numlines - i - 1);
+                    System.err.printf("P_LoadLineDefs: linedef %d missing first sidedef\n", numlines - i - 1)
                 }
-
-                if ((ld.sidenum[1] == NO_INDEX) && flags(ld.flags, ML_TWOSIDED)) {
+                if (ld.sidenum[1] == E6Y.NO_INDEX && C2JUtils.flags(
+                        ld.flags.toInt(),
+                        line_t.ML_TWOSIDED
+                    )
+                ) {
                     // e6y
                     // ML_TWOSIDED flag shouldn't be cleared for compatibility
                     // purposes
@@ -1415,7 +1229,8 @@ public class BoomLevelLoader extends AbstractLevelLoader {
                     // if (!demo_compatibility ||
                     // !overflows[OVERFLOW.MISSEDBACKSIDE].emulate)
                     // {
-                    ld.flags &= ~ML_TWOSIDED; // Clear 2s flag for missing left
+                    ld.flags =
+                        (ld.flags.toInt() and line_t.ML_TWOSIDED.inv()).toShort() // Clear 2s flag for missing left
                     // side
                     // }
                     // Mark such lines and do not draw them only in
@@ -1429,7 +1244,7 @@ public class BoomLevelLoader extends AbstractLevelLoader {
                     System.err.printf(
                         "P_LoadLineDefs: linedef %d has two-sided flag set, but no second sidedef\n",
                         numlines - i - 1
-                    );
+                    )
                 }
             }
 
@@ -1439,34 +1254,20 @@ public class BoomLevelLoader extends AbstractLevelLoader {
             // sides[(ld.sidenum[0]<<16)& (0x0000FFFF&ld.sidenum[1])].special =
             // ld.special;
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the lump
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the lump
     }
 
     // killough 4/4/98: delay using sidedefs until they are loaded
     // killough 5/3/98: reformatted, cleaned up
-
-    private void P_LoadLineDefs2(int lump) {
-        line_t ld;
-
-        for (int i = 0; i < numlines; i++) {
-            ld = lines[i];
-            ld.frontsector = sides[ld.sidenum[0]].sector; // e6y: Can't be
-                                                          // NO_INDEX here
-            ld.backsector =
-                ld.sidenum[1] != NO_INDEX ? sides[ld.sidenum[1]].sector : null;
-            switch (ld.special) { // killough 4/11/98: handle special types
-            case 260: // killough 4/11/98: translucent 2s textures
-                // TODO: transparentpresent = true;//e6y
-                // int lmp = sides[ld.getSpecialSidenum()].special; //
-                // translucency from sidedef
-                // if (!ld.tag) // if tag==0,
-                // ld.tranlump = lmp; // affect this linedef only
-                // else
-                // for (int j=0;j<numlines;j++) // if tag!=0,
-                // if (lines[j].tag == ld.tag) // affect all matching linedefs
-                // lines[j].tranlump = lump;
-                // break;
+    private fun P_LoadLineDefs2(lump: Int) {
+        var ld: line_t
+        for (i in 0 until numlines) {
+            ld = lines[i]
+            ld.frontsector = sides[ld.sidenum[0].code].sector // e6y: Can't be
+            // NO_INDEX here
+            ld.backsector = if (ld.sidenum[1] != E6Y.NO_INDEX) sides[ld.sidenum[1].code].sector else null
+            when (ld.special.toInt()) {
+                260 -> {}
             }
         }
     }
@@ -1475,93 +1276,69 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     // P_LoadSideDefs
     //
     // killough 4/4/98: split into two functions
-
-    private void P_LoadSideDefs(int lump) {
-        numsides = DOOM.wadLoader.LumpLength(lump) / mapsidedef_t.sizeOf();
-        sides = calloc_IfSameLevel(sides, numsides, side_t::new, side_t[]::new);
+    private fun P_LoadSideDefs(lump: Int) {
+        numsides = DOOM.wadLoader.LumpLength(lump) / mapsidedef_t.sizeOf()
+        sides = calloc_IfSameLevel(if(isSidesInitialized()) sides else null, numsides, { side_t() })
     }
 
     // killough 4/4/98: delay using texture names until
     // after linedefs are loaded, to allow overloading.
     // killough 5/3/98: reformatted, cleaned up
-
-    private void P_LoadSideDefs2(int lump) {
+    private fun P_LoadSideDefs2(lump: Int) {
         // cph - final*, wad lump handling updated
-        final mapsidedef_t[] data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsides, mapsidedef_t::new, mapsidedef_t[]::new);
-        
-        for (int i = 0; i < numsides; i++) {
-            final mapsidedef_t msd = data[i];
-            side_t sd = sides[i];
-            sector_t sec;
-
-            sd.textureoffset = msd.textureoffset << FRACBITS;
-            sd.rowoffset = msd.rowoffset << FRACBITS;
-
-            { /*
+        val data = DOOM.wadLoader.CacheLumpNumIntoArray(
+            lump,
+            numsides,
+            { mapsidedef_t() },
+            IntFunction { arrayOfNulls<mapsidedef_t>(it) } as IntFunction<Array<mapsidedef_t>?>
+        )
+        for (i in 0 until numsides) {
+            val msd = data[i]
+            val sd = sides[i]
+            var sec: sector_t?
+            sd.textureoffset = msd.textureoffset.toInt() shl FRACBITS
+            sd.rowoffset = msd.rowoffset.toInt() shl FRACBITS
+            run {
+                /*
                * cph 2006/09/30 - catch out-of-range sector numbers; use sector
                * 0 instead
                */
-                char sector_num = (char) msd.sector;
-                if (sector_num >= numsectors) {
-                    System.err.printf("P_LoadSideDefs2: sidedef %i has out-of-range sector num %u\n", i, sector_num);
-                    sector_num = 0;
+                var sector_num = Char(msd.sector.toUShort())
+                if (sector_num.code >= numsectors) {
+                    System.err.printf("P_LoadSideDefs2: sidedef %i has out-of-range sector num %u\n", i, sector_num)
+                    sector_num = 0.toChar()
                 }
-                sd.sector = sec = sectors[sector_num];
+                sec = sectors[sector_num.code]
+                sd.sector = sec
             }
-
-            // killough 4/4/98: allow sidedef texture names to be overloaded
-            // killough 4/11/98: refined to allow colormaps to work as wall
-            // textures if invalid as colormaps but valid as textures.
-            switch (sd.special) {
-            case 242: // variable colormap via 242 linedef
-                /*
-                 * sd.bottomtexture = (sec.bottommap =
-                 * R.ColormapNumForName(msd.bottomtexture)) < 0 ? sec.bottommap
-                 * = 0, R.TextureNumForName(msd.bottomtexture): 0 ;
-                 * sd.midtexture = (sec.midmap =
-                 * R.ColormapNumForName(msd.midtexture)) < 0 ? sec.midmap = 0,
-                 * R.TextureNumForName(msd.midtexture) : 0 ; sd.toptexture =
-                 * (sec.topmap = R.ColormapNumForName(msd.toptexture)) < 0 ?
-                 * sec.topmap = 0, R.TextureNumForName(msd.toptexture) : 0 ;
-                 */
-
-                break;
-
-            case 260: // killough 4/11/98: apply translucency to 2s normal texture
-                if (msd.midtexture.compareToIgnoreCase("TRANMAP") == 0) {
-                    if ((sd.special = DOOM.wadLoader.CheckNumForName(msd.midtexture)) < 0
-                    || DOOM.wadLoader.LumpLength(sd.special) != 65536)
-                    {
-                        sd.special = 0;
-                        sd.midtexture = (short) DOOM.textureManager.TextureNumForName(msd.midtexture);
+            when (sd.special) {
+                242 -> {}
+                260 -> {
+                    if (msd.midtexture!!.compareTo("TRANMAP", ignoreCase = true) == 0) {
+                        if (DOOM.wadLoader.CheckNumForName(msd.midtexture!!).also { sd.special = it } < 0
+                            || DOOM.wadLoader.LumpLength(sd.special) != 65536) {
+                            sd.special = 0
+                            sd.midtexture = DOOM.textureManager.TextureNumForName(msd.midtexture!!).toShort()
+                        } else {
+                            sd.special++
+                            sd.midtexture = 0
+                        }
                     } else {
-                        sd.special++;
-                        sd.midtexture = 0;
+                        sd.midtexture = 0.also { sd.special = it }.toShort()
                     }
-                } else {
-                    sd.midtexture = (short) (sd.special = 0);
+                    sd.toptexture = DOOM.textureManager.TextureNumForName(msd.toptexture!!).toShort()
+                    sd.bottomtexture = DOOM.textureManager.TextureNumForName(msd.bottomtexture!!).toShort()
                 }
-                sd.toptexture = (short) DOOM.textureManager.TextureNumForName(msd.toptexture);
-                sd.bottomtexture = (short) DOOM.textureManager.TextureNumForName(msd.bottomtexture);
-                break;
-
-            /*
-             * #ifdef GL_DOOM case 271: case 272: if
-             * (R_CheckTextureNumForName(msd.toptexture) == -1) {
-             * sd.skybox_index = R_BoxSkyboxNumForName(msd.toptexture); } #endif
-             */
-
-            default: // normal cases
-                // TODO: Boom uses "SafeTextureNumForName" here. Find out what
-                // it does.
-                sd.midtexture = (short) DOOM.textureManager.CheckTextureNumForName(msd.midtexture);
-                sd.toptexture = (short) DOOM.textureManager.CheckTextureNumForName(msd.toptexture);
-                sd.bottomtexture = (short) DOOM.textureManager.CheckTextureNumForName(msd.bottomtexture);
-                break;
+                else -> {
+                    // TODO: Boom uses "SafeTextureNumForName" here. Find out what
+                    // it does.
+                    sd.midtexture = DOOM.textureManager.CheckTextureNumForName(msd.midtexture!!).toShort()
+                    sd.toptexture = DOOM.textureManager.CheckTextureNumForName(msd.toptexture!!).toShort()
+                    sd.bottomtexture = DOOM.textureManager.CheckTextureNumForName(msd.bottomtexture!!).toShort()
+                }
             }
         }
-
-        DOOM.wadLoader.UnlockLumpNum(lump); // cph - release the lump
+        DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the lump
     }
 
     //
@@ -1573,62 +1350,56 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     // killough 3/30/98: Rewritten to remove blockmap limit,
     // though current algorithm is brute-force and unoptimal.
     //
-    private void P_LoadBlockMap(int lump) throws IOException {
-        int count = 0;
-
-        if (DOOM.cVarManager.bool(CommandVariable.BLOCKMAP)
-        || DOOM.wadLoader.LumpLength(lump) < 8
-        || (count = DOOM.wadLoader.LumpLength(lump) / 2) >= 0x10000) // e6y
+    @Throws(IOException::class)
+    private fun P_LoadBlockMap(lump: Int) {
+        var count = 0
+        if (DOOM.cVarManager.bool(CommandVariable.BLOCKMAP) || DOOM.wadLoader.LumpLength(lump) < 8 || DOOM.wadLoader.LumpLength(
+                lump
+            ) / 2.also { count = it } >= 0x10000
+        ) // e6y
         {
-            CreateBlockMap();
+            CreateBlockMap()
         } else {
             // cph - final*, wad lump handling updated
-            final char[] wadblockmaplump;
-
-            DoomBuffer data = DOOM.wadLoader.CacheLumpNum(lump, PU_LEVEL, DoomBuffer.class);
-            count = DOOM.wadLoader.LumpLength(lump) / 2;
-            wadblockmaplump = new char[count];
-
-            data.setOrder(ByteOrder.LITTLE_ENDIAN);
-            data.rewind();
-            data.readCharArray(wadblockmaplump, count);
-
+            val wadblockmaplump: CharArray
+            val data = DOOM.wadLoader.CacheLumpNum(lump, Defines.PU_LEVEL, DoomBuffer::class.java)!!
+            count = DOOM.wadLoader.LumpLength(lump) / 2
+            wadblockmaplump = CharArray(count)
+            data.setOrder(ByteOrder.LITTLE_ENDIAN)
+            data.rewind()
+            data.readCharArray(wadblockmaplump, count)
             if (!samelevel) // Reallocate if required.
-                blockmaplump = new int[count];
+                blockmaplump = IntArray(count)
 
             // killough 3/1/98: Expand wad blockmap into larger internal one,
             // by treating all offsets except -1 as unsigned and zero-extending
             // them. This potentially doubles the size of blockmaps allowed,
             // because Doom originally considered the offsets as always signed.
-
-            blockmaplump[0] = wadblockmaplump[0];
-            blockmaplump[1] = wadblockmaplump[1];
-            blockmaplump[2] = wadblockmaplump[2] & 0xffff;
-            blockmaplump[3] = wadblockmaplump[3] & 0xffff;
-
-            for (int i = 4; i < count; i++) {
-                short t = (short) wadblockmaplump[i]; // killough 3/1/98
-                blockmaplump[i] = (int) (t == -1 ? -1l : t & 0xffff);
+            blockmaplump[0] = wadblockmaplump[0].code
+            blockmaplump[1] = wadblockmaplump[1].code
+            blockmaplump[2] = wadblockmaplump[2].code and 0xffff
+            blockmaplump[3] = wadblockmaplump[3].code and 0xffff
+            for (i in 4 until count) {
+                val t = wadblockmaplump[i].code.toShort() // killough 3/1/98
+                blockmaplump[i] = (if (t.toInt() == -1) -1L else t.toInt() and 0xffff).toInt()
             }
-
-            DOOM.wadLoader.UnlockLumpNum(lump); // cph - unlock the lump
-
-            bmaporgx = blockmaplump[0] << FRACBITS;
-            bmaporgy = blockmaplump[1] << FRACBITS;
-            bmapwidth = blockmaplump[2];
-            bmapheight = blockmaplump[3];
+            DOOM.wadLoader.UnlockLumpNum(lump) // cph - unlock the lump
+            bmaporgx = blockmaplump[0] shl FRACBITS
+            bmaporgy = blockmaplump[1] shl FRACBITS
+            bmapwidth = blockmaplump[2]
+            bmapheight = blockmaplump[3]
 
             // haleyjd 03/04/10: check for blockmap problems
             // http://www.doomworld.com/idgames/index.php?id=12935
             if (!VerifyBlockMap(count)) {
-                System.err.printf("P_LoadBlockMap: erroneous BLOCKMAP lump may cause crashes.\n");
-                System.err.printf("P_LoadBlockMap: use \"-blockmap\" command line switch for rebuilding\n");
+                System.err.printf("P_LoadBlockMap: erroneous BLOCKMAP lump may cause crashes.\n")
+                System.err.printf("P_LoadBlockMap: use \"-blockmap\" command line switch for rebuilding\n")
             }
         }
 
         // MAES: blockmap was generated, rather than loaded.
         if (count == 0) {
-            count = blockmaplump.length - 4;
+            count = blockmaplump.size - 4
         }
 
         // clear out mobj chains - CPhipps - use calloc
@@ -1641,13 +1412,12 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // re-instantiated.
         // Probably caused other bugs as well, as an extra object would appear
         // in iterators.
-
         if (blocklinks != null && samelevel) {
-            for (int i = 0; i < bmapwidth * bmapheight; i++) {
-                blocklinks[i] = null;
+            for (i in 0 until bmapwidth * bmapheight) {
+                blocklinks!![i] = null
             }
         } else {
-            blocklinks = new mobj_t[bmapwidth * bmapheight];
+            blocklinks = arrayOfNulls(bmapwidth * bmapheight)
         }
 
         // IMPORTANT MODIFICATION: no need to have both blockmaplump AND
@@ -1655,48 +1425,44 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // If the offsets in the lump are OK, then we can modify them (remove 4)
         // and copy the rest of the data in one single data array. This avoids
         // reserving memory for two arrays (we can't simply alias one in Java)
-
-        blockmap = new int[blockmaplump.length - 4];
-        count = bmapwidth * bmapheight;
+        blockmap = IntArray(blockmaplump.size - 4)
+        count = bmapwidth * bmapheight
         // Offsets are relative to START OF BLOCKMAP, and IN SHORTS, not bytes.
-        for (int i = 0; i < blockmaplump.length - 4; i++) {
+        for (i in 0 until blockmaplump.size - 4) {
             // Modify indexes so that we don't need two different lumps.
             // Can probably be further optimized if we simply shift everything
             // backwards.
             // and reuse the same memory space.
             if (i < count) {
-                blockmaplump[i] = blockmaplump[i + 4] - 4;
+                blockmaplump[i] = blockmaplump[i + 4] - 4
             } else {
-                blockmaplump[i] = blockmaplump[i + 4];
+                blockmaplump[i] = blockmaplump[i + 4]
             }
         }
 
-        
+
         // MAES: set blockmapxneg and blockmapyneg
         // E.g. for a full 512x512 map, they should be both
         // -1. For a 257*257, they should be both -255 etc.
         if (bmapwidth > 255) {
-            blockmapxneg = bmapwidth - 512;
+            blockmapxneg = bmapwidth - 512
         }
         if (bmapheight > 255) {
-            blockmapyneg = bmapheight - 512;
+            blockmapyneg = bmapheight - 512
         }
-        
-        blockmap = blockmaplump;
-
+        blockmap = blockmaplump
     }
 
     //
     // P_LoadReject - load the reject table
     //
-
-    private void P_LoadReject(int lumpnum, int totallines) {
+    private fun P_LoadReject(lumpnum: Int, totallines: Int) {
         // dump any old cached reject lump, then cache the new one
         if (rejectlump != -1) {
-            DOOM.wadLoader.UnlockLumpNum(rejectlump);
+            DOOM.wadLoader.UnlockLumpNum(rejectlump)
         }
-        rejectlump = lumpnum + ML_REJECT;
-        rejectmatrix = DOOM.wadLoader.CacheLumpNumAsRawBytes(rejectlump, 0);
+        rejectlump = lumpnum + ILevelLoader.ML_REJECT
+        rejectmatrix = DOOM.wadLoader.CacheLumpNumAsRawBytes(rejectlump, 0)
 
         // e6y: check for overflow
         // TODO: g.Overflow.RejectOverrun(rejectlump, rejectmatrix,
@@ -1712,94 +1478,93 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     // cph 18/8/99: rewritten to avoid O(numlines * numsectors) section
     // It makes things more complicated, but saves seconds on big levels
     // figgi 09/18/00 -- adapted for gl-nodes
-
-    
     // modified to return totallines (needed by P_LoadReject)
-    private int P_GroupLines() {
-        line_t li;
-        sector_t sector;
-        int total = numlines;
+    private fun P_GroupLines(): Int {
+        var li: line_t
+        var sector: sector_t
+        var total = numlines
 
         // figgi
-        for (int i = 0; i < numsubsectors; i++) {
-            int seg = subsectors[i].firstline;
-            subsectors[i].sector = null;
-            for (int j = 0; j < subsectors[i].numlines; j++) {
+        for (i in 0 until numsubsectors) {
+            var seg = subsectors[i].firstline
+            subsectors[i].sector = null
+            for (j in 0 until subsectors[i].numlines) {
                 if (segs[seg].sidedef != null) {
-                    subsectors[i].sector = segs[seg].sidedef.sector;
-                    break;
+                    subsectors[i].sector = segs[seg].sidedef!!.sector
+                    break
                 }
-                seg++;
+                seg++
             }
             if (subsectors[i].sector == null) {
-                DOOM.doomSystem.Error("P_GroupLines: Subsector a part of no sector!\n");
+                DOOM.doomSystem.Error("P_GroupLines: Subsector a part of no sector!\n")
             }
         }
 
         // count number of lines in each sector
-        for (int i = 0; i < numlines; i++) {
-            li = lines[i];
-            li.frontsector.linecount++;
-            if (li.backsector != null && (li.backsector != li.frontsector)) {
-                li.backsector.linecount++;
-                total++;
+        for (i in 0 until numlines) {
+            li = lines[i]
+            li.frontsector!!.linecount++
+            if (li.backsector != null && li.backsector !== li.frontsector) {
+                li.backsector!!.linecount++
+                total++
             }
         }
 
         // allocate line tables for each sector
         // e6y: REJECT overrun emulation code
         // moved to P_LoadReject
-        for (int i = 0; i < numsectors; i++) {
-            sector = sectors[i];
-            sector.lines = malloc(line_t::new, line_t[]::new, sector.linecount);
+        for (i in 0 until numsectors) {
+            sector = sectors[i]
+            sector.lines = GenericCopy.malloc({ line_t() }, sector.linecount)
             // linebuffer += sector.linecount;
-            sector.linecount = 0;
-            BBox.ClearBox(sector.blockbox);
+            sector.linecount = 0
+            BBox.ClearBox(sector.blockbox)
         }
 
         // Enter those lines
-        for (int i = 0; i < numlines; i++) {
-            li = lines[i];
-            AddLineToSector(li, li.frontsector);
-            if (li.backsector != null && li.backsector != li.frontsector) {
-                AddLineToSector(li, li.backsector);
+        for (i in 0 until numlines) {
+            li = lines[i]
+            AddLineToSector(li, li.frontsector!!)
+            if (li.backsector != null && li.backsector !== li.frontsector) {
+                AddLineToSector(li, li.backsector!!)
             }
         }
-
-        for (int i = 0; i < numsectors; i++) {
-            sector = sectors[i];
-            int[] bbox = sector.blockbox; // cph - For convenience, so
+        for (i in 0 until numsectors) {
+            sector = sectors[i]
+            val bbox = sector.blockbox // cph - For convenience, so
             // I can sue the old code unchanged
-            int block;
+            var block: Int
 
             // set the degenmobj_t to the middle of the bounding box
             // TODO
-            if (true/* comp[comp_sound] */) {
-                sector.soundorg = new degenmobj_t((bbox[BOXRIGHT] + bbox[BOXLEFT]) / 2, (bbox[BOXTOP] + bbox[BOXBOTTOM]) / 2);
+            if (true /* comp[comp_sound] */) {
+                sector.soundorg = degenmobj_t(
+                    (bbox[BBox.BOXRIGHT] + bbox[BBox.BOXLEFT]) / 2,
+                    (bbox[BBox.BOXTOP] + bbox[BBox.BOXBOTTOM]) / 2
+                )
             } else {
                 // e6y: fix sound origin for large levels
-                sector.soundorg = new degenmobj_t((bbox[BOXRIGHT] / 2 + bbox[BOXLEFT] / 2), bbox[BOXTOP] / 2 + bbox[BOXBOTTOM] / 2);
+                sector.soundorg = degenmobj_t(
+                    bbox[BBox.BOXRIGHT] / 2 + bbox[BBox.BOXLEFT] / 2,
+                    bbox[BBox.BOXTOP] / 2 + bbox[BBox.BOXBOTTOM] / 2
+                )
             }
 
             // adjust bounding box to map blocks
-            block = getSafeBlockY(bbox[BOXTOP] - bmaporgy + Limits.MAXRADIUS);
-            block = block >= bmapheight ? bmapheight - 1 : block;
-            sector.blockbox[BOXTOP] = block;
-
-            block = getSafeBlockY(bbox[BOXBOTTOM] - bmaporgy - Limits.MAXRADIUS);
-            block = block < 0 ? 0 : block;
-            sector.blockbox[BOXBOTTOM] = block;
-
-            block = getSafeBlockX(bbox[BOXRIGHT] - bmaporgx + Limits.MAXRADIUS);
-            block = block >= bmapwidth ? bmapwidth - 1 : block;
-            sector.blockbox[BOXRIGHT] = block;
-
-            block = getSafeBlockX(bbox[BOXLEFT] - bmaporgx - Limits.MAXRADIUS);
-            block = block < 0 ? 0 : block;
-            sector.blockbox[BOXLEFT] = block;
+            block = getSafeBlockY(bbox[BBox.BOXTOP] - bmaporgy + Limits.MAXRADIUS)
+            block = if (block >= bmapheight) bmapheight - 1 else block
+            sector.blockbox[BBox.BOXTOP] = block
+            block = getSafeBlockY(bbox[BBox.BOXBOTTOM] - bmaporgy - Limits.MAXRADIUS)
+            block = if (block < 0) 0 else block
+            sector.blockbox[BBox.BOXBOTTOM] = block
+            block = getSafeBlockX(bbox[BBox.BOXRIGHT] - bmaporgx + Limits.MAXRADIUS)
+            block = if (block >= bmapwidth) bmapwidth - 1 else block
+            sector.blockbox[BBox.BOXRIGHT] = block
+            block = getSafeBlockX(bbox[BBox.BOXLEFT] - bmaporgx - Limits.MAXRADIUS)
+            block = if (block < 0) 0 else block
+            sector.blockbox[BBox.BOXLEFT] = block
         }
-
-        return total; // this value is needed by the reject overrun emulation
+        return total // this value is needed by the reject overrun emulation
         // code
     }
 
@@ -1860,42 +1625,44 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     //
     // Firelines (TM) is a Rezistered Trademark of MBF Productions
     //
-
-    private void P_RemoveSlimeTrails() { // killough 10/98
+    private fun P_RemoveSlimeTrails() { // killough 10/98
         // Hitlist for vertices
-        boolean[] hit = new boolean[numvertexes];
+        val hit = BooleanArray(numvertexes)
 
         // Searchlist for
-
-        for (int i = 0; i < numsegs; i++) { // Go through each seg
-            final line_t l;
-
+        for (i in 0 until numsegs) { // Go through each seg
+            val l: line_t
             if (segs[i].miniseg == true) { // figgi -- skip minisegs
-                return;
+                return
             }
-
-            l = segs[i].linedef; // The parent linedef
+            l = segs[i].linedef!! // The parent linedef
             if (l.dx != 0 && l.dy != 0) { // We can ignore orthogonal lines
-                vertex_t v = segs[i].v1;
+                var v = segs[i].v1
                 do {
-                    int index = C2JUtils.indexOf(vertexes, v);
+                    val index = C2JUtils.indexOf(vertexes as Array<Any>, v!!)
                     if (!hit[index]) { // If we haven't processed vertex
-                        hit[index] = true; // Mark this vertex as processed
-                        if (v != l.v1 && v != l.v2) { // Exclude endpoints of linedefs
+                        hit[index] = true // Mark this vertex as processed
+                        if (v !== l.v1 && v !== l.v2) { // Exclude endpoints of linedefs
                             // Project the vertex back onto the parent linedef
-                            long dx2 = (l.dx >> FRACBITS) * (l.dx >> FRACBITS);
-                            long dy2 = (l.dy >> FRACBITS) * (l.dy >> FRACBITS);
-                            long dxy = (l.dx >> FRACBITS) * (l.dy >> FRACBITS);
-                            long s = dx2 + dy2;
-                            int x0 = v.x, y0 = v.y, x1 = l.v1.x, y1 = l.v1.y;
-                            v.x = (int) ((dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s);
-                            v.y = (int) ((dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s);
+                            val dx2 =
+                                ((l.dx shr FRACBITS) * (l.dx shr FRACBITS)).toLong()
+                            val dy2 =
+                                ((l.dy shr FRACBITS) * (l.dy shr FRACBITS)).toLong()
+                            val dxy =
+                                ((l.dx shr FRACBITS) * (l.dy shr FRACBITS)).toLong()
+                            val s = dx2 + dy2
+                            val x0 = v.x
+                            val y0 = v.y
+                            val x1 = l.v1!!.x
+                            val y1 = l.v1!!.y
+                            v.x = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1) / s).toInt()
+                            v.y = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1) / s).toInt()
                         }
                     } // Obsfucated C contest entry: :)
-                } while ((v != segs[i].v2) && ((v = segs[i].v2) != null));
+                } while (v !== segs[i].v2 && segs[i].v2.also { v = it } != null)
             }
             // Assign modified vertex values.
-            l.assignVertexValues();
+            l.assignVertexValues()
         }
     }
 
@@ -1904,86 +1671,64 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     //
     // Are these lumps in the same wad file?
     //
-
-    boolean P_CheckLumpsForSameSource(int lump1, int lump2) {
-        int wad1_index, wad2_index;
-        wadfile_info_t wad1, wad2;
-
-        if ((unsigned(lump1) >= unsigned(DOOM.wadLoader.NumLumps()))
-        || (unsigned(lump2) >= unsigned(DOOM.wadLoader.NumLumps())))
-        {
-            return false;
+    fun P_CheckLumpsForSameSource(lump1: Int, lump2: Int): Boolean {
+        val wad1_index: Int
+        val wad2_index: Int
+        val wad1: wadfile_info_t?
+        val wad2: wadfile_info_t?
+        if (C2JUtils.unsigned(lump1) >= C2JUtils.unsigned(DOOM.wadLoader.NumLumps()) || C2JUtils.unsigned(lump2) >= C2JUtils.unsigned(
+                DOOM.wadLoader.NumLumps()
+            )
+        ) {
+            return false
         }
-
-        wad1 = DOOM.wadLoader.GetLumpInfo(lump1).wadfile;
-        wad2 = DOOM.wadLoader.GetLumpInfo(lump2).wadfile;
-
+        wad1 = DOOM.wadLoader.GetLumpInfo(lump1)!!.wadfile
+        wad2 = DOOM.wadLoader.GetLumpInfo(lump2)!!.wadfile
         if (wad1 == null || wad2 == null) {
-            return false;
+            return false
         }
-
-        wad1_index = DOOM.wadLoader.GetWadfileIndex(wad1);
-        wad2_index = DOOM.wadLoader.GetWadfileIndex(wad2);
-
+        wad1_index = DOOM.wadLoader.GetWadfileIndex(wad1)
+        wad2_index = DOOM.wadLoader.GetWadfileIndex(wad2)
         if (wad1_index != wad2_index) {
-            return false;
+            return false
         }
-
-        if ((wad1_index < 0) || (wad1_index >= DOOM.wadLoader.GetNumWadfiles())) {
-            return false;
-        }
-
-        return !((wad2_index < 0) || (wad2_index >= DOOM.wadLoader.GetNumWadfiles()));
+        return if (wad1_index < 0 || wad1_index >= DOOM.wadLoader.GetNumWadfiles()) {
+            false
+        } else (wad2_index < 0 || wad2_index < DOOM.wadLoader.GetNumWadfiles())
     }
-
-    private static final String[] ml_labels = {
-        "ML_LABEL", // A separator, name, ExMx or MAPxx
-        "ML_THINGS", // Monsters, items..
-        "ML_LINEDEFS", // LineDefs, from editing
-        "ML_SIDEDEFS", // SideDefs, from editing
-        "ML_VERTEXES", // Vertices, edited and BSP splits generated
-        "ML_SEGS", // LineSegs, from LineDefs split by BSP
-        "ML_SSECTORS", // SubSectors, list of LineSegs
-        "ML_NODES", // BSP nodes
-        "ML_SECTORS", // Sectors, from editing
-        "ML_REJECT", // LUT, sector-sector visibility
-        "ML_BLOCKMAP", // LUT, motion clipping, walls/grid element
-    };
-
-    private static final boolean GL_DOOM = false;
 
     //
     // P_CheckLevelFormat
     //
     // Checking for presence of necessary lumps
     //
-    void P_CheckLevelWadStructure(final String mapname) {
-        int i, lumpnum;
-
+    fun P_CheckLevelWadStructure(mapname: String?) {
+        var i: Int
+        val lumpnum: Int
         if (mapname == null) {
-            DOOM.doomSystem.Error("P_SetupLevel: Wrong map name");
-            throw new NullPointerException();
+            DOOM.doomSystem.Error("P_SetupLevel: Wrong map name")
+            throw NullPointerException()
         }
-
-        lumpnum = DOOM.wadLoader.CheckNumForName(mapname.toUpperCase());
-
+        lumpnum = DOOM.wadLoader.CheckNumForName(mapname.uppercase(Locale.getDefault()))
         if (lumpnum < 0) {
-            DOOM.doomSystem.Error("P_SetupLevel: There is no %s map.", mapname);
+            DOOM.doomSystem.Error("P_SetupLevel: There is no %s map.", mapname)
         }
-
-        for (i = ML_THINGS + 1; i <= ML_SECTORS; i++) {
+        i = ILevelLoader.ML_THINGS + 1
+        while (i <= ILevelLoader.ML_SECTORS) {
             if (!P_CheckLumpsForSameSource(lumpnum, lumpnum + i)) {
                 DOOM.doomSystem.Error(
                     "P_SetupLevel: Level wad structure is incomplete. There is no %s lump. (%s)",
-                    ml_labels[i], DOOM.wadLoader.GetNameForLump(lumpnum));
+                    BoomLevelLoader.ml_labels.get(i), DOOM.wadLoader.GetNameForLump(lumpnum)
+                )
             }
+            i++
         }
 
         // refuse to load Hexen-format maps, avoid segfaults
-        i = lumpnum + ML_BLOCKMAP + 1;
+        i = lumpnum + ILevelLoader.ML_BLOCKMAP + 1
         if (P_CheckLumpsForSameSource(lumpnum, i)) {
-            if (DOOM.wadLoader.GetLumpInfo(i).name.compareToIgnoreCase("BEHAVIOR") == 0) {
-                DOOM.doomSystem.Error("P_SetupLevel: %s: Hexen format not supported", mapname);
+            if (DOOM.wadLoader.GetLumpInfo(i)!!.name!!.compareTo("BEHAVIOR", ignoreCase = true) == 0) {
+                DOOM.doomSystem.Error("P_SetupLevel: %s: Hexen format not supported", mapname)
             }
         }
     }
@@ -1992,78 +1737,75 @@ public class BoomLevelLoader extends AbstractLevelLoader {
     // P_SetupLevel
     //
     // killough 5/3/98: reformatted, cleaned up
-
-    @Override
-    @SourceCode.Suspicious(CauseOfDesyncProbability.LOW)
-    @P_Setup.C(P_SetupLevel)
-    public void SetupLevel(int episode, int map, int playermask, skill_t skill) throws IOException {
-        String lumpname;
-        int lumpnum;
-
-        String gl_lumpname;
-        int gl_lumpnum;
+    @Suspicious(CauseOfDesyncProbability.LOW)
+    @P_Setup.C(P_Setup.P_SetupLevel)
+    @Throws(IOException::class)
+    override fun SetupLevel(episode: Int, map: Int, playermask: Int, skill: skill_t?) {
+        val lumpname: String
+        var lumpnum: Int
+        val gl_lumpname: String
+        var gl_lumpnum: Int
 
         // e6y
-        DOOM.totallive = 0;
+        DOOM.totallive = 0
         // TODO: transparentpresent = false;
 
         // R_StopAllInterpolations();
-
-        DOOM.totallive = DOOM.totalkills = DOOM.totalitems = DOOM.totalsecret = DOOM.wminfo.maxfrags = 0;
-        DOOM.wminfo.partime = 180;
-
-        for (int i = 0; i < Limits.MAXPLAYERS; i++) {
-            DOOM.players[i].killcount = DOOM.players[i].secretcount = DOOM.players[i].itemcount = 0;
+        DOOM.wminfo.maxfrags = 0
+        DOOM.totalsecret = DOOM.wminfo.maxfrags
+        DOOM.totalitems = DOOM.totalsecret
+        DOOM.totalkills = DOOM.totalitems
+        DOOM.totallive = DOOM.totalkills
+        DOOM.wminfo.partime = 180
+        for (i in 0 until Limits.MAXPLAYERS) {
+            DOOM.players[i].itemcount = 0
+            DOOM.players[i].secretcount = DOOM.players[i].itemcount
+            DOOM.players[i].killcount = DOOM.players[i].secretcount
             // TODO DM.players[i].resurectedkillcount = 0;//e6y
         }
 
         // Initial height of PointOfView
         // will be set by player think.
-        DOOM.players[DOOM.consoleplayer].viewz = 1;
+        DOOM.players[DOOM.consoleplayer].viewz = 1
 
         // Make sure all sounds are stopped before Z_FreeTags.
-        S_Start: {
-            DOOM.doomSound.Start();
+        S_Start@ run {
+            DOOM.doomSound.Start()
         }
-
-        Z_FreeTags:; // Z_FreeTags(PU_LEVEL, PU_PURGELEVEL-1);
-        
+        Z_FreeTags@ // Z_FreeTags(PU_LEVEL, PU_PURGELEVEL-1);
         if (rejectlump != -1) { // cph - unlock the reject table
-            DOOM.wadLoader.UnlockLumpNum(rejectlump);
-            rejectlump = -1;
+            DOOM.wadLoader.UnlockLumpNum(rejectlump)
+            rejectlump = -1
         }
-
-        P_InitThinkers: {
-            DOOM.actions.InitThinkers();
+        P_InitThinkers@ run {
+            DOOM.actions.InitThinkers()
         }
 
         // if working with a devlopment map, reload it
-        W_Reload:; // killough 1/31/98: W.Reload obsolete
+        W_Reload@ // killough 1/31/98: W.Reload obsolete
 
         // find map name
         if (DOOM.isCommercial()) {
-            lumpname = String.format("map%02d", map); // killough 1/24/98:
-                                                      // simplify
-            gl_lumpname = String.format("gl_map%02d", map); // figgi
+            lumpname = String.format("map%02d", map) // killough 1/24/98:
+            // simplify
+            gl_lumpname = String.format("gl_map%02d", map) // figgi
         } else {
-            lumpname = String.format("E%dM%d", episode, map); // killough
-                                                              // 1/24/98:
-                                                              // simplify
-            gl_lumpname = String.format("GL_E%dM%d", episode, map); // figgi
+            lumpname = String.format("E%dM%d", episode, map) // killough
+            // 1/24/98:
+            // simplify
+            gl_lumpname = String.format("GL_E%dM%d", episode, map) // figgi
         }
-
-        W_GetNumForName: {
-            lumpnum = DOOM.wadLoader.GetNumForName(lumpname);
-            gl_lumpnum = DOOM.wadLoader.CheckNumForName(gl_lumpname); // figgi
+        W_GetNumForName@ run {
+            lumpnum = DOOM.wadLoader.GetNumForName(lumpname)
+            gl_lumpnum = DOOM.wadLoader.CheckNumForName(gl_lumpname) // figgi
         }
 
         // e6y
         // Refuse to load a map with incomplete pwad structure.
         // Avoid segfaults on levels without nodes.
-        P_CheckLevelWadStructure(lumpname);
-
-        DOOM.leveltime = 0;
-        DOOM.totallive = 0;
+        P_CheckLevelWadStructure(lumpname)
+        DOOM.leveltime = 0
+        DOOM.totallive = 0
 
         // note: most of this ordering is important
 
@@ -2072,7 +1814,7 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // to allow texture names to be used in special linedefs
 
         // figgi 10/19/00 -- check for gl lumps and load them
-        P_GetNodesVersion(lumpnum, gl_lumpnum);
+        P_GetNodesVersion(lumpnum, gl_lumpnum)
 
         // e6y: speedup of level reloading
         // Most of level's structures now are allocated with PU_STATIC instead
@@ -2080,13 +1822,10 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // It is important for OpenGL, because in case of the same data in
         // memory
         // we can skip recalculation of much stuff
-
-        samelevel = (map == current_map) && (episode == current_episode) && (nodesVersion == current_nodesVersion);
-
-        current_episode = episode;
-        current_map = map;
-        current_nodesVersion = nodesVersion;
-
+        samelevel = map == current_map && episode == current_episode && nodesVersion == current_nodesVersion
+        current_episode = episode
+        current_map = map
+        current_nodesVersion = nodesVersion
         if (!samelevel) {
 
             /*
@@ -2109,51 +1848,51 @@ public class BoomLevelLoader extends AbstractLevelLoader {
             // free(sectors);
             // free(vertexes);
         }
-
         if (nodesVersion > 0) {
-            this.P_LoadVertexes2(lumpnum + ML_VERTEXES, gl_lumpnum + ML_GL_VERTS);
+            P_LoadVertexes2(
+                lumpnum + ILevelLoader.ML_VERTEXES,
+                gl_lumpnum + BoomLevelLoader.ML_GL_VERTS
+            )
         } else {
-            P_LoadVertexes(lumpnum + ML_VERTEXES);
+            P_LoadVertexes(lumpnum + ILevelLoader.ML_VERTEXES)
         }
-        
-        P_LoadSectors(lumpnum + ML_SECTORS);
-        P_LoadSideDefs(lumpnum + ML_SIDEDEFS);
-        P_LoadLineDefs(lumpnum + ML_LINEDEFS);
-        P_LoadSideDefs2(lumpnum + ML_SIDEDEFS);
-        P_LoadLineDefs2(lumpnum + ML_LINEDEFS);
+        P_LoadSectors(lumpnum + ILevelLoader.ML_SECTORS)
+        P_LoadSideDefs(lumpnum + ILevelLoader.ML_SIDEDEFS)
+        P_LoadLineDefs(lumpnum + ILevelLoader.ML_LINEDEFS)
+        P_LoadSideDefs2(lumpnum + ILevelLoader.ML_SIDEDEFS)
+        P_LoadLineDefs2(lumpnum + ILevelLoader.ML_LINEDEFS)
 
         // e6y: speedup of level reloading
         // Do not reload BlockMap for same level,
         // because in case of big level P_CreateBlockMap eats much time
         if (!samelevel) {
-            P_LoadBlockMap(lumpnum + ML_BLOCKMAP);
+            P_LoadBlockMap(lumpnum + ILevelLoader.ML_BLOCKMAP)
         } else {
             // clear out mobj chains
-            if (blocklinks != null && blocklinks.length == bmapwidth * bmapheight) {
-                for (int i = 0; i < bmapwidth * bmapheight; i++) {
-                    blocklinks[i] = null;
+            if (blocklinks != null && blocklinks!!.size == bmapwidth * bmapheight) {
+                for (i in 0 until bmapwidth * bmapheight) {
+                    blocklinks!![i] = null
                 }
             } else {
-                blocklinks = new mobj_t[bmapwidth * bmapheight];
-                Arrays.setAll(blocklinks, i -> mobj_t.createOn(DOOM));
+                blocklinks = arrayOfNulls(bmapwidth * bmapheight)
+                Arrays.setAll(blocklinks, IntFunction<mobj_t> { i: Int -> mobj_t.createOn(DOOM) })
             }
         }
-
         if (nodesVersion > 0) {
-            P_LoadSubsectors(gl_lumpnum + ML_GL_SSECT);
-            P_LoadNodes(gl_lumpnum + ML_GL_NODES);
+            P_LoadSubsectors(gl_lumpnum + BoomLevelLoader.ML_GL_SSECT)
+            P_LoadNodes(gl_lumpnum + BoomLevelLoader.ML_GL_NODES)
             // TODO: P_LoadGLSegs(gl_lumpnum + ML_GL_SEGS);
         } else {
             if (P_CheckForZDoomUncompressedNodes(lumpnum, gl_lumpnum)) {
-                P_LoadZNodes(lumpnum + ML_NODES, 0);
+                P_LoadZNodes(lumpnum + ILevelLoader.ML_NODES, 0)
             } else if (P_CheckForDeePBSPv4Nodes(lumpnum, gl_lumpnum)) {
-                P_LoadSubsectors_V4(lumpnum + ML_SSECTORS);
-                P_LoadNodes_V4(lumpnum + ML_NODES);
-                P_LoadSegs_V4(lumpnum + ML_SEGS);
+                P_LoadSubsectors_V4(lumpnum + ILevelLoader.ML_SSECTORS)
+                P_LoadNodes_V4(lumpnum + ILevelLoader.ML_NODES)
+                P_LoadSegs_V4(lumpnum + ILevelLoader.ML_SEGS)
             } else {
-                P_LoadSubsectors(lumpnum + ML_SSECTORS);
-                P_LoadNodes(lumpnum + ML_NODES);
-                P_LoadSegs(lumpnum + ML_SEGS);
+                P_LoadSubsectors(lumpnum + ILevelLoader.ML_SSECTORS)
+                P_LoadNodes(lumpnum + ILevelLoader.ML_NODES)
+                P_LoadSegs(lumpnum + ILevelLoader.ML_SEGS)
             }
         }
 
@@ -2165,59 +1904,52 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // reject loading and underflow padding separated out into new function
         // P_GroupLines modified to return a number the underflow padding needs
         // P_LoadReject(lumpnum, P_GroupLines());
-        P_GroupLines();
-        super.LoadReject(lumpnum+ML_REJECT);
-
+        P_GroupLines()
+        super.LoadReject(lumpnum + ILevelLoader.ML_REJECT)
         /**
          * TODO: try to fix, since it seems it doesn't work
-         *  - Good Sign 2017/05/07
+         * - Good Sign 2017/05/07
          */
-        
+
         // e6y
         // Correction of desync on dv04-423.lmp/dv.wad
         // http://www.doomworld.com/vb/showthread.php?s=&postid=627257#post627257
         // if (DoomStatus.compatibility_level>=lxdoom_1_compatibility ||
         // Compatibility.prboom_comp[PC.PC_REMOVE_SLIME_TRAILS.ordinal()].state)
-        P_RemoveSlimeTrails(); // killough 10/98: remove slime trails from wad
+        P_RemoveSlimeTrails() // killough 10/98: remove slime trails from wad
 
         // Note: you don't need to clear player queue slots --
         // a much simpler fix is in g_game.c -- killough 10/98
+        DOOM.bodyqueslot = 0
 
-        DOOM.bodyqueslot = 0;
-
-        /* cph - reset all multiplayer starts */
-
-        for (int i = 0; i < playerstarts.length; i++) {
-            DOOM.playerstarts[i] = null;
+        /* cph - reset all multiplayer starts */for (i in playerstarts.indices) {
+            DOOM.playerstarts[i] = null
         }
-
-        deathmatch_p = 0;
-
-        for (int i = 0; i < Limits.MAXPLAYERS; i++) {
-            DOOM.players[i].mo = null;
+        deathmatch_p = 0
+        for (i in 0 until Limits.MAXPLAYERS) {
+            DOOM.players[i].mo = null
         }
         // TODO: TracerClearStarts();
 
         // Hmm? P_MapStart();
-
-        P_LoadThings: {
-            P_LoadThings(lumpnum + ML_THINGS);
+        P_LoadThings@ run {
+            P_LoadThings(lumpnum + ILevelLoader.ML_THINGS)
         }
 
         // if deathmatch, randomly spawn the active players
         if (DOOM.deathmatch) {
-            for (int i = 0; i < Limits.MAXPLAYERS; i++) {
+            for (i in 0 until Limits.MAXPLAYERS) {
                 if (DOOM.playeringame[i]) {
-                    DOOM.players[i].mo = null; // not needed? - done before P_LoadThings
-                    G_DeathMatchSpawnPlayer: {
-                        DOOM.DeathMatchSpawnPlayer(i);
+                    DOOM.players[i].mo = null // not needed? - done before P_LoadThings
+                    G_DeathMatchSpawnPlayer@ run {
+                        DOOM.DeathMatchSpawnPlayer(i)
                     }
                 }
             }
         } else { // if !deathmatch, check all necessary player starts actually exist
-            for (int i = 0; i < Limits.MAXPLAYERS; i++) {
+            for (i in 0 until Limits.MAXPLAYERS) {
                 if (DOOM.playeringame[i] && !C2JUtils.eval(DOOM.players[i].mo)) {
-                    DOOM.doomSystem.Error("P_SetupLevel: missing player %d start\n", i + 1);
+                    DOOM.doomSystem.Error("P_SetupLevel: missing player %d start\n", i + 1)
                 }
             }
         }
@@ -2225,17 +1957,16 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // killough 3/26/98: Spawn icon landings:
         // TODO: if (DM.isCommercial())
         // P.SpawnBrainTargets();
-
         if (!DOOM.isShareware()) {
             // TODO: S.ParseMusInfo(lumpname);
         }
 
         // clear special respawning que
-        DOOM.actions.ClearRespawnQueue();
+        DOOM.actions.ClearRespawnQueue()
 
         // set up world state
-        P_SpawnSpecials: {
-            DOOM.actions.SpawnSpecials();
+        P_SpawnSpecials@ run {
+            DOOM.actions.SpawnSpecials()
         }
 
         // TODO: P.MapEnd();
@@ -2243,12 +1974,12 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // preload graphics
         if (DOOM.precache) {
             /* @SourceCode.Compatible if together */
-            R_PrecacheLevel: {
-                DOOM.textureManager.PrecacheLevel();
+            R_PrecacheLevel@ run {
+                DOOM.textureManager.PrecacheLevel()
 
                 // MAES: thinkers are separate than texture management. Maybe split
                 // sprite management as well?
-                DOOM.sceneRenderer.PreCacheThinkers();
+                DOOM.sceneRenderer.PreCacheThinkers()
             }
         }
 
@@ -2264,4 +1995,67 @@ public class BoomLevelLoader extends AbstractLevelLoader {
         // TODO R_SmoothPlaying_Reset(NULL);
     }
 
+    companion object {
+        // //////////////////////////////////////////////////////////////////////////////////////////
+        // figgi 08/21/00 -- finalants and globals for glBsp support
+        const val gNd2 = 0x32644E67 // figgi -- suppport for new
+
+        // GL_VERT format v2.0
+        const val gNd3 = 0x33644E67
+        const val gNd4 = 0x34644E67
+        const val gNd5 = 0x35644E67
+        const val ZNOD = 0x444F4E5A
+        const val ZGLN = 0x4E4C475A
+        const val GL_VERT_OFFSET = 4
+        const val ML_GL_LABEL = 0 // A separator name, GL_ExMx or
+
+        // GL_MAPxx
+        const val ML_GL_VERTS = 1 // Extra Vertices
+        const val ML_GL_SEGS = 2 // Segs, from linedefs & minisegs
+        const val ML_GL_SSECT = 3 // SubSectors, list of segs
+        const val ML_GL_NODES = 4 // GL BSP nodes
+
+        //
+        // P_CheckForZDoomUncompressedNodes
+        // http://zdoom.org/wiki/ZDBSP#Compressed_Nodes
+        //
+        private const val XNOD = 0x584e4f44
+        fun GetDistance(dx: Int, dy: Int): Float {
+            val fx: Float = dx.toFloat() / FRACUNIT
+            val fy: Float = dy.toFloat() / FRACUNIT
+            return Math.sqrt((fx * fx + fy * fy).toDouble()).toFloat()
+        }
+
+        fun GetTexelDistance(dx: Int, dy: Int): Float {
+            // return (float)((int)(GetDistance(dx, dy) + 0.5f));
+            val fx: Float = dx.toFloat() / FRACUNIT
+            val fy: Float = dy.toFloat() / FRACUNIT
+            return (0.5f + Math.sqrt((fx * fx + fy * fy).toDouble()).toFloat()).toInt().toFloat()
+        }
+
+        fun GetOffset(v1: vertex_t, v2: vertex_t): Int {
+            val a: Float
+            val b: Float
+            val r: Int
+            a = (v1.x - v2.x) / FRACUNIT.toFloat()
+            b = (v1.y - v2.y) / FRACUNIT.toFloat()
+            r = (Math.sqrt((a * a + b * b).toDouble()) * FRACUNIT).toInt()
+            return r
+        }
+
+        private val ml_labels = arrayOf(
+            "ML_LABEL",  // A separator, name, ExMx or MAPxx
+            "ML_THINGS",  // Monsters, items..
+            "ML_LINEDEFS",  // LineDefs, from editing
+            "ML_SIDEDEFS",  // SideDefs, from editing
+            "ML_VERTEXES",  // Vertices, edited and BSP splits generated
+            "ML_SEGS",  // LineSegs, from LineDefs split by BSP
+            "ML_SSECTORS",  // SubSectors, list of LineSegs
+            "ML_NODES",  // BSP nodes
+            "ML_SECTORS",  // Sectors, from editing
+            "ML_REJECT",  // LUT, sector-sector visibility
+            "ML_BLOCKMAP"
+        )
+        private const val GL_DOOM = false
+    }
 }

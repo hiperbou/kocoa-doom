@@ -1,295 +1,264 @@
-package s;
+package s
 
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
-import javax.sound.midi.InvalidMidiDataException;
-import javax.sound.midi.MetaMessage;
-import javax.sound.midi.MidiEvent;
-import javax.sound.midi.MidiMessage;
-import javax.sound.midi.MidiSystem;
-import javax.sound.midi.Sequence;
-import javax.sound.midi.ShortMessage;
-import javax.sound.midi.Track;
-
-import m.Swap;
+import m.Swap
+import java.io.DataInputStream
+import java.io.IOException
+import java.io.InputStream
+import java.util.*
+import javax.sound.midi.*
 
 /**
  * A MUS lump reader that loads directly to a Sequence.
- * 
+ *
  * Unlike QMusToMid, does not keep the MIDI version in a temporary file.
  *
  * @author finnw
- *
  */
-public class MusReader {
-
+object MusReader {
     /** Create a sequence from an InputStream.
-     *  This is the counterpart of {@link MidiSystem#getSequence(InputStream)}
-     *  for MUS format.
+     * This is the counterpart of [MidiSystem.getSequence]
+     * for MUS format.
      *
      * @param is MUS data (this method does not try to auto-detect the format.)
      */
-    public static Sequence getSequence(InputStream is)
-    throws IOException, InvalidMidiDataException {
-        DataInputStream dis = new DataInputStream(is);
-        dis.skip(6);
-        int rus = dis.readUnsignedShort();
-        short scoreStart = Swap.SHORT((char) rus);
-        dis.skip(scoreStart - 8);
-        Sequence sequence = new Sequence(Sequence.SMPTE_30, 14, 1);
-        Track track = sequence.getTracks()[0];
-        int[] chanVelocity = new int[16];
-        Arrays.fill(chanVelocity, 100);
-        EventGroup eg;
-        long tick = 0;
-        while ((eg = nextEventGroup(dis, chanVelocity)) != null) {
-            tick = eg.appendTo(track, tick);
+    @Throws(IOException::class, InvalidMidiDataException::class)
+    fun getSequence(`is`: InputStream?): Sequence {
+        val dis = DataInputStream(`is`)
+        dis.skip(6)
+        val rus = dis.readUnsignedShort()
+        val scoreStart = Swap.SHORT(rus.toChar())
+        dis.skip((scoreStart - 8).toLong())
+        val sequence = Sequence(Sequence.SMPTE_30, 14, 1)
+        val track = sequence.tracks[0]
+        val chanVelocity = IntArray(16)
+        Arrays.fill(chanVelocity, 100)
+        var eg: EventGroup?
+        var tick: Long = 0
+        while (MusReader.nextEventGroup(dis, chanVelocity).also { eg = it } != null) {
+            tick = eg!!.appendTo(track, tick)
         }
-        MetaMessage endOfSequence = new MetaMessage();
-        endOfSequence.setMessage(47, new byte[] {0}, 1);
-        track.add(new MidiEvent(endOfSequence, tick));
-        return sequence;
+        val endOfSequence = MetaMessage()
+        endOfSequence.setMessage(47, byteArrayOf(0), 1)
+        track.add(MidiEvent(endOfSequence, tick))
+        return sequence
     }
 
-    private static EventGroup
-    nextEventGroup(InputStream is, int[] channelVelocity) throws IOException {
-        EventGroup result = new EventGroup();
-        boolean last;
+    @Throws(IOException::class)
+    private fun nextEventGroup(`is`: InputStream, channelVelocity: IntArray): EventGroup? {
+        val result = EventGroup()
+        var last: Boolean
         do {
-            int b = is.read();
+            val b = `is`.read()
             if (b < 0) {
-                return result.emptyToNull();
+                return result.emptyToNull()
             }
-            int descriptor = b & 0xff;
-            last = (descriptor & 0x80) != 0;
-            int eventType = (descriptor >> 4) & 7;
-            int chanIndex = descriptor & 15;
-            final int midiChan;
-            if (chanIndex < 9) {
-                midiChan = chanIndex;
+            val descriptor = b and 0xff
+            last = descriptor and 0x80 != 0
+            val eventType = descriptor shr 4 and 7
+            val chanIndex = descriptor and 15
+            val midiChan: Int
+            midiChan = if (chanIndex < 9) {
+                chanIndex
             } else if (chanIndex < 15) {
-                midiChan = chanIndex + 1;
+                chanIndex + 1
             } else {
-                midiChan = 9;
+                9
             }
-            switch (eventType) {
-            case 0:
-                {
-                    int note = is.read() & 0xff;
-                    if ((note & 0x80) != 0) {
-                        throw new IllegalArgumentException("Invalid note byte");
-                    }
-                    result.noteOff(midiChan, note);
+            when (eventType) {
+                0 -> {
+                    val note = `is`.read() and 0xff
+                    require(note and 0x80 == 0) { "Invalid note byte" }
+                    result.noteOff(midiChan, note)
                 }
-                break;
-            case 1:
-                {
-                    int note = is.read() & 0xff;
-                    boolean hasVelocity = (note & 0x80) != 0;
-                    final int velocity;
+                1 -> {
+                    val note = `is`.read() and 0xff
+                    val hasVelocity = note and 0x80 != 0
+                    val velocity: Int
                     if (hasVelocity) {
-                        velocity = is.read() & 0xff;
-                        if ((velocity & 0x80) != 0) {
-                            throw new IllegalArgumentException("Invalid velocity byte");
-                        }
-                        channelVelocity[midiChan] = velocity;
+                        velocity = `is`.read() and 0xff
+                        require(velocity and 0x80 == 0) { "Invalid velocity byte" }
+                        channelVelocity[midiChan] = velocity
                     } else {
-                        velocity = channelVelocity[midiChan];
+                        velocity = channelVelocity[midiChan]
                     }
-                    result.noteOn(midiChan, note & 0x7f, velocity);
+                    result.noteOn(midiChan, note and 0x7f, velocity)
                 }
-                break;
-            case 2:
-                {
-                    int wheelVal = is.read() & 0xff;
-                    result.pitchBend(midiChan, wheelVal);
+                2 -> {
+                    val wheelVal = `is`.read() and 0xff
+                    result.pitchBend(midiChan, wheelVal)
                 }
-                break;
-            case 3:
-                {
-                    int sysEvt = is.read() & 0xff;
-                    switch (sysEvt) {
-                    case 10:
-                        result.allSoundsOff(midiChan);
-                        break;
-                    case 11:
-                        result.allNotesOff(midiChan);
-                        break;
-                    case 14:
-                        result.resetAllControllers(midiChan);
-                        break;
-                    default:
-                        String msg = String.format("Invalid system event (%d)", sysEvt);
-                        throw new IllegalArgumentException(msg);
+                3 -> {
+                    val sysEvt = `is`.read() and 0xff
+                    when (sysEvt) {
+                        10 -> result.allSoundsOff(midiChan)
+                        11 -> result.allNotesOff(midiChan)
+                        14 -> result.resetAllControllers(midiChan)
+                        else -> {
+                            val msg = String.format("Invalid system event (%d)", sysEvt)
+                            throw IllegalArgumentException(msg)
+                        }
                     }
                 }
-                break;
-            case 4:
-                int cNum = is.read() & 0xff;
-                if ((cNum & 0x80) != 0) {
-                    throw new IllegalArgumentException("Invalid controller number ");
+                4 -> {
+                    val cNum = `is`.read() and 0xff
+                    require(cNum and 0x80 == 0) { "Invalid controller number " }
+                    var cVal = `is`.read() and 0xff
+                    if (cNum == 3 && 133 <= cVal && cVal <= 135) {
+                        // workaround for some TNT.WAD tracks
+                        cVal = 127
+                    }
+                    if (cVal and 0x80 != 0) {
+                        val msg = String.format("Invalid controller value (%d; cNum=%d)", cVal, cNum)
+                        throw IllegalArgumentException(msg)
+                    }
+                    when (cNum) {
+                        0 -> result.patchChange(midiChan, cVal)
+                        1 -> {}
+                        2 -> result.vibratoChange(midiChan, cVal)
+                        3 -> result.volume(midiChan, cVal)
+                        4 -> result.pan(midiChan, cVal)
+                        5 -> result.expression(midiChan, cVal)
+                        6 -> result.reverbDepth(midiChan, cVal)
+                        7 -> result.chorusDepth(midiChan, cVal)
+                        8 -> result.sustain(midiChan, cVal)
+                        else -> throw AssertionError("Unknown controller number: $cNum(value: $cVal)")
+                    }
                 }
-                int cVal = is.read() & 0xff;
-                if (cNum == 3 && 133 <= cVal && cVal <= 135) {
-                    // workaround for some TNT.WAD tracks
-                    cVal = 127;
+                6 -> return result.emptyToNull()
+                else -> {
+                    val msg = String.format("Unknown event type: %d", eventType)
+                    throw IllegalArgumentException(msg)
                 }
-                if ((cVal & 0x80) != 0) {
-                    String msg = String.format("Invalid controller value (%d; cNum=%d)", cVal, cNum);
-                    throw new IllegalArgumentException(msg);
-                }
-                switch (cNum) {
-                case 0:
-                    result.patchChange(midiChan, cVal);
-                    break;
-                case 1:
-                    // Don't forward this to the MIDI device.  Some synths if
-                    // in GM level 1 mode will react badly to banks that are
-                    // undefined in GM Level 1
-                    break;
-                case 2:
-                    result.vibratoChange(midiChan, cVal);
-                    break;
-                case 3:
-                    result.volume(midiChan, cVal);
-                    break;
-                case 4:
-                    result.pan(midiChan, cVal);
-                    break;
-                case 5:
-                    result.expression(midiChan, cVal);
-                    break;
-                case 6:
-                    result.reverbDepth(midiChan, cVal);
-                    break;
-                case 7:
-                    result.chorusDepth(midiChan, cVal);
-                    break;
-                case 8:
-                    result.sustain(midiChan, cVal);
-                    break;
-                default:
-                    throw new AssertionError("Unknown controller number: " + cNum + "(value: " + cVal + ")");
-                }
-                break;
-            case 6:
-                return result.emptyToNull();
-            default:
-                String msg = String.format("Unknown event type: %d", eventType);
-                throw new IllegalArgumentException(msg);
             }
-        } while (! last);
-        int qTics = readVLV(is);
-        result.addDelay(qTics);
-        return result;
+        } while (!last)
+        val qTics = MusReader.readVLV(`is`)
+        result.addDelay(qTics.toLong())
+        return result
     }
 
-    private static int readVLV(InputStream is) throws IOException {
-        int result = 0;
-        boolean last;
+    @Throws(IOException::class)
+    private fun readVLV(`is`: InputStream): Int {
+        var result = 0
+        var last: Boolean
         do {
-            int digit = is.read() & 0xff;
-            last = (digit & 0x80) == 0;
-            result <<= 7;
-            result |= digit & 127;
-        } while (! last);
-        return result;
+            val digit = `is`.read() and 0xff
+            last = digit and 0x80 == 0
+            result = result shl 7
+            result = result or (digit and 127)
+        } while (!last)
+        return result
     }
 
-    private static class EventGroup {
-        EventGroup() {
-            this.messages = new ArrayList<MidiMessage>();
+    private class EventGroup internal constructor() {
+        fun addDelay(ticks: Long) {
+            delay += ticks
         }
-        void addDelay(long ticks) {
-            delay += ticks;
+
+        fun allNotesOff(midiChan: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CHM_ALL_NOTES_OFF, 0)
         }
-        void allNotesOff(int midiChan) {
-            addControlChange(midiChan, CHM_ALL_NOTES_OFF, 0);
+
+        fun allSoundsOff(midiChan: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CHM_ALL_SOUND_OFF, 0)
         }
-        void allSoundsOff(int midiChan) {
-            addControlChange(midiChan, CHM_ALL_SOUND_OFF, 0);
-        }
-        long appendTo(Track track, long tick) {
-            for (MidiMessage msg: messages) {
-                track.add(new MidiEvent(msg, tick));
+
+        fun appendTo(track: Track, tick: Long): Long {
+            for (msg in messages) {
+                track.add(MidiEvent(msg, tick))
             }
-            return tick + delay * 3;
+            return tick + delay * 3
         }
-        void chorusDepth(int midiChan, int depth) {
-            addControlChange(midiChan, CTRL_CHORUS_DEPTH, depth);
+
+        fun chorusDepth(midiChan: Int, depth: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CTRL_CHORUS_DEPTH, depth)
         }
-        EventGroup emptyToNull() {
-            if (messages.isEmpty()) {
-                return null;
+
+        fun emptyToNull(): MusReader.EventGroup? {
+            return if (messages.isEmpty()) {
+                null
             } else {
-                return this;
+                this
             }
         }
-        void expression(int midiChan, int expr) {
-            addControlChange(midiChan, CTRL_EXPRESSION_POT, expr);
+
+        fun expression(midiChan: Int, expr: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CTRL_EXPRESSION_POT, expr)
         }
-        void noteOn(int midiChan, int note, int velocity) {
-            addShortMessage(midiChan, ShortMessage.NOTE_ON, note, velocity);
+
+        fun noteOn(midiChan: Int, note: Int, velocity: Int) {
+            addShortMessage(midiChan, ShortMessage.NOTE_ON, note, velocity)
         }
-        void noteOff(int midiChan, int note) {
-            addShortMessage(midiChan, ShortMessage.NOTE_OFF, note, 0);
+
+        fun noteOff(midiChan: Int, note: Int) {
+            addShortMessage(midiChan, ShortMessage.NOTE_OFF, note, 0)
         }
-        void pan(int midiChan, int pan) {
-            addControlChange(midiChan, CTRL_PAN, pan);
+
+        fun pan(midiChan: Int, pan: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CTRL_PAN, pan)
         }
-        void patchChange(int midiChan, int patchId) {
-            addShortMessage(midiChan, ShortMessage.PROGRAM_CHANGE, patchId, 0);
+
+        fun patchChange(midiChan: Int, patchId: Int) {
+            addShortMessage(midiChan, ShortMessage.PROGRAM_CHANGE, patchId, 0)
         }
-        void pitchBend(int midiChan, int wheelVal) {
-            int pb14 = wheelVal * 64;
-            addShortMessage(midiChan, ShortMessage.PITCH_BEND, pb14 % 128, pb14 / 128);
+
+        fun pitchBend(midiChan: Int, wheelVal: Int) {
+            val pb14 = wheelVal * 64
+            addShortMessage(midiChan, ShortMessage.PITCH_BEND, pb14 % 128, pb14 / 128)
         }
-        void resetAllControllers(int midiChan) {
-            addControlChange(midiChan, CHM_RESET_ALL, 0);
+
+        fun resetAllControllers(midiChan: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CHM_RESET_ALL, 0)
         }
-        void reverbDepth(int midiChan, int depth) {
-            addControlChange(midiChan, CTRL_REVERB_DEPTH, depth);
+
+        fun reverbDepth(midiChan: Int, depth: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CTRL_REVERB_DEPTH, depth)
         }
-        void sustain(int midiChan, int on) {
-            addControlChange(midiChan, CTRL_SUSTAIN, on);
+
+        fun sustain(midiChan: Int, on: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CTRL_SUSTAIN, on)
         }
-        void vibratoChange(int midiChan, int depth) {
-            addControlChange(midiChan, CTRL_MODULATION_POT, depth);
+
+        fun vibratoChange(midiChan: Int, depth: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CTRL_MODULATION_POT, depth)
         }
-        void volume(int midiChan, int vol) {
-            addControlChange(midiChan, CTRL_VOLUME, vol);
+
+        fun volume(midiChan: Int, vol: Int) {
+            addControlChange(midiChan, MusReader.EventGroup.CTRL_VOLUME, vol)
         }
-        private void addControlChange(int midiChan, int ctrlId, int ctrlVal) {
-            addShortMessage(midiChan, ShortMessage.CONTROL_CHANGE, ctrlId, ctrlVal);
+
+        private fun addControlChange(midiChan: Int, ctrlId: Int, ctrlVal: Int) {
+            addShortMessage(midiChan, ShortMessage.CONTROL_CHANGE, ctrlId, ctrlVal)
         }
-        private void addShortMessage(int midiChan, int cmd, int data1, int data2) {
+
+        private fun addShortMessage(midiChan: Int, cmd: Int, data1: Int, data2: Int) {
             try {
-                ShortMessage msg = new ShortMessage();
-                msg.setMessage(cmd, midiChan, data1, data2);
-                messages.add(msg);
-            } catch (InvalidMidiDataException ex) {
-                throw new RuntimeException(ex);
+                val msg = ShortMessage()
+                msg.setMessage(cmd, midiChan, data1, data2)
+                messages.add(msg)
+            } catch (ex: InvalidMidiDataException) {
+                throw RuntimeException(ex)
             }
         }
 
-        private static final int CHM_ALL_NOTES_OFF = 123;
-        private static final int CHM_ALL_SOUND_OFF = 120;
-        private static final int CTRL_CHORUS_DEPTH = 93;
-        private static final int CTRL_EXPRESSION_POT = 11;
-        private static final int CTRL_PAN = 10;
-        private static final int CTRL_SUSTAIN = 64;
-        private static final int CHM_RESET_ALL = 121;
-        private static final int CTRL_REVERB_DEPTH = 91;
-        private static final int CTRL_MODULATION_POT = 1;
-        private static final int CTRL_VOLUME = 7;
+        private var delay: Long = 0
+        private val messages: MutableList<MidiMessage>
 
-        private long delay;
-        private final List<MidiMessage> messages;
+        init {
+            messages = ArrayList()
+        }
+
+        companion object {
+            private const val CHM_ALL_NOTES_OFF = 123
+            private const val CHM_ALL_SOUND_OFF = 120
+            private const val CTRL_CHORUS_DEPTH = 93
+            private const val CTRL_EXPRESSION_POT = 11
+            private const val CTRL_PAN = 10
+            private const val CTRL_SUSTAIN = 64
+            private const val CHM_RESET_ALL = 121
+            private const val CTRL_REVERB_DEPTH = 91
+            private const val CTRL_MODULATION_POT = 1
+            private const val CTRL_VOLUME = 7
+        }
     }
-
 }

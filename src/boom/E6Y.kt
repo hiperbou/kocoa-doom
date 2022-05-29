@@ -1,4 +1,5 @@
-package boom;
+package boom
+
 
 /* Emacs style mode select   -*- C++ -*-
  *-----------------------------------------------------------------------------
@@ -32,60 +33,28 @@ package boom;
  *
  *-----------------------------------------------------------------------------
  */
+interface E6Y {
+    //public static final double DEG2RAD( a ) ( a * Pi ) / 180.0f;
+    //#define RAD2DEG( a ) ( a / Pi ) * 180.0f;
+    class buf_overrun_item_t {
+        var wadname: String? = null
+        var map = 0
+        var address = 0
+    }
 
-public interface E6Y{
-
-/*
-#define HU_HUDADDX (HU_HUDX)
-#define HU_HUDADDY (HU_HUDY+(-1)*HU_GAPY)
-#define HU_CENTERMSGX (320/2)
-#define HU_CENTERMSGY ((200-ST_HEIGHT)/2 - 1 - LittleShort(hu_font[0].height))
-
-#define HU_HUDADDX_D (HU_HUDX_LL)
-#define HU_HUDADDY_D (HU_HUDY_LL+(-1)*HU_GAPY)
-
-#define HU_MSGCENTERTIMEOUT   (2*TICRATE)
-*/
-
-public static final String STSTR_SECRETFOUND =  "A secret is revealed!";
-
-public static final int S_CANT_GL_ARB_MULTITEXTURE= 0x10000000;
-public static final int S_CANT_GL_ARB_MULTISAMPLEFACTOR=  0x20000000;
-
-public static final int  GL_COMBINE_ARB  =  0x8570;
-public static final int GL_RGB_SCALE_ARB = 0x8573;
-
-public static final char NO_INDEX =0xFFFF;
-
-public static final float FOV_CORRECTION_FACTOR= 1.13776f;
-public static final int FOV90 =90;
-
-//public static final double DEG2RAD( a ) ( a * Pi ) / 180.0f;
-//#define RAD2DEG( a ) ( a / Pi ) * 180.0f;
-
-public class buf_overrun_item_t
-{
-  String wadname;
-  int map;
-  int address;
-} 
-
-public class camera_t
-{
-  long x;
-  long y;
-  long z;
-  long PrevX;
-  long PrevY;
-  long PrevZ;
-  long angle;
-  long pitch;
-  long PrevAngle;
-  long PrevPitch;
-  int type;
-}
-
-/*
+    class camera_t {
+        var x: Long = 0
+        var y: Long = 0
+        var z: Long = 0
+        var PrevX: Long = 0
+        var PrevY: Long = 0
+        var PrevZ: Long = 0
+        var angle: Long = 0
+        var pitch: Long = 0
+        var PrevAngle: Long = 0
+        var PrevPitch: Long = 0
+        var type = 0
+    } /*
 
 extern int REAL_SCREENWIDTH;
 extern int REAL_SCREENHEIGHT;
@@ -413,4 +382,25 @@ void I_midiOutSetVolumes(int volume);
 #endif
 */
 
+    companion object {
+        /*
+#define HU_HUDADDX (HU_HUDX)
+#define HU_HUDADDY (HU_HUDY+(-1)*HU_GAPY)
+#define HU_CENTERMSGX (320/2)
+#define HU_CENTERMSGY ((200-ST_HEIGHT)/2 - 1 - LittleShort(hu_font[0].height))
+
+#define HU_HUDADDX_D (HU_HUDX_LL)
+#define HU_HUDADDY_D (HU_HUDY_LL+(-1)*HU_GAPY)
+
+#define HU_MSGCENTERTIMEOUT   (2*TICRATE)
+*/
+        const val STSTR_SECRETFOUND = "A secret is revealed!"
+        const val S_CANT_GL_ARB_MULTITEXTURE = 0x10000000
+        const val S_CANT_GL_ARB_MULTISAMPLEFACTOR = 0x20000000
+        const val GL_COMBINE_ARB = 0x8570
+        const val GL_RGB_SCALE_ARB = 0x8573
+        const val NO_INDEX = 0xFFFF.toChar()
+        const val FOV_CORRECTION_FACTOR = 1.13776f
+        const val FOV90 = 90
+    }
 }

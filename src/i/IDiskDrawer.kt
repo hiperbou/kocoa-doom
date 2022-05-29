@@ -1,32 +1,31 @@
-package i;
+package i
 
-public interface IDiskDrawer extends IDrawer {
 
+interface IDiskDrawer : IDrawer {
     /**
      * Set a timeout (in tics) for displaying the disk icon
      *
      * @param timeout
      */
-    void setReading(int reading);
+    fun setReading(reading: Int)
 
     /**
      * Disk displayer is currently active
      *
      * @return
      */
-    boolean isReading();
+    fun isReading(): Boolean
 
     /**
      * Only call after the Wadloader is instantiated and initialized itself.
      *
      */
-    void Init();
+    fun Init()
 
     /**
      * Status only valid after the last tic has been drawn. Use to know when to redraw status bar.
      *
      * @return
      */
-    boolean justDoneReading();
-
+    fun justDoneReading(): Boolean
 }

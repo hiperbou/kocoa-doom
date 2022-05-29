@@ -1,14 +1,8 @@
-package m;
+package m
 
-import doom.DoomMain;
 
-public abstract class AbstractDoomMenu<T, V> implements IDoomMenu {
+import doom.DoomMain
 
-    ////////////////////// CONTEXT ///////////////////
-    
-    final DoomMain<T, V> DOOM;
-
-    public AbstractDoomMenu(DoomMain<T, V> DOOM) {
-        this.DOOM = DOOM;
-    }
-}
+abstract class AbstractDoomMenu<T, V>(  ////////////////////// CONTEXT ///////////////////
+    val DOOM: DoomMain<T, V>
+) : IDoomMenu

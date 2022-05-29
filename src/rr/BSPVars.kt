@@ -1,12 +1,12 @@
-package rr;
+package rr
 
-     
-/** Stuff used to pass information between the BSP and the SegDrawer */
 
-public class BSPVars{
-/** The sectors of the line currently being considered */
-public sector_t frontsector, backsector;
-public seg_t curline;
-public side_t sidedef;
-public line_t linedef;
+/** Stuff used to pass information between the BSP and the SegDrawer  */
+open class BSPVars {
+    /** The sectors of the line currently being considered  */
+    var frontsector: sector_t? = null
+    var backsector: sector_t? = null
+    var curline: seg_t? = null
+    var sidedef: side_t? = null
+    var linedef: line_t? = null
 }

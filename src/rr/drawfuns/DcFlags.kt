@@ -1,15 +1,14 @@
-package rr.drawfuns;
+package rr.drawfuns
 
-/** Flags used to mark column functions according to type, 
- *  for quick type identification.
- * 
- * @author velktron
+
+/** Flags used to mark column functions according to type,
+ * for quick type identification.
  *
+ * @author velktron
  */
-
-public final class DcFlags {
-    public static final int FUZZY=0x1;
-    public static final int TRANSLATED=0x2;
-    public static final int TRANSPARENT=0x4;
-    public static final int LOW_DETAIL=0x8;
+object DcFlags {
+    const val FUZZY = 0x1
+    const val TRANSLATED = 0x2
+    const val TRANSPARENT = 0x4
+    const val LOW_DETAIL = 0x8
 }

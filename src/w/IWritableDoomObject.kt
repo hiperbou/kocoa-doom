@@ -1,9 +1,9 @@
-package w;
+package w
 
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.DataOutputStream
+import java.io.IOException
 
-public interface IWritableDoomObject {
-    
-    public void write(DataOutputStream dos) throws IOException ;
+interface IWritableDoomObject {
+    @Throws(IOException::class)
+    fun write(dos: DataOutputStream)
 }

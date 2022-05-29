@@ -1,390 +1,345 @@
-package m;
+package m
 
-import static data.Defines.HU_FONTSIZE;
-import static data.Defines.HU_FONTSTART;
-import static data.Defines.PU_CACHE;
-import static data.Defines.SAVESTRINGSIZE;
-import static data.dstrings.NUM_QUITMESSAGES;
-import static data.dstrings.SAVEGAMENAME;
-import static data.dstrings.endmsg;
-import data.sounds.sfxenum_t;
-import defines.*;
-import doom.CommandVariable;
-import doom.DoomMain;
-import doom.SourceCode;
-import doom.SourceCode.M_Menu;
-import static doom.SourceCode.M_Menu.M_Responder;
-import static doom.SourceCode.M_Menu.M_StartControlPanel;
-import static doom.SourceCode.M_Menu.M_Ticker;
-import doom.englsh;
-import static doom.englsh.DOSY;
-import static doom.englsh.EMPTYSTRING;
-import static doom.englsh.ENDGAME;
-import static doom.englsh.GAMMALVL0;
-import static doom.englsh.GAMMALVL1;
-import static doom.englsh.GAMMALVL2;
-import static doom.englsh.GAMMALVL3;
-import static doom.englsh.GAMMALVL4;
-import static doom.englsh.LOADNET;
-import static doom.englsh.MSGOFF;
-import static doom.englsh.MSGON;
-import static doom.englsh.NETEND;
-import static doom.englsh.NEWGAME;
-import static doom.englsh.NIGHTMARE;
-import static doom.englsh.QLOADNET;
-import static doom.englsh.QLPROMPT;
-import static doom.englsh.QSAVESPOT;
-import static doom.englsh.QSPROMPT;
-import static doom.englsh.SAVEDEAD;
-import static doom.englsh.SWSTRING;
-import doom.event_t;
-import doom.evtype_t;
-import g.Signals.ScanCode;
-import static g.Signals.ScanCode.*;
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import rr.patch_t;
-import timing.DelegateTicker;
-import utils.C2JUtils;
-import static v.renderers.DoomScreen.*;
-import w.DoomIO;
+import data.Defines
+import data.dstrings
+import data.sounds.sfxenum_t
+import defines.GameMode
+import defines.Language_t
+import defines.gamestate_t
+import defines.skill_t
+import doom.*
+import g.Signals.ScanCode
+import g.Signals.ScanCode.*
+import rr.patch_t
+import s.*
+import timing.DelegateTicker
+import utils.C2JUtils
+import v.renderers.DoomScreen
+import w.DoomIO.readString
+import java.io.*
 
-public class Menu<T, V> extends AbstractDoomMenu<T, V> {
 
-	////////////////// CONSTRUCTOR ////////////////
-    
-    public Menu(DoomMain<T, V> DOOM){
-    	super(DOOM);
-    }
+class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
+    (DOOM: DoomMain<T, V>) : AbstractDoomMenu<T, V>(DOOM) {
+    /** The fonts  ... must "peg" them to those from HU  */
+    var hu_font = arrayOfNulls<patch_t>(Defines.HU_FONTSIZE)
 
-    /** The fonts  ... must "peg" them to those from HU */
-    patch_t[] hu_font = new patch_t[HU_FONTSIZE];
-
-    /** WTF?! */
-
-    boolean message_dontfuckwithme;
-    
+    /** WTF?!  */
+    var message_dontfuckwithme = false
     // int mouseSensitivity; // has default
+    /** Show messages has default, 0 = off, 1 = on  */
+    override var showMessages = false
 
-    /** Show messages has default, 0 = off, 1 = on */
-
-    private boolean showMessages=false;
 
     /**
      * showMessages can be read outside of Menu, but not modified. Menu has the
      * actual C definition (not declaration)
      */
-    
-    @Override
-    public boolean getShowMessages() {
-        return showMessages;
+    /*override fun getShowMessages(): Boolean {
+        return _showMessages
     }
 
-    @Override
-    public void setShowMessages(boolean val) {
-        this.showMessages=val;
-    }
-    
-    /** Blocky mode, has default, 0 = high, 1 = normal */
-    int detailLevel;
+    override fun setShowMessages(`val`: Boolean) {
+        _showMessages = `val`
+    }*/
 
-    int screenblocks=10; // has default
+    /** Blocky mode, has default, 0 = high, 1 = normal  */
+    override var detailLevel = 0
+    override var screenBlocks = 10 // has default
 
-    /** temp for screenblocks (0-9) */
-    int screenSize;
+    /** temp for screenblocks (0-9)  */
+    var screenSize = 0
 
-    /** -1 = no quicksave slot picked! */
-    int quickSaveSlot;
+    /** -1 = no quicksave slot picked!  */
+    var quickSaveSlot = 0
 
-    /** 1 = message to be printed */
-    boolean messageToPrint;
+    /** 1 = message to be printed  */
+    var messageToPrint = false
 
-    /** ...and here is the message string! */
-    String messageString;
+    /** ...and here is the message string!  */
+    var messageString: String? = null
 
-    /** message x & y */
-    int messx, messy;
+    /** message x & y  */
+    var messx = 0
+    var messy = 0
+    var messageLastMenuActive = false
 
-    boolean messageLastMenuActive;
+    /** timed message = no input from user  */
+    var messageNeedsInput = false
 
-    /** timed message = no input from user */
-    boolean messageNeedsInput;
+    /** Probably I need some MessageRoutine interface at this point?  */
+    var messageRoutine: MenuRoutine? = null
 
-    /** Probably I need some MessageRoutine interface at this point? */
-    public MenuRoutine messageRoutine;
+    /** we are going to be entering a savegame string  */
+    var saveStringEnter = false
+    var saveSlot // which slot to save in
+            = 0
+    var saveCharIndex // which char we're editing
+            = 0
 
-
-    /** we are going to be entering a savegame string */
-    boolean saveStringEnter;
-
-    int saveSlot; // which slot to save in
-
-    int saveCharIndex; // which char we're editing
-
-    /** old save description before edit */
-    char[] saveOldString = new char[SAVESTRINGSIZE];
-
-    boolean inhelpscreens;
-
-    //int menuactive;
-
-    protected static final int SKULLXOFF = -32;
-
-    protected static final int LINEHEIGHT = 16;
-
-    char[][] savegamestrings = new char[10][SAVESTRINGSIZE];
-
-    String endstring = new String();
-
+    /** old save description before edit  */
+    var saveOldString = CharArray(Defines.SAVESTRINGSIZE)
+    var inhelpscreens = false
+    var savegamestrings = Array(10) { CharArray(Defines.SAVESTRINGSIZE) }
+    var endstring = String()
     //
     // MENU TYPEDEFS
     //
+    /** menu item skull is on  */
+    var itemOn: Short = 0
 
-    /** menu item skull is on */
-    short itemOn;
+    /** skull animation counter  */
+    var skullAnimCounter: Short = 0
 
-    /** skull animation counter */
-    short skullAnimCounter;
+    /** which skull to draw  */
+    var whichSkull: Short = 0
 
-    /** which skull to draw */
-    short whichSkull;
-
-    /**
-     * graphic name of skulls warning: initializer-string for array of chars is
-     * too long
-     */
-    private static String[] skullName = { "M_SKULL1", "M_SKULL2" };
-
-    /** current menudef */
-    // MAES: pointer? array?
-    menu_t currentMenu;
-
+    /** current menudef  */ // MAES: pointer? array?
+    var currentMenu: menu_t? = null
     //
     // DOOM MENU
     //
-
     // MAES: was an enum called "main_e" used purely as numerals. No need for
     // strong typing.
-
     /**
      * MenuRoutine class definitions, replacing "function pointers".
      */
-    MenuRoutine ChangeDetail, ChangeMessages, ChangeSensitivity, ChooseSkill,
-            EndGame, EndGameResponse, Episode, FinishReadThis, LoadGame,
-            LoadSelect, MusicVol, NewGame, Options, VerifyNightmare,
-            SaveSelect, SfxVol, SizeDisplay, SaveGame, Sound, QuitDOOM,
-            QuitResponse, QuickLoadResponse, QuickSaveResponse, ReadThis, ReadThis2;
+    lateinit var ChangeDetail: MenuRoutine
+    lateinit var ChangeMessages: MenuRoutine
+    lateinit var ChangeSensitivity: MenuRoutine
+    lateinit var ChooseSkill: MenuRoutine
+    lateinit var EndGame: MenuRoutine
+    lateinit var EndGameResponse: MenuRoutine
+    lateinit var Episode: MenuRoutine
+    lateinit var FinishReadThis: MenuRoutine
+    lateinit var LoadGame: MenuRoutine
+    lateinit var LoadSelect: MenuRoutine
+    lateinit var MusicVol: MenuRoutine
+    lateinit var NewGame: MenuRoutine
+    lateinit var Options: MenuRoutine
+    lateinit var VerifyNightmare: MenuRoutine
+    lateinit var SaveSelect: MenuRoutine
+    lateinit var SfxVol: MenuRoutine
+    lateinit var SizeDisplay: MenuRoutine
+    lateinit var SaveGame: MenuRoutine
+    lateinit var Sound: MenuRoutine
+    lateinit var QuitDOOM: MenuRoutine
+    lateinit var QuitResponse: MenuRoutine
+    lateinit var QuickLoadResponse: MenuRoutine
+    lateinit var QuickSaveResponse: MenuRoutine
+    lateinit var ReadThis: MenuRoutine
+    lateinit var ReadThis2: MenuRoutine
 
-    /** DrawRoutine class definitions, replacing "function pointers". */
+    /** DrawRoutine class definitions, replacing "function pointers".  */
+    lateinit var DrawEpisode: DrawRoutine
+    lateinit var DrawLoad: DrawRoutine
+    lateinit var DrawMainMenu: DrawRoutine
+    lateinit var DrawNewGame: DrawRoutine
+    lateinit var DrawOptions: DrawRoutine
+    lateinit var DrawReadThis1: DrawRoutine
+    lateinit var DrawReadThis2: DrawRoutine
+    lateinit var DrawSave: DrawRoutine
+    lateinit var DrawSound: DrawRoutine
 
-    DrawRoutine DrawEpisode, DrawLoad,DrawMainMenu,DrawNewGame,DrawOptions,
-    			DrawReadThis1, DrawReadThis2, DrawSave, DrawSound;
-
-    /** Initialize menu routines first */
-    
-    private void initMenuRoutines() {
-        ChangeMessages = new M_ChangeMessages();
-        ChangeDetail = new M_ChangeDetail();
-        ChangeSensitivity = new M_ChangeSensitivity();
-        ChooseSkill = new M_ChooseSkill();
-        EndGame = new M_EndGame();
-        EndGameResponse = new M_EndGameResponse();
-        Episode = new M_Episode();
-        FinishReadThis=new M_FinishReadThis();
-        LoadGame=new M_LoadGame();
-        LoadSelect=new M_LoadSelect();
-        MusicVol=new M_MusicVol();
-        NewGame = new M_NewGame();
-        Options = new M_Options();
-
-
-        QuitDOOM = new M_QuitDOOM();
-        QuickLoadResponse = new M_QuickLoadResponse();
-        QuickSaveResponse= new M_QuickSaveResponse();
-        QuitResponse = new M_QuitResponse();
-        
-        ReadThis = new M_ReadThis();
-        ReadThis2 = new M_ReadThis2();
-         
-        SaveGame=new M_SaveGame();
-        SaveSelect= new M_SaveSelect();
-        SfxVol=new M_SfxVol();
-        SizeDisplay = new M_SizeDisplay();
-        Sound = new M_Sound();
-        VerifyNightmare = new M_VerifyNightmare();
+    /** Initialize menu routines first  */
+    private fun initMenuRoutines() {
+        ChangeMessages = M_ChangeMessages()
+        ChangeDetail = M_ChangeDetail()
+        ChangeSensitivity = M_ChangeSensitivity()
+        ChooseSkill = M_ChooseSkill()
+        EndGame = M_EndGame()
+        EndGameResponse = M_EndGameResponse()
+        Episode = M_Episode()
+        FinishReadThis = M_FinishReadThis()
+        LoadGame = M_LoadGame()
+        LoadSelect = M_LoadSelect()
+        MusicVol = M_MusicVol()
+        NewGame = M_NewGame()
+        Options = M_Options()
+        QuitDOOM = M_QuitDOOM()
+        QuickLoadResponse = M_QuickLoadResponse()
+        QuickSaveResponse = M_QuickSaveResponse()
+        QuitResponse = M_QuitResponse()
+        ReadThis = M_ReadThis()
+        ReadThis2 = M_ReadThis2()
+        SaveGame = M_SaveGame()
+        SaveSelect = M_SaveSelect()
+        SfxVol = M_SfxVol()
+        SizeDisplay = M_SizeDisplay()
+        Sound = M_Sound()
+        VerifyNightmare = M_VerifyNightmare()
     }
 
-    /** Then drawroutines */
-    
-    private void initDrawRoutines() {
-        DrawEpisode = new M_DrawEpisode();
-        DrawNewGame = new M_DrawNewGame();
-        DrawReadThis1 = new M_DrawReadThis1();
-        DrawReadThis2 = new M_DrawReadThis2();
-        DrawOptions = new M_DrawOptions();
-        DrawLoad = new M_DrawLoad();
-        DrawSave = new M_DrawSave();
-        DrawSound=new M_DrawSound();
-        DrawMainMenu = new M_DrawMainMenu();
+    /** Then drawroutines  */
+    private fun initDrawRoutines() {
+        DrawEpisode = M_DrawEpisode()
+        DrawNewGame = M_DrawNewGame()
+        DrawReadThis1 = M_DrawReadThis1()
+        DrawReadThis2 = M_DrawReadThis2()
+        DrawOptions = M_DrawOptions()
+        DrawLoad = M_DrawLoad()
+        DrawSave = M_DrawSave()
+        DrawSound = M_DrawSound()
+        DrawMainMenu = M_DrawMainMenu()
     }
 
-    /** Menuitem definitions. A "menu" can consist of multiple menuitems */
-    menuitem_t[] MainMenu,EpisodeMenu,NewGameMenu, OptionsMenu,ReadMenu1,ReadMenu2,SoundMenu,LoadMenu,SaveMenu;
-    
-    /** Actual menus. Each can point to an array of menuitems */
-    menu_t MainDef, EpiDef,NewDef,OptionsDef,ReadDef1, ReadDef2,SoundDef,LoadDef,SaveDef;
-    
-    /** First initialize those */
-    
-    private void initMenuItems(){
-        MainMenu = new menuitem_t[] {
-            new menuitem_t(1, "M_NGAME", NewGame, SC_N),
-            new menuitem_t(1, "M_OPTION", Options, SC_O),
-            new menuitem_t(1, "M_LOADG", LoadGame, SC_L),
-            new menuitem_t(1, "M_SAVEG", SaveGame, SC_S),
-            // Another hickup with Special edition.
-            new menuitem_t(1, "M_RDTHIS", ReadThis, SC_R),
-            new menuitem_t(1, "M_QUITG", QuitDOOM, SC_Q)
-        };
+    /** Menuitem definitions. A "menu" can consist of multiple menuitems  */
+    lateinit var MainMenu: Array<menuitem_t>
+    lateinit var EpisodeMenu: Array<menuitem_t>
+    lateinit var NewGameMenu: Array<menuitem_t>
+    lateinit var OptionsMenu: Array<menuitem_t>
+    lateinit var ReadMenu1: Array<menuitem_t>
+    lateinit var ReadMenu2: Array<menuitem_t>
+    lateinit var SoundMenu: Array<menuitem_t>
+    lateinit var LoadMenu: Array<menuitem_t>
+    lateinit var SaveMenu: Array<menuitem_t>
 
-        MainDef = new menu_t(main_end, null, MainMenu, DrawMainMenu, 97, 64, 0);
+    /** Actual menus. Each can point to an array of menuitems  */
+    var MainDef: menu_t? = null
+    var EpiDef: menu_t? = null
+    var NewDef: menu_t? = null
+    var OptionsDef: menu_t? = null
+    var ReadDef1: menu_t? = null
+    var ReadDef2: menu_t? = null
+    var SoundDef: menu_t? = null
+    var LoadDef: menu_t? = null
+    var SaveDef: menu_t? = null
+
+    /** First initialize those  */
+    private fun initMenuItems() {
+        MainMenu = arrayOf(
+            menuitem_t(1, "M_NGAME", NewGame, SC_N),
+            menuitem_t(1, "M_OPTION", Options, SC_O),
+            menuitem_t(1, "M_LOADG", LoadGame, SC_L),
+            menuitem_t(1, "M_SAVEG", SaveGame, SC_S),  // Another hickup with Special edition.
+            menuitem_t(1, "M_RDTHIS", ReadThis, SC_R),
+            menuitem_t(1, "M_QUITG", QuitDOOM, SC_Q)
+        )
+        MainDef = menu_t(main_end, null, MainMenu, DrawMainMenu, 97, 64, 0)
 
         //
         // EPISODE SELECT
         //
-        EpisodeMenu = new menuitem_t[] {
-            new menuitem_t(1, "M_EPI1", Episode, SC_K),
-            new menuitem_t(1, "M_EPI2", Episode, SC_T),
-            new menuitem_t(1, "M_EPI3", Episode, SC_I),
-            new menuitem_t(1, "M_EPI4", Episode, SC_T)
-        };
-
-        EpiDef = new menu_t(
-            ep_end, // # of menu items
-            MainDef, // previous menu
-            EpisodeMenu, // menuitem_t ->
-            DrawEpisode, // drawing routine ->
-            48, 63, // x,y
+        EpisodeMenu = arrayOf(
+            menuitem_t(1, "M_EPI1", Episode, SC_K),
+            menuitem_t(1, "M_EPI2", Episode, SC_T),
+            menuitem_t(1, "M_EPI3", Episode, SC_I),
+            menuitem_t(1, "M_EPI4", Episode, SC_T)
+        )
+        EpiDef = menu_t(
+            ep_end,  // # of menu items
+            MainDef,  // previous menu
+            EpisodeMenu,  // menuitem_t ->
+            DrawEpisode,  // drawing routine ->
+            48, 63,  // x,y
             ep1 // lastOn
-        );
+        )
 
         //
         // NEW GAME
         //
-        NewGameMenu = new menuitem_t[] {
-            new menuitem_t(1, "M_JKILL", ChooseSkill, SC_I),
-            new menuitem_t(1, "M_ROUGH", ChooseSkill, SC_H),
-            new menuitem_t(1, "M_HURT", ChooseSkill, SC_H),
-            new menuitem_t(1, "M_ULTRA", ChooseSkill, SC_U),
-            new menuitem_t(1, "M_NMARE", ChooseSkill, SC_N)
-        };
-
-        NewDef = new menu_t(
-            newg_end, // # of menu items
-            EpiDef, // previous menu
-            NewGameMenu, // menuitem_t ->
-            DrawNewGame, // drawing routine ->
-            48, 63, // x,y
+        NewGameMenu = arrayOf(
+            menuitem_t(1, "M_JKILL", ChooseSkill, ScanCode.SC_I),
+            menuitem_t(1, "M_ROUGH", ChooseSkill, ScanCode.SC_H),
+            menuitem_t(1, "M_HURT", ChooseSkill, ScanCode.SC_H),
+            menuitem_t(1, "M_ULTRA", ChooseSkill, ScanCode.SC_U),
+            menuitem_t(1, "M_NMARE", ChooseSkill, ScanCode.SC_N)
+        )
+        NewDef = menu_t(
+            newg_end,  // # of menu items
+            EpiDef,  // previous menu
+            NewGameMenu,  // menuitem_t ->
+            DrawNewGame,  // drawing routine ->
+            48, 63,  // x,y
             hurtme // lastOn
-        );
+        )
 
         //
         // OPTIONS MENU
         //
-        OptionsMenu = new menuitem_t[] {
-            new menuitem_t(1, "M_ENDGAM", EndGame, SC_3),
-            new menuitem_t(1, "M_MESSG", ChangeMessages, SC_M),
-            new menuitem_t(1, "M_DETAIL", ChangeDetail, SC_G),
-            new menuitem_t(2, "M_SCRNSZ", SizeDisplay, SC_S),
-            new menuitem_t(-1, "", null),
-            new menuitem_t(2, "M_MSENS", ChangeSensitivity, SC_M),
-            new menuitem_t(-1, "", null),
-            new menuitem_t(1, "M_SVOL", Sound, SC_S)
-        };
-
-        OptionsDef = new menu_t(opt_end, this.MainDef, OptionsMenu, DrawOptions, 60, 37, 0);
+        OptionsMenu = arrayOf(
+            menuitem_t(1, "M_ENDGAM", EndGame, ScanCode.SC_3),
+            menuitem_t(1, "M_MESSG", ChangeMessages, ScanCode.SC_M),
+            menuitem_t(1, "M_DETAIL", ChangeDetail, ScanCode.SC_G),
+            menuitem_t(2, "M_SCRNSZ", SizeDisplay, ScanCode.SC_S),
+            menuitem_t(-1, "", null),
+            menuitem_t(2, "M_MSENS", ChangeSensitivity, ScanCode.SC_M),
+            menuitem_t(-1, "", null),
+            menuitem_t(1, "M_SVOL", Sound, ScanCode.SC_S)
+        )
+        OptionsDef = menu_t(opt_end, MainDef, OptionsMenu, DrawOptions, 60, 37, 0)
 
         // Read This! MENU 1 
-        ReadMenu1 = new menuitem_t[]{new menuitem_t(1, "", ReadThis2, SC_0)};
-
-        ReadDef1 = new menu_t(read1_end, MainDef, ReadMenu1, DrawReadThis1, 280, 185, 0);
+        ReadMenu1 = arrayOf(menuitem_t(1, "", ReadThis2, ScanCode.SC_0))
+        ReadDef1 = menu_t(read1_end, MainDef, ReadMenu1, DrawReadThis1, 280, 185, 0)
 
         // Read This! MENU 2
-        ReadMenu2 = new menuitem_t[]{new menuitem_t(1, "", FinishReadThis, SC_0)};
-
-        ReadDef2 = new menu_t(read2_end, ReadDef1, ReadMenu2, DrawReadThis2, 330, 175, 0);
+        ReadMenu2 = arrayOf(menuitem_t(1, "", FinishReadThis, ScanCode.SC_0))
+        ReadDef2 = menu_t(read2_end, ReadDef1, ReadMenu2, DrawReadThis2, 330, 175, 0)
 
         //
         // SOUND VOLUME MENU
         //
-        SoundMenu = new menuitem_t[] {
-            new menuitem_t(2, "M_SFXVOL", SfxVol, SC_S),
-            new menuitem_t(-1, "", null),
-            new menuitem_t(2, "M_MUSVOL", MusicVol, SC_M),
-            new menuitem_t(-1, "", null)
-        };
-
-        SoundDef = new menu_t(sound_end, OptionsDef, SoundMenu, DrawSound, 80, 64, 0);
+        SoundMenu = arrayOf(
+            menuitem_t(2, "M_SFXVOL", SfxVol, ScanCode.SC_S),
+            menuitem_t(-1, "", null),
+            menuitem_t(2, "M_MUSVOL", MusicVol, ScanCode.SC_M),
+            menuitem_t(-1, "", null)
+        )
+        SoundDef = menu_t(sound_end, OptionsDef, SoundMenu, DrawSound, 80, 64, 0)
 
         //
         // LOAD GAME MENU
         //
-        LoadMenu = new menuitem_t[]{new menuitem_t(1, "", LoadSelect, SC_1),
-            new menuitem_t(1, "", LoadSelect, SC_2),
-            new menuitem_t(1, "", LoadSelect, SC_3),
-            new menuitem_t(1, "", LoadSelect, SC_4),
-            new menuitem_t(1, "", LoadSelect, SC_5),
-            new menuitem_t(1, "", LoadSelect, SC_6)};
-
-        LoadDef
-                = new menu_t(load_end, MainDef, LoadMenu, DrawLoad, 80, 54, 0);
+        LoadMenu = arrayOf(
+            menuitem_t(1, "", LoadSelect, ScanCode.SC_1),
+            menuitem_t(1, "", LoadSelect, ScanCode.SC_2),
+            menuitem_t(1, "", LoadSelect, ScanCode.SC_3),
+            menuitem_t(1, "", LoadSelect, ScanCode.SC_4),
+            menuitem_t(1, "", LoadSelect, ScanCode.SC_5),
+            menuitem_t(1, "", LoadSelect, ScanCode.SC_6)
+        )
+        LoadDef = menu_t(load_end, MainDef, LoadMenu, DrawLoad, 80, 54, 0)
 
         //
         // SAVE GAME MENU
         //
-        SaveMenu = new menuitem_t[] {
-            new menuitem_t(1, "", SaveSelect, SC_1),
-            new menuitem_t(1, "", SaveSelect, SC_2),
-            new menuitem_t(1, "", SaveSelect, SC_3),
-            new menuitem_t(1, "", SaveSelect, SC_4),
-            new menuitem_t(1, "", SaveSelect, SC_5),
-            new menuitem_t(1, "", SaveSelect, SC_6)
-        };
-
-        SaveDef = new menu_t(load_end, MainDef, SaveMenu, DrawSave, 80, 54, 0);
+        SaveMenu = arrayOf(
+            menuitem_t(1, "", SaveSelect, ScanCode.SC_1),
+            menuitem_t(1, "", SaveSelect, ScanCode.SC_2),
+            menuitem_t(1, "", SaveSelect, ScanCode.SC_3),
+            menuitem_t(1, "", SaveSelect, ScanCode.SC_4),
+            menuitem_t(1, "", SaveSelect, ScanCode.SC_5),
+            menuitem_t(1, "", SaveSelect, ScanCode.SC_6)
+        )
+        SaveDef = menu_t(load_end, MainDef, SaveMenu, DrawSave, 80, 54, 0)
     }
-    
+
     /**
      * M_ReadSaveStrings
      * read the strings from the savegame files
      */
-    
-    public void ReadSaveStrings() {
-        DataInputStream handle;
-        int count;
-        int i;
-        String name;
-
-        for (i = 0; i < load_end; i++) {
-            if (DOOM.cVarManager.bool(CommandVariable.CDROM))
-                name = "c:\\doomdata\\" + SAVEGAMENAME + (i) + ".dsg";
-            else
-                name = SAVEGAMENAME + (i) + ".dsg";
-
+    fun ReadSaveStrings() {
+        var handle: DataInputStream
+        var count: Int
+        var i: Int
+        var name: String
+        i = 0
+        while (i < load_end) {
+            name =
+                if (DOOM.cVarManager.bool(CommandVariable.CDROM)) "c:\\doomdata\\" + dstrings.SAVEGAMENAME + i + ".dsg" else dstrings.SAVEGAMENAME + i + ".dsg"
             try {
-                handle = new DataInputStream(new BufferedInputStream(new FileInputStream(name)));
-                savegamestrings[i] =
-                    DoomIO.readString(handle,SAVESTRINGSIZE).toCharArray();
-                handle.close();
-                LoadMenu[i].status = 1;
-            } catch (IOException e) {
-                savegamestrings[i][0] = 0x00;
-                LoadMenu[i].status = 0;
-                continue;
+                handle = DataInputStream(BufferedInputStream(FileInputStream(name)))
+                savegamestrings[i] = readString(handle, Defines.SAVESTRINGSIZE)!!.toCharArray()
+                handle.close()
+                LoadMenu[i].status = 1
+            } catch (e: IOException) {
+                savegamestrings[i][0] = 0x00.toChar()
+                LoadMenu[i].status = 0
+                i++
+                continue
             }
-
+            i++
         }
     }
 
@@ -392,943 +347,878 @@ public class Menu<T, V> extends AbstractDoomMenu<T, V> {
      * Draw border for the savegame description. This is special in that it's
      * not "invokable" like the other drawroutines, but standalone.
      */
-    private void DrawSaveLoadBorder(int x, int y) {
-        int i;
-
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_LSLEFT"), DOOM.vs, x - 8, y + 7);
-
-        for (i = 0; i < 24; i++) {
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_LSCNTR"), DOOM.vs, x, y + 7);
-            x += 8;
+    private fun DrawSaveLoadBorder(x: Int, y: Int) {
+        var x = x
+        var i: Int
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.FG,
+            DOOM.wadLoader.CachePatchName("M_LSLEFT"),
+            DOOM.vs,
+            x - 8,
+            y + 7
+        )
+        i = 0
+        while (i < 24) {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                DOOM.wadLoader.CachePatchName("M_LSCNTR"),
+                DOOM.vs,
+                x,
+                y + 7
+            )
+            x += 8
+            i++
         }
-
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_LSRGHT"), DOOM.vs, x, y + 7);
+        DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_LSRGHT"), DOOM.vs, x, y + 7)
     }
 
     /** Draws slider rail of a specified width (each notch is 8 base units wide)
-     *  and with a slider selector at position thermDot.
-     * 
+     * and with a slider selector at position thermDot.
+     *
      * @param x
      * @param y
      * @param thermWidth
      * @param thermDot
      */
-    
-    public void DrawThermo(int x, int y, int thermWidth, int thermDot) {
-        int xx = x;
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_THERML"), DOOM.vs, xx, y);
-        xx += 8;
-        for (int i = 0; i < thermWidth; i++) {
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_THERMM"), DOOM.vs, xx, y);
-            xx += 8;
+    fun DrawThermo(x: Int, y: Int, thermWidth: Int, thermDot: Int) {
+        var xx = x
+        DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_THERML"), DOOM.vs, xx, y)
+        xx += 8
+        for (i in 0 until thermWidth) {
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_THERMM"), DOOM.vs, xx, y)
+            xx += 8
         }
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_THERMR"), DOOM.vs, xx, y);
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_THERMO"), DOOM.vs, (x + 8) + thermDot * 8, y);
+        DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_THERMR"), DOOM.vs, xx, y)
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.FG,
+            DOOM.wadLoader.CachePatchName("M_THERMO"),
+            DOOM.vs,
+            x + 8 + thermDot * 8,
+            y
+        )
     }
 
-    public void DrawEmptyCell(menu_t menu, int item) {
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CacheLumpName("M_CELL1", PU_CACHE, patch_t.class), DOOM.vs, menu.x - 10, menu.y + item * LINEHEIGHT - 1);
+    fun DrawEmptyCell(menu: menu_t, item: Int) {
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.FG,
+            DOOM.wadLoader.CacheLumpName("M_CELL1", Defines.PU_CACHE, patch_t::class.java),
+            DOOM.vs,
+            menu.x - 10,
+            menu.y + item * LINEHEIGHT - 1
+        )
     }
 
-    public void DrawSelCell(menu_t menu, int item) {
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CacheLumpName("M_CELL2", PU_CACHE, patch_t.class), DOOM.vs, menu.x - 10, menu.y + item * LINEHEIGHT - 1);
+    fun DrawSelCell(menu: menu_t, item: Int) {
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.FG,
+            DOOM.wadLoader.CacheLumpName("M_CELL2", Defines.PU_CACHE, patch_t::class.java),
+            DOOM.vs,
+            menu.x - 10,
+            menu.y + item * LINEHEIGHT - 1
+        )
     }
 
     //
     // M_SaveGame & Cie.
     //
-    public class M_DrawSave implements DrawRoutine {
-    	@Override
-    	public void invoke(){
-        int i;
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_SAVEG"), DOOM.vs, 72, 28);
-        for (i = 0; i < load_end; i++) {
-            DrawSaveLoadBorder(LoadDef.x, LoadDef.y + LINEHEIGHT * i);
-            WriteText(LoadDef.x, LoadDef.y + LINEHEIGHT * i, savegamestrings[i]);
+    inner class M_DrawSave : DrawRoutine {
+        override fun invoke() {
+            var i: Int
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_SAVEG"), DOOM.vs, 72, 28)
+            i = 0
+            while (i < load_end) {
+                DrawSaveLoadBorder(LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i)
+                WriteText(LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i, savegamestrings[i])
+                i++
+            }
+            if (saveStringEnter) {
+                i = StringWidth(savegamestrings[saveSlot])
+                WriteText(LoadDef!!.x + i, LoadDef!!.y + LINEHEIGHT * saveSlot, "_")
+            }
         }
-
-        if (saveStringEnter) {
-            i = StringWidth(savegamestrings[saveSlot]);
-            WriteText(LoadDef.x + i, LoadDef.y + LINEHEIGHT * saveSlot, "_");
-        }
-    	}
     }
 
     /**
      * M_Responder calls this when user is finished
-     * 
+     *
      * @param slot
      */
-
-    public void DoSave(int slot) {
-        DOOM.SaveGame(slot, new String(savegamestrings[slot]));
-        ClearMenus();
+    fun DoSave(slot: Int) {
+        DOOM.SaveGame(slot, String(savegamestrings[slot]))
+        ClearMenus()
 
         // PICK QUICKSAVE SLOT YET?
-        if (quickSaveSlot == -2)
-            quickSaveSlot = slot;
+        if (quickSaveSlot == -2) quickSaveSlot = slot
     }
 
     /**
      * User wants to save. Start string input for M_Responder
      */
-
-    class M_SaveSelect implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
+    internal inner class M_SaveSelect : MenuRoutine {
+        override fun invoke(choice: Int) {
             // we are going to be intercepting all chars
-        	//System.out.println("ACCEPTING typing input");
-            saveStringEnter = true;
-
-            saveSlot = choice;
-            C2JUtils.strcpy(saveOldString, savegamestrings[choice]);
-            if (C2JUtils.strcmp(savegamestrings[choice], EMPTYSTRING))
-                savegamestrings[choice][0] = 0;
-            saveCharIndex = C2JUtils.strlen(savegamestrings[choice]);
+            //System.out.println("ACCEPTING typing input");
+            saveStringEnter = true
+            saveSlot = choice
+            C2JUtils.strcpy(saveOldString, savegamestrings[choice])
+            if (C2JUtils.strcmp(savegamestrings[choice], englsh.EMPTYSTRING)) savegamestrings[choice][0] = 0.toChar()
+            saveCharIndex = C2JUtils.strlen(savegamestrings[choice])
         }
     }
 
     /**
      * Selected from DOOM menu
      */
-    class M_SaveGame implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
+    internal inner class M_SaveGame : MenuRoutine {
+        override fun invoke(choice: Int) {
             if (!DOOM.usergame) {
-                StartMessage(SAVEDEAD, null, false);
-                return;
+                StartMessage(englsh.SAVEDEAD, null, false)
+                return
             }
-
-            if (DOOM.gamestate != gamestate_t.GS_LEVEL)
-                return;
-
-            SetupNextMenu(SaveDef);
-            ReadSaveStrings();
+            if (DOOM.gamestate != gamestate_t.GS_LEVEL) return
+            SetupNextMenu(SaveDef)
+            ReadSaveStrings()
         }
     }
 
     //
     // M_QuickSave
     //
-    private String tempstring;
+    private var tempstring: String? = null
 
-    class M_QuickSaveResponse implements MenuRoutine {
-        @Override
-        public void invoke(int ch) {
-            if (ch == 'y') {
-                DoSave(quickSaveSlot);
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx);
+    internal inner class M_QuickSaveResponse : MenuRoutine {
+        override fun invoke(ch: Int) {
+            if (ch == 'y'.code) {
+                DoSave(quickSaveSlot)
+                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx)
             }
         }
     }
 
-    private void QuickSave() {
+    private fun QuickSave() {
         if (!DOOM.usergame) {
-            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_oof);
-            return;
+            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_oof)
+            return
         }
-
-        if (DOOM.gamestate != gamestate_t.GS_LEVEL)
-            return;
-
+        if (DOOM.gamestate != gamestate_t.GS_LEVEL) return
         if (quickSaveSlot < 0) {
-            StartControlPanel();
-            ReadSaveStrings();
-            SetupNextMenu(SaveDef);
-            quickSaveSlot = -2; // means to pick a slot now
-            return;
+            StartControlPanel()
+            ReadSaveStrings()
+            SetupNextMenu(SaveDef)
+            quickSaveSlot = -2 // means to pick a slot now
+            return
         }
-        tempstring = String.format(QSPROMPT,C2JUtils.nullTerminatedString(savegamestrings[quickSaveSlot]));
-        StartMessage(tempstring,this.QuickSaveResponse,true);
+        tempstring = String.format(englsh.QSPROMPT, C2JUtils.nullTerminatedString(savegamestrings[quickSaveSlot]))
+        StartMessage(tempstring, QuickSaveResponse, true)
     }
 
     //
     // M_QuickLoad
     //
-    class M_QuickLoadResponse implements MenuRoutine {
-        @Override
-        public void invoke(int ch) {
-            if (ch == 'y') {
-                LoadSelect.invoke(quickSaveSlot);
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx);
+    internal inner class M_QuickLoadResponse : MenuRoutine {
+        override fun invoke(ch: Int) {
+            if (ch == 'y'.code) {
+                LoadSelect!!.invoke(quickSaveSlot)
+                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx)
             }
         }
     }
 
-    class M_QuitResponse implements MenuRoutine {
-        @Override
-        public void invoke(int ch) {
-            if (ch != 'y')
-                return;
+    internal inner class M_QuitResponse : MenuRoutine {
+        override fun invoke(ch: Int) {
+            if (ch != 'y'.code) return
             if (!DOOM.netgame) {
-                if (DOOM.isCommercial())
-                    DOOM.doomSound.StartSound(null, quitsounds2[(DOOM.gametic >> 2) & 7]);
-                else
-                    DOOM.doomSound.StartSound(null, quitsounds[(DOOM.gametic >> 2) & 7]);
+                if (DOOM.isCommercial()) DOOM.doomSound.StartSound(
+                    null,
+                    quitsounds2[DOOM.gametic shr 2 and 7]
+                ) else DOOM.doomSound.StartSound(null, quitsounds[DOOM.gametic shr 2 and 7])
                 // TI.WaitVBL(105);
             }
-            DOOM.doomSystem.Quit();
+            DOOM.doomSystem.Quit()
         }
     }
 
-    public void QuickLoad() {
+    fun QuickLoad() {
         if (DOOM.netgame) {
-            StartMessage(QLOADNET, null, false);
-            return;
+            StartMessage(englsh.QLOADNET, null, false)
+            return
         }
-
         if (quickSaveSlot < 0) {
-            StartMessage(QSAVESPOT, null, false);
-            return;
+            StartMessage(englsh.QSAVESPOT, null, false)
+            return
         }
-        tempstring = String.format(QLPROMPT, C2JUtils.nullTerminatedString(savegamestrings[quickSaveSlot]));
-        StartMessage(tempstring, QuickLoadResponse, true);
+        tempstring = String.format(englsh.QLPROMPT, C2JUtils.nullTerminatedString(savegamestrings[quickSaveSlot]))
+        StartMessage(tempstring, QuickLoadResponse, true)
     }
 
-    class M_Sound implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            SetupNextMenu(SoundDef);
+    internal inner class M_Sound : MenuRoutine {
+        override fun invoke(choice: Int) {
+            SetupNextMenu(SoundDef)
         }
     }
 
-    class M_SfxVol implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            switch (choice) {
-            case 0:
-                if (DOOM.snd_SfxVolume != 0)
-                    DOOM.snd_SfxVolume--;
-                break;
-            case 1:
-                if (DOOM.snd_SfxVolume < 15)
-                    DOOM.snd_SfxVolume++;
-                break;
+    internal inner class M_SfxVol : MenuRoutine {
+        override fun invoke(choice: Int) {
+            when (choice) {
+                0 -> if (DOOM.snd_SfxVolume != 0) DOOM.snd_SfxVolume--
+                1 -> if (DOOM.snd_SfxVolume < 15) DOOM.snd_SfxVolume++
             }
-
-           DOOM.doomSound.SetSfxVolume(DOOM.snd_SfxVolume *8);
+            DOOM.doomSound.SetSfxVolume(DOOM.snd_SfxVolume * 8)
         }
     }
 
-    class M_MusicVol implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            switch (choice) {
-            case 0:
-                if (DOOM.snd_MusicVolume != 0)
-                    DOOM.snd_MusicVolume--;
-                break;
-            case 1:
-                if (DOOM.snd_MusicVolume < 15)
-                    DOOM.snd_MusicVolume++;
-                break;
+    internal inner class M_MusicVol : MenuRoutine {
+        override fun invoke(choice: Int) {
+            when (choice) {
+                0 -> if (DOOM.snd_MusicVolume != 0) DOOM.snd_MusicVolume--
+                1 -> if (DOOM.snd_MusicVolume < 15) DOOM.snd_MusicVolume++
             }
-
-            DOOM.doomSound.SetMusicVolume(DOOM.snd_MusicVolume*8);
+            DOOM.doomSound.SetMusicVolume(DOOM.snd_MusicVolume * 8)
         }
     }
 
     //
     // M_Episode
     //
-    private int epi;
+    private var epi = 0
 
-    class M_VerifyNightmare implements MenuRoutine {
-        @Override
-        public void invoke(int ch) {
-            if (ch != 'y')
-                return;
-
-            DOOM.DeferedInitNew(skill_t.sk_nightmare, epi + 1, 1);
-            ClearMenus();
+    internal inner class M_VerifyNightmare : MenuRoutine {
+        override fun invoke(ch: Int) {
+            if (ch != 'y'.code) return
+            DOOM.DeferedInitNew(skill_t.sk_nightmare, epi + 1, 1)
+            ClearMenus()
         }
     }
 
     /**
      * M_ReadThis
      */
-
-    class M_ReadThis implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            choice = 0;
-            SetupNextMenu(ReadDef1);
+    internal inner class M_ReadThis : MenuRoutine {
+        override fun invoke(choice: Int) {
+            var choice = choice
+            choice = 0
+            SetupNextMenu(ReadDef1)
         }
     }
 
-    class M_ReadThis2 implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            choice = 0;
-            SetupNextMenu(ReadDef2);
+    internal inner class M_ReadThis2 : MenuRoutine {
+        override fun invoke(choice: Int) {
+            var choice = choice
+            choice = 0
+            SetupNextMenu(ReadDef2)
         }
     }
 
-    class M_FinishReadThis implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            choice = 0;
-            SetupNextMenu(MainDef);
+    internal inner class M_FinishReadThis : MenuRoutine {
+        override fun invoke(choice: Int) {
+            var choice = choice
+            choice = 0
+            SetupNextMenu(MainDef)
         }
     }
 
     //
     // M_QuitDOOM
     //
-
-    class M_QuitDOOM implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
+    internal inner class M_QuitDOOM : MenuRoutine {
+        override fun invoke(choice: Int) {
             // We pick index 0 which is language sensitive,
             // or one at random, between 1 and maximum number.
-            if (DOOM.language != Language_t.english)
-                endstring = endmsg[0] + "\n\n" + DOSY;
-            else
-                endstring =
-                    endmsg[(DOOM.gametic % (NUM_QUITMESSAGES - 2)) + 1] + "\n\n"
-                            + DOSY;
-            StartMessage(endstring, QuitResponse, true);
+            endstring =
+                if (DOOM.language != Language_t.english) """
+     ${dstrings.endmsg[0]}
+     
+     ${englsh.DOSY}
+     """.trimIndent() else """
+     ${dstrings.endmsg[DOOM.gametic % (dstrings.NUM_QUITMESSAGES - 2) + 1]}
+     
+     ${englsh.DOSY}
+     """.trimIndent()
+            StartMessage(endstring, QuitResponse, true)
         }
     }
 
-    class M_QuitGame implements MenuRoutine {
-        @Override
-        public void invoke(int ch) {
-            if (ch != 'y')
-                return;
+    internal inner class M_QuitGame : MenuRoutine {
+        override fun invoke(ch: Int) {
+            if (ch != 'y'.code) return
             if (!DOOM.netgame) {
-                if (DOOM.isCommercial())
-                DOOM.doomSound.StartSound(null,quitsounds2[(DOOM.gametic>>2)&7]);
-                else
-                DOOM.doomSound.StartSound(null,quitsounds[(DOOM.gametic>>2)&7]);
-                DOOM.doomSystem.WaitVBL(105);
+                if (DOOM.isCommercial()) DOOM.doomSound.StartSound(
+                    null,
+                    quitsounds2[DOOM.gametic shr 2 and 7]
+                ) else DOOM.doomSound.StartSound(null, quitsounds[DOOM.gametic shr 2 and 7])
+                DOOM.doomSystem.WaitVBL(105)
             }
-           DOOM.doomSystem.Quit ();
+            DOOM.doomSystem.Quit()
         }
     }
 
-    class M_SizeDisplay implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            switch (choice) {
-            case 0:
-                if (screenSize > 0) {
-                    screenblocks--;
-                    screenSize--;
+    internal inner class M_SizeDisplay : MenuRoutine {
+        override fun invoke(choice: Int) {
+            when (choice) {
+                0 -> if (screenSize > 0) {
+                    screenBlocks--
+                    screenSize--
                 }
-                break;
-            case 1:
-                if (screenSize < 8) {
-                    screenblocks++;
-                    screenSize++;
+                1 -> if (screenSize < 8) {
+                    screenBlocks++
+                    screenSize++
                 }
-                break;
             }
-
-            DOOM.sceneRenderer.SetViewSize (screenblocks, detailLevel);
+            DOOM.sceneRenderer.SetViewSize(screenBlocks, detailLevel)
         }
-
     }
 
-    class M_Options implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            SetupNextMenu(OptionsDef);
+    internal inner class M_Options : MenuRoutine {
+        override fun invoke(choice: Int) {
+            SetupNextMenu(OptionsDef)
         }
-
     }
 
-    class M_NewGame implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
+    internal inner class M_NewGame : MenuRoutine {
+        override fun invoke(choice: Int) {
             if (DOOM.netgame && !DOOM.demoplayback) {
-                StartMessage(NEWGAME, null, false);
-                return;
+                StartMessage(englsh.NEWGAME, null, false)
+                return
             }
-
-            if (DOOM.isCommercial())
-                SetupNextMenu(NewDef);
-            else
-                SetupNextMenu(EpiDef);
+            if (DOOM.isCommercial()) SetupNextMenu(NewDef) else SetupNextMenu(EpiDef)
         }
-
     }
 
-    public void StartMessage(String string, MenuRoutine routine, boolean input) {
-        messageLastMenuActive = DOOM.menuactive;
-        messageToPrint = true;
-        messageString = string;
-        messageRoutine = routine;
-        messageNeedsInput = input;
-        DOOM.menuactive = true; // "true"
+    fun StartMessage(string: String?, routine: MenuRoutine?, input: Boolean) {
+        messageLastMenuActive = DOOM.menuactive
+        messageToPrint = true
+        messageString = string
+        messageRoutine = routine
+        messageNeedsInput = input
+        DOOM.menuactive = true // "true"
     }
 
-    public void StopMessage() {
-        DOOM.menuactive = messageLastMenuActive;
-        messageToPrint = false;
+    fun StopMessage() {
+        DOOM.menuactive = messageLastMenuActive
+        messageToPrint = false
     }
 
     /**
      * Find string width from hu_font chars
      */
-    public int StringWidth(char[] string) {
-        int i;
-        int w = 0;
-        int c;
-
-        for (i = 0; i < C2JUtils.strlen(string); i++) {
-            c = Character.toUpperCase(string[i]) - HU_FONTSTART;
-            if (c < 0 || c >= HU_FONTSIZE)
-                w += 4;
-            else
-                w += hu_font[c].width;
+    fun StringWidth(string: CharArray): Int {
+        var i: Int
+        var w = 0
+        var c: Int
+        i = 0
+        while (i < C2JUtils.strlen(string)) {
+            c = string[i].uppercaseChar().code - Defines.HU_FONTSTART
+            w += if (c < 0 || c >= Defines.HU_FONTSIZE) 4 else hu_font[c]!!.width.toInt()
+            i++
         }
-
-        return w;
+        return w
     }
 
     /**
      * Find string height from hu_font chars.
-     * 
+     *
      * Actually it just counts occurences of 'n' and adds height to height.
      */
-    private int StringHeight(char[] string) {
-        int i;
-        int h;
-        int height = hu_font[0].height;
-
-        h = height;
-        for (i = 0; i < string.length; i++)
-            if (string[i] == '\n')
-                h += height;
-
-        return h;
+    private fun StringHeight(string: CharArray): Int {
+        var i: Int
+        var h: Int
+        val height = hu_font[0]!!.height.toInt()
+        h = height
+        i = 0
+        while (i < string.size) {
+            if (string[i] == '\n') h += height
+            i++
+        }
+        return h
     }
 
     /**
      * Find string height from hu_font chars
      */
-    private int StringHeight(String string) {
-        return this.StringHeight(string.toCharArray());
+    private fun StringHeight(string: String?): Int {
+        return this.StringHeight(string!!.toCharArray())
     }
 
     /**
      * Write a string using the hu_font
      */
-
-    private void WriteText(int x, int y, char[] string) {
-        int w;
-        char[] ch;
-        int c;
-        int cx;
-        int cy;
-
-        ch = string;
-        int chptr = 0;
-        cx = x;
-        cy = y;
-
-        while (chptr<ch.length) {
-            c = ch[chptr];
-            chptr++;
-            if (c == 0)
-                break;
-            if (c == '\n') {
-                cx = x;
-                cy += 12;
-                continue;
+    private fun WriteText(x: Int, y: Int, string: CharArray) {
+        var w: Int
+        val ch: CharArray
+        var c: Int
+        var cx: Int
+        var cy: Int
+        ch = string
+        var chptr = 0
+        cx = x
+        cy = y
+        while (chptr < ch.size) {
+            c = ch[chptr].code
+            chptr++
+            if (c == 0) break
+            if (c == '\n'.code) {
+                cx = x
+                cy += 12
+                continue
             }
-            
-            c = Character.toUpperCase(c) - HU_FONTSTART;
-            if (c < 0 || c >= HU_FONTSIZE) {
-                cx += 4;
-                continue;
+            c = c.toChar().uppercaseChar().code - Defines.HU_FONTSTART
+            if (c < 0 || c >= Defines.HU_FONTSIZE) {
+                cx += 4
+                continue
             }
-
-            w = hu_font[c].width;
-            if (cx + w > DOOM.vs.getScreenWidth())
-                break;
-            
-            DOOM.graphicSystem.DrawPatchScaled(FG, hu_font[c], DOOM.vs, cx, cy);
-            cx += w;
+            w = hu_font[c]!!.width.toInt()
+            if (cx + w > DOOM.vs.getScreenWidth()) break
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, hu_font[c]!!, DOOM.vs, cx, cy)
+            cx += w
         }
-
     }
 
-    private void WriteText(int x, int y, String string) {
-        if (string == null || string.length() == 0)
-            return;
-
-        int w;
-        int cx;
-        int cy;
-
-        int chptr = 0;
-        char c;
-
-        cx = x;
-        cy = y;
-
-        while (chptr<string.length()) {
-            c = string.charAt(chptr++);
-            if (c == 0)
-                break;
+    private fun WriteText(x: Int, y: Int, string: String?) {
+        if (string == null || string.length == 0) return
+        var w: Int
+        var cx: Int
+        var cy: Int
+        var chptr = 0
+        var c: Char
+        cx = x
+        cy = y
+        while (chptr < string.length) {
+            c = string[chptr++]
+            if (c.code == 0) break
             if (c == '\n') {
-                cx = x;
-                cy += 12;
-                continue;
+                cx = x
+                cy += 12
+                continue
             }
-
-            c = (char) (Character.toUpperCase(c) - HU_FONTSTART);
-            if (c < 0 || c >= HU_FONTSIZE) {
-                cx += 4;
-                continue;
+            c = (c.uppercaseChar().code - Defines.HU_FONTSTART).toChar()
+            if (c.code < 0 || c.code >= Defines.HU_FONTSIZE) {
+                cx += 4
+                continue
             }
-
-            w = hu_font[c].width;
-            if (cx + w > DOOM.vs.getScreenWidth())
-                break;
-            DOOM.graphicSystem.DrawPatchScaled(FG, hu_font[c], DOOM.vs, cx, cy);
-            cx += w;
+            w = hu_font[c.code]!!.width.toInt()
+            if (cx + w > DOOM.vs.getScreenWidth()) break
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, hu_font[c.code]!!, DOOM.vs, cx, cy)
+            cx += w
         }
-
     }
 
     // These belong to the responder.
-    
-    private int joywait = 0;
-
-    private int mousewait = 0;
-
-    private int mousey = 0;
-
-    private int lasty = 0;
-
-    private int mousex = 0;
-
-    private int lastx = 0;
-
-    @Override
+    private var joywait = 0
+    private var mousewait = 0
+    private var mousey = 0
+    private var lasty = 0
+    private var mousex = 0
+    private var lastx = 0
     @SourceCode.Compatible
-    @M_Menu.C(M_Responder)
-    public boolean Responder(event_t ev) {
-        final ScanCode sc;
-        
+    @SourceCode.M_Menu.C(SourceCode.M_Menu.M_Responder)
+    override fun Responder(ev: event_t): Boolean {
+        val sc: ScanCode
         if (ev.isType(evtype_t.ev_joystick) && joywait < DOOM.ticker.GetTime()) {
             // Joystick input
-            sc = ev.mapByJoy(joyEvent -> {
-                ScanCode r = SC_NULL;
+            sc = ev.mapByJoy { joyEvent ->
+                val joyEvent = joyEvent!!
+                var r = ScanCode.SC_NULL
                 if (joyEvent.y == -1) {
-                    r = SC_UP;
-                    joywait = DOOM.ticker.GetTime() + 5;
+                    r = ScanCode.SC_UP
+                    joywait = DOOM.ticker.GetTime() + 5
                 } else if (joyEvent.y == 1) {
-                    r = SC_DOWN;
-                    joywait = DOOM.ticker.GetTime() + 5;
+                    r = ScanCode.SC_DOWN
+                    joywait = DOOM.ticker.GetTime() + 5
                 }
-
                 if (joyEvent.x == -1) {
-                    r = SC_LEFT;
-                    joywait = DOOM.ticker.GetTime() + 2;
+                    r = ScanCode.SC_LEFT
+                    joywait = DOOM.ticker.GetTime() + 2
                 } else if (joyEvent.x == 1) {
-                    r = SC_RIGHT;
-                    joywait = DOOM.ticker.GetTime() + 2;
+                    r = ScanCode.SC_RIGHT
+                    joywait = DOOM.ticker.GetTime() + 2
                 }
-
                 if (joyEvent.isJoy(event_t.JOY_2)) {
-                    r = SC_BACKSPACE;
-                    joywait = DOOM.ticker.GetTime() + 5;
+                    r = ScanCode.SC_BACKSPACE
+                    joywait = DOOM.ticker.GetTime() + 5
                 } else if (joyEvent.isJoy(event_t.JOY_1)) {
-                    r = SC_ENTER;
-                    joywait = DOOM.ticker.GetTime() + 5;
+                    r = ScanCode.SC_ENTER
+                    joywait = DOOM.ticker.GetTime() + 5
                 }
-                return r;
-            });
+                r
+            }
         } else if (ev.isType(evtype_t.ev_mouse) && mousewait < DOOM.ticker.GetTime()) {
             // Mouse input 
-            if ((sc = ev.mapByMouse(mouseEvent -> {
-                ScanCode r = SC_NULL;
-                mousey += mouseEvent.y;
-                if (mousey < lasty - 30) {
-                    r = SC_DOWN;
-                    mousewait = DOOM.ticker.GetTime() + 5;
-                    mousey = lasty -= 30;
-                } else if (mousey > lasty + 30) {
-                    r = SC_UP;
-                    mousewait = DOOM.ticker.GetTime() + 5;
-                    mousey = lasty += 30;
-                }
-
-                mousex += mouseEvent.x;
-                if (mousex < lastx - 30) {
-                    r = SC_LEFT;
-                    mousewait = DOOM.ticker.GetTime() + 5;
-                    mousex = lastx -= 30;
-                } else if (mousex > lastx + 30) {
-                    r = SC_RIGHT;
-                    mousewait = DOOM.ticker.GetTime() + 5;
-                    mousex = lastx += 30;
-                }
-
-                if (mouseEvent.isMouse(event_t.MOUSE_RIGHT)) {
-                    r = SC_BACKSPACE;
-                    mousewait = DOOM.ticker.GetTime() + 15;
-                } else if (mouseEvent.isMouse(event_t.MOUSE_LEFT)) {
-                    r = SC_ENTER;
-                    mousewait = DOOM.ticker.GetTime() + 15;
-                }
-                return r;
-            })) == SC_NULL) { return false; }
+            if (ev.mapByMouse { mouseEvent ->
+                    val mouseEvent = mouseEvent!!
+                    var r = ScanCode.SC_NULL
+                    mousey += mouseEvent.y
+                    if (mousey < lasty - 30) {
+                        r = ScanCode.SC_DOWN
+                        mousewait = DOOM.ticker.GetTime() + 5
+                        lasty -= 30
+                        mousey = lasty
+                    } else if (mousey > lasty + 30) {
+                        r = ScanCode.SC_UP
+                        mousewait = DOOM.ticker.GetTime() + 5
+                        lasty += 30
+                        mousey = lasty
+                    }
+                    mousex += mouseEvent.x
+                    if (mousex < lastx - 30) {
+                        r = ScanCode.SC_LEFT
+                        mousewait = DOOM.ticker.GetTime() + 5
+                        lastx -= 30
+                        mousex = lastx
+                    } else if (mousex > lastx + 30) {
+                        r = ScanCode.SC_RIGHT
+                        mousewait = DOOM.ticker.GetTime() + 5
+                        lastx += 30
+                        mousex = lastx
+                    }
+                    if (mouseEvent.isMouse(event_t.MOUSE_RIGHT)) {
+                        r = ScanCode.SC_BACKSPACE
+                        mousewait = DOOM.ticker.GetTime() + 15
+                    } else if (mouseEvent.isMouse(event_t.MOUSE_LEFT)) {
+                        r = ScanCode.SC_ENTER
+                        mousewait = DOOM.ticker.GetTime() + 15
+                    }
+                    r
+                }.also { sc = it } == ScanCode.SC_NULL) {
+                return false
+            }
         } else if (ev.isType(evtype_t.ev_keydown)) {
-            sc = ev.getSC();
-        } else return false;
+            sc = ev.getSC()
+        } else return false
 
         // Save Game string input
         if (saveStringEnter) {
-            switch (sc) {
-                case SC_BACKSPACE:
-                    if (saveCharIndex > 0) {
-                        saveCharIndex--;
-                        savegamestrings[saveSlot][saveCharIndex] = 0;
-                    }
-                    break;
-                case SC_ESCAPE:
-                    saveStringEnter = false;
-                    C2JUtils.strcpy(savegamestrings[saveSlot], saveOldString);
-                    break;
-                case SC_ENTER:            	
-                    saveStringEnter = false;
-                    if (savegamestrings[saveSlot][0] != 0)
-                        DoSave(saveSlot);
-                    break;
-                default:
-                    char ch = Character.toUpperCase(sc.c);
+            when (sc) {
+                ScanCode.SC_BACKSPACE -> if (saveCharIndex > 0) {
+                    saveCharIndex--
+                    savegamestrings[saveSlot][saveCharIndex] = 0.toChar()
+                }
+                ScanCode.SC_ESCAPE -> {
+                    saveStringEnter = false
+                    C2JUtils.strcpy(savegamestrings[saveSlot], saveOldString)
+                }
+                ScanCode.SC_ENTER -> {
+                    saveStringEnter = false
+                    if (savegamestrings[saveSlot][0].code != 0) DoSave(saveSlot)
+                }
+                else -> {
+                    val ch = sc.c.uppercaseChar()
                     if (ch != ' ') {
-                        if (ch - HU_FONTSTART < 0 || ch - HU_FONTSTART >= HU_FONTSIZE) {
-                            break;
+                        if (ch.code.toByte() - Defines.HU_FONTSTART < 0 || ch.code.toByte() - Defines.HU_FONTSTART >= Defines.HU_FONTSIZE) {
+                            return true
                         }
                     }
-                    
-                    if (ch >= ' ' && ch <= 0x7F && saveCharIndex < SAVESTRINGSIZE - 1
-                        && StringWidth(savegamestrings[saveSlot]) < (SAVESTRINGSIZE - 2) * 8)
-                    {
-                        savegamestrings[saveSlot][saveCharIndex++] = ch;
-                        savegamestrings[saveSlot][saveCharIndex] = 0;
+                    if (ch >= ' ' && ch.code <= 0x7F && saveCharIndex < Defines.SAVESTRINGSIZE - 1 && StringWidth(
+                            savegamestrings[saveSlot]
+                        ) < (Defines.SAVESTRINGSIZE - 2) * 8
+                    ) {
+                        savegamestrings[saveSlot][saveCharIndex++] = ch
+                        savegamestrings[saveSlot][saveCharIndex] = 0.toChar()
                     }
-                    break;
+                }
             }
-            return true;
+            return true
         }
 
         // Take care of any messages that need input
         if (messageToPrint) {
-            if (messageNeedsInput == true && !(sc == SC_SPACE || sc == SC_N || sc == SC_Y || sc == SC_ESCAPE)) {
-                return false;
+            if (messageNeedsInput && !(sc == SC_SPACE || sc == SC_N || sc == SC_Y || sc != SC_ESCAPE)) {
+                return false
             }
-
-            DOOM.menuactive = messageLastMenuActive;
-            messageToPrint = false;
-            if (messageRoutine != null)
-                messageRoutine.invoke(sc.c);
-
-            DOOM.menuactive = false; // "false"
-            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx);
-            return true;
+            DOOM.menuactive = messageLastMenuActive
+            messageToPrint = false
+            if (messageRoutine != null) messageRoutine!!.invoke(sc.c.code)
+            DOOM.menuactive = false // "false"
+            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx)
+            return true
         }
-
-        if ((DOOM.devparm && sc == SC_F1) || sc == SC_PRTSCRN) {
-            DOOM.ScreenShot();
-            return true;
+        if (DOOM.devparm && sc == SC_F1 || sc == SC_PRTSCRN) {
+            DOOM.ScreenShot()
+            return true
         }
 
         // F-Keys
-        if (!DOOM.menuactive){
-            switch (sc) {
-            case SC_MINUS: // Screen size down
-                if (DOOM.automapactive || DOOM.headsUp.chat_on[0])
-                    return false;
-                SizeDisplay.invoke(0);
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov);
-                return true;
-
-            case SC_EQUALS: // Screen size up
-                if (DOOM.automapactive || DOOM.headsUp.chat_on[0])
-                    return false;
-                SizeDisplay.invoke(1);
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov);
-                return true;
-
-            case SC_F1: // Help key
-                StartControlPanel();
-
-                if (DOOM.isRegistered() || DOOM.isShareware())
-                    currentMenu = ReadDef2;
-                else
-                    currentMenu = ReadDef1;
-                itemOn = 0;
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                return true;
-
-            case SC_F2: // Save
-                StartControlPanel();
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                SaveGame.invoke(0);
-                return true;
-
-            case SC_F3: // Load
-                StartControlPanel();
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                LoadGame.invoke(0);
-                return true;
-
-            case SC_F4: // Sound Volume
-                StartControlPanel();
-                currentMenu = SoundDef;
-                itemOn = (short) sfx_vol;
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                return true;
-
-            case SC_F5: // Detail toggle
-                ChangeDetail.invoke(0);
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                return true;
-
-            case SC_F6: // Quicksave
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                QuickSave();
-                return true;
-
-            case SC_F7: // End game
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                EndGame.invoke(0);
-                return true;
-
-            case SC_F8: // Toggle messages
-                ChangeMessages.invoke(0);
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                return true;
-
-            case SC_F9: // Quickload
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                QuickLoad();
-                return true;
-
-            case SC_F10: // Quit DOOM
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                QuitDOOM.invoke(0);
-                return true;
-
-            case SC_F11: // gamma toggle
-                int usegamma = DOOM.graphicSystem.getUsegamma();
-                usegamma++;
-                if (usegamma > 4)
-                    usegamma = 0;
-                DOOM.players[DOOM.consoleplayer].message = gammamsg[usegamma];
-                DOOM.graphicSystem.setUsegamma(usegamma);
-                DOOM.autoMap.Repalette();
-                return true;
-                
-            default:
-            	break;
-
+        if (!DOOM.menuactive) {
+            when (sc) {
+                ScanCode.SC_MINUS -> {
+                    if (DOOM.automapactive || DOOM.headsUp.chat_on[0]) return false
+                    SizeDisplay!!.invoke(0)
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov)
+                    return true
+                }
+                ScanCode.SC_EQUALS -> {
+                    if (DOOM.automapactive || DOOM.headsUp.chat_on[0]) return false
+                    SizeDisplay!!.invoke(1)
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov)
+                    return true
+                }
+                ScanCode.SC_F1 -> {
+                    StartControlPanel()
+                    currentMenu = if (DOOM.isRegistered() || DOOM.isShareware()) ReadDef2 else ReadDef1
+                    itemOn = 0
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    return true
+                }
+                ScanCode.SC_F2 -> {
+                    StartControlPanel()
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    SaveGame!!.invoke(0)
+                    return true
+                }
+                ScanCode.SC_F3 -> {
+                    StartControlPanel()
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    LoadGame!!.invoke(0)
+                    return true
+                }
+                ScanCode.SC_F4 -> {
+                    StartControlPanel()
+                    currentMenu = SoundDef
+                    itemOn = sfx_vol.toShort()
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    return true
+                }
+                ScanCode.SC_F5 -> {
+                    ChangeDetail!!.invoke(0)
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    return true
+                }
+                ScanCode.SC_F6 -> {
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    QuickSave()
+                    return true
+                }
+                ScanCode.SC_F7 -> {
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    EndGame!!.invoke(0)
+                    return true
+                }
+                ScanCode.SC_F8 -> {
+                    ChangeMessages!!.invoke(0)
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    return true
+                }
+                ScanCode.SC_F9 -> {
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    QuickLoad()
+                    return true
+                }
+                ScanCode.SC_F10 -> {
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                    QuitDOOM!!.invoke(0)
+                    return true
+                }
+                ScanCode.SC_F11 -> {
+                    var usegamma = DOOM.graphicSystem.getUsegamma()
+                    usegamma++
+                    if (usegamma > 4) usegamma = 0
+                    DOOM.players[DOOM.consoleplayer].message = gammamsg[usegamma]
+                    DOOM.graphicSystem.setUsegamma(usegamma)
+                    DOOM.autoMap.Repalette()
+                    return true
+                }
+                else -> {}
             }
-        } else if (sc == SC_F5 && DOOM.ticker instanceof DelegateTicker) { // Toggle ticker
-            ((DelegateTicker) DOOM.ticker).changeTicker();
-            System.err.println("Warning! Ticker changed; time reset");
-            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_radio);
-            return true;
+        } else if (sc == ScanCode.SC_F5 && DOOM.ticker is DelegateTicker) { // Toggle ticker
+            DOOM.ticker.changeTicker()
+            System.err.println("Warning! Ticker changed; time reset")
+            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_radio)
+            return true
         }
-        
+
         // Pop-up menu?
         if (!DOOM.menuactive) {
-            if (sc == SC_ESCAPE) {
-                StartControlPanel();
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
-                return true;
+            if (sc == ScanCode.SC_ESCAPE) {
+                StartControlPanel()
+                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
+                return true
             }
-            return false;
+            return false
         }
-
-        // Keys usable within menu
-        switch (sc) {
-            case SC_DOWN:
+        when (sc) {
+            ScanCode.SC_DOWN -> {
                 do {
-                    if (itemOn + 1 > currentMenu.numitems - 1) {
-                        itemOn = 0;
+                    if (itemOn + 1 > currentMenu!!.numitems - 1) {
+                        itemOn = 0
                     } else {
-                        itemOn++;
+                        itemOn++
                     }
-                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop);
-                } while (currentMenu.menuitems[itemOn].status == -1);
-                return true;
-
-            case SC_UP:
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop)
+                } while (currentMenu!!.menuitems[itemOn.toInt()].status == -1)
+                return true
+            }
+            ScanCode.SC_UP -> {
                 do {
-                    if (itemOn == 0) {
-                        itemOn = (short) (currentMenu.numitems - 1);
+                    if (itemOn.toInt() == 0) {
+                        itemOn = (currentMenu!!.numitems - 1).toShort()
                     } else {
-                        itemOn--;
+                        itemOn--
                     }
-                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop);
-                } while (currentMenu.menuitems[itemOn].status == -1);
-                return true;
-
-            case SC_LEFT:
-                if ((currentMenu.menuitems[itemOn].routine != null)
-                        && (currentMenu.menuitems[itemOn].status == 2)) {
-                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov);
-                    currentMenu.menuitems[itemOn].routine.invoke(0);
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop)
+                } while (currentMenu!!.menuitems[itemOn.toInt()].status == -1)
+                return true
+            }
+            ScanCode.SC_LEFT -> {
+                if (currentMenu!!.menuitems[itemOn.toInt()].routine != null && currentMenu!!.menuitems[itemOn.toInt()].status == 2) {
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov)
+                    currentMenu!!.menuitems[itemOn.toInt()].routine!!.invoke(0)
                 }
-                return true;
-
-            case SC_RIGHT:
-                if ((currentMenu.menuitems[itemOn].routine != null)
-                        && (currentMenu.menuitems[itemOn].status == 2)) {
-                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov);
-                    currentMenu.menuitems[itemOn].routine.invoke(1);
+                return true
+            }
+            ScanCode.SC_RIGHT -> {
+                if (currentMenu!!.menuitems[itemOn.toInt()].routine != null && currentMenu!!.menuitems[itemOn.toInt()].status == 2) {
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov)
+                    currentMenu!!.menuitems[itemOn.toInt()].routine!!.invoke(1)
                 }
-                return true;
-
-            case SC_NPENTER:
-            case SC_ENTER: {
-                if ((currentMenu.menuitems[itemOn].routine != null) && currentMenu.menuitems[itemOn].status != 0) {
-                    currentMenu.lastOn = itemOn;
-                    if (currentMenu.menuitems[itemOn].status == 2) {
-                        currentMenu.menuitems[itemOn].routine.invoke(1); // right
+                return true
+            }
+            ScanCode.SC_NPENTER, ScanCode.SC_ENTER -> {
+                if (currentMenu!!.menuitems[itemOn.toInt()].routine != null && currentMenu!!.menuitems[itemOn.toInt()].status != 0) {
+                    currentMenu!!.lastOn = itemOn.toInt()
+                    if (currentMenu!!.menuitems[itemOn.toInt()].status == 2) {
+                        currentMenu!!.menuitems[itemOn.toInt()].routine!!.invoke(1) // right
                         // arrow
-                        DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov);
+                        DOOM.doomSound.StartSound(null, sfxenum_t.sfx_stnmov)
                     } else {
-                        currentMenu.menuitems[itemOn].routine.invoke(itemOn);
-                        DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pistol);
+                        currentMenu!!.menuitems[itemOn.toInt()].routine!!.invoke(itemOn.toInt())
+                        DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pistol)
                     }
                 }
-                return true;
+                return true
             }
-
-            case SC_ESCAPE:
-                currentMenu.lastOn = itemOn;
-                ClearMenus();
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx);
-                return true;
-
-            case SC_BACKSPACE:
-                currentMenu.lastOn = itemOn;
-                if (currentMenu.prevMenu != null) {
-                    currentMenu = currentMenu.prevMenu;
-                    itemOn = (short) currentMenu.lastOn;
-                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn);
+            ScanCode.SC_ESCAPE -> {
+                currentMenu!!.lastOn = itemOn.toInt()
+                ClearMenus()
+                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchx)
+                return true
+            }
+            ScanCode.SC_BACKSPACE -> {
+                currentMenu!!.lastOn = itemOn.toInt()
+                if (currentMenu!!.prevMenu != null) {
+                    currentMenu = currentMenu!!.prevMenu
+                    itemOn = currentMenu!!.lastOn.toShort()
+                    DOOM.doomSound.StartSound(null, sfxenum_t.sfx_swtchn)
                 }
-                return true;
-
-            default:
-                for (int i = itemOn + 1; i < currentMenu.numitems; i++) {
-                    if (currentMenu.menuitems[i].alphaKey == sc) {
-                        itemOn = (short) i;
-                        DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop);
-                        return true;
+                return true
+            }
+            else -> {
+                run {
+                    var i = itemOn + 1
+                    while (i < currentMenu!!.numitems) {
+                        if (currentMenu!!.menuitems[i].alphaKey == sc) {
+                            itemOn = i.toShort()
+                            DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop)
+                            return true
+                        }
+                        i++
                     }
                 }
-                for (int i = 0; i <= itemOn; i++) {
-                    if (currentMenu.menuitems[i].alphaKey == sc) {
-                        itemOn = (short) i;
-                        DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop);
-                        return true;
+                var i = 0
+                while (i <= itemOn) {
+                    if (currentMenu!!.menuitems[i].alphaKey == sc) {
+                        itemOn = i.toShort()
+                        DOOM.doomSound.StartSound(null, sfxenum_t.sfx_pstop)
+                        return true
                     }
+                    i++
                 }
-                break;
-
+            }
         }
-
-        return false;
+        return false
     }
 
     /**
      * M_StartControlPanel
      */
-    @Override
     @SourceCode.Exact
-    @M_Menu.C(M_StartControlPanel)
-    public void StartControlPanel() {
+    @SourceCode.M_Menu.C(SourceCode.M_Menu.M_StartControlPanel)
+    override fun StartControlPanel() {
         // intro might call this repeatedly
         if (DOOM.menuactive) {
-            return;
+            return
         }
-
-        DOOM.menuactive = true;
-        currentMenu = MainDef; // JDC
-        itemOn = (short) currentMenu.lastOn; // JDC
+        DOOM.menuactive = true
+        currentMenu = MainDef // JDC
+        itemOn = currentMenu!!.lastOn.toShort() // JDC
     }
 
     /**
      * M_Drawer Called after the view has been rendered, but before it has been
      * blitted.
      */
-    public void Drawer() {
-
-        int x;
-        int y;
-        int max;
-        char[] string = new char[40];
-        char[] msstring;
-        int start;
-        inhelpscreens = false; // Horiz. & Vertically center string and print
+    override fun Drawer() {
+        var x: Int
+        var y: Int
+        val max: Int
+        val string = CharArray(40)
+        val msstring: CharArray
+        var start: Int
+        inhelpscreens = false // Horiz. & Vertically center string and print
         // it.
         if (messageToPrint) {
-            start = 0;
-            y = 100 - this.StringHeight(messageString) / 2;
-            msstring = messageString.toCharArray();
-            while (start < messageString.length()) {
-                int i = 0;
-                for (i = 0; i < messageString.length() - start; i++) {
+            start = 0
+            y = 100 - this.StringHeight(messageString) / 2
+            msstring = messageString!!.toCharArray()
+            while (start < messageString!!.length) {
+                var i = 0
+                i = 0
+                while (i < messageString!!.length - start) {
                     if (msstring[start + i] == '\n') {
-                        C2JUtils.memset(string, (char) 0, 40);
-                        C2JUtils.strcpy(string, msstring, start, i);
-                        start += i + 1;
-                        break;
+                        C2JUtils.memset(string, 0.toChar(), 40)
+                        C2JUtils.strcpy(string, msstring, start, i)
+                        start += i + 1
+                        break
                     }
+                    i++
                 }
-
-                if (i == (messageString.length() - start)) {
-                    C2JUtils.strcpy(string, msstring, start);
-                    start += i;
+                if (i == messageString!!.length - start) {
+                    C2JUtils.strcpy(string, msstring, start)
+                    start += i
                 }
-                x = 160 - this.StringWidth(string) / 2;
-                this.WriteText(x, y, string);
-                y += hu_font[0].height;
+                x = 160 - StringWidth(string) / 2
+                this.WriteText(x, y, string)
+                y += hu_font[0]!!.height.toInt()
             }
-            return;
+            return
         }
         if (!DOOM.menuactive) {
-            return;
+            return
         }
-        if (currentMenu.routine != null) {
-            currentMenu.routine.invoke(); // call Draw routine
+        if (currentMenu!!.routine != null) {
+            currentMenu!!.routine.invoke() // call Draw routine
         }
         // DRAW MENU
-        x = currentMenu.x;
-        y = currentMenu.y;
-        max = currentMenu.numitems;
-        for (int i = 0; i < max; i++) {
-            if (currentMenu.menuitems[i].name != null && !"".equals(currentMenu.menuitems[i].name)) {
-                DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName(
-                        currentMenu.menuitems[i].name, PU_CACHE), DOOM.vs, x, y);
+        x = currentMenu!!.x
+        y = currentMenu!!.y
+        max = currentMenu!!.numitems
+        for (i in 0 until max) {
+            if (currentMenu!!.menuitems[i].name != null && "" != currentMenu!!.menuitems[i].name) {
+                DOOM.graphicSystem.DrawPatchScaled(
+                    DoomScreen.FG, DOOM.wadLoader.CachePatchName(
+                        currentMenu!!.menuitems[i].name, Defines.PU_CACHE
+                    ), DOOM.vs, x, y
+                )
             }
-            y += LINEHEIGHT;
+            y += LINEHEIGHT
         }
 
         // DRAW SKULL
-        DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName(skullName[whichSkull],
-                PU_CACHE), DOOM.vs, x + SKULLXOFF, currentMenu.y - 5 + itemOn
-                * LINEHEIGHT);
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.FG, DOOM.wadLoader.CachePatchName(
+                skullName[whichSkull.toInt()],
+                Defines.PU_CACHE
+            ), DOOM.vs, x + SKULLXOFF, currentMenu!!.y - 5 + itemOn
+                    * LINEHEIGHT
+        )
     }
 
     //
     // M_ClearMenus
     //
-    public void ClearMenus() {
-        DOOM.menuactive = false;
+    override fun ClearMenus() {
+        DOOM.menuactive = false
         //Engine.getEngine().window.setMouseCaptured();
-        DOOM.graphicSystem.forcePalette();
-        
+        DOOM.graphicSystem.forcePalette()
+
         // MAES: was commented out :-/
         //if (!DM.netgame && DM.usergame && DM.paused)
         //    DM.setPaused(true);
@@ -1337,501 +1227,472 @@ public class Menu<T, V> extends AbstractDoomMenu<T, V> {
     /**
      * M_SetupNextMenu
      */
-    public void SetupNextMenu(menu_t menudef) {
-        currentMenu = menudef;
-        itemOn = (short) currentMenu.lastOn;
+    fun SetupNextMenu(menudef: menu_t?) {
+        currentMenu = menudef
+        itemOn = currentMenu!!.lastOn.toShort()
     }
 
     /**
      * M_Ticker
      */
-    @Override
     @SourceCode.Exact
-    @M_Menu.C(M_Ticker)
-    public void Ticker() {
+    @SourceCode.M_Menu.C(SourceCode.M_Menu.M_Ticker)
+    override fun Ticker() {
         if (--skullAnimCounter <= 0) {
-            whichSkull ^= 1;
-            skullAnimCounter = 8;
+            whichSkull = (whichSkull.toInt() xor 1).toShort()
+            skullAnimCounter = 8
         }
     }
 
     /**
      * M_Init
      */
-    public void Init() {
-        
+    override fun Init() {
+
         // Init menus.
-        this.initMenuRoutines();
-        this.initDrawRoutines();
-        this.initMenuItems();
-        this.hu_font=DOOM.headsUp.getHUFonts();
-
-        currentMenu = MainDef;
-        DOOM.menuactive = false;
-        itemOn = (short) currentMenu.lastOn;
-        whichSkull = 0;
-        skullAnimCounter = 10;
-        screenSize = screenblocks - 3;
-        messageToPrint = false;
-        messageString = null;
-        messageLastMenuActive = DOOM.menuactive;
-        quickSaveSlot = -1;
-
-        // Here we could catch other version dependencies,
-        // like HELP1/2, and four episodes.
-
-        switch (DOOM.getGameMode()) {
-        case freedm:
-        case freedoom2:
-        case commercial:
-        case pack_plut:
-        case pack_tnt:
-            // This is used because DOOM 2 had only one HELP
-            // page. I use CREDIT as second page now, but
-            // kept this hack for educational purposes.
-            MainMenu[readthis] = MainMenu[quitdoom];
-            MainDef.numitems--;
-            MainDef.y += 8;
-            NewDef.prevMenu = MainDef;
-            ReadDef1.routine = DrawReadThis1;
-            ReadDef1.x = 330;
-            ReadDef1.y = 165;
-            ReadMenu1[0].routine = FinishReadThis;
-            break;
-        case shareware:
-            // Episode 2 and 3 are handled,
-            // branching to an ad screen.
-            // We need to remove the fourth episode.
-        case registered:
-            EpiDef.numitems--;
-            break;
-        case freedoom1:
-        case retail:
-            // We are fine.
-        default:
-            break;
+        initMenuRoutines()
+        initDrawRoutines()
+        initMenuItems()
+        hu_font = DOOM.headsUp.getHUFonts() as Array<patch_t?>
+        currentMenu = MainDef
+        DOOM.menuactive = false
+        itemOn = currentMenu!!.lastOn.toShort()
+        whichSkull = 0
+        skullAnimCounter = 10
+        screenSize = screenBlocks - 3
+        messageToPrint = false
+        messageString = null
+        messageLastMenuActive = DOOM.menuactive
+        quickSaveSlot = -1
+        when (DOOM.getGameMode()) {
+            GameMode.freedm, GameMode.freedoom2, GameMode.commercial, GameMode.pack_plut, GameMode.pack_tnt -> {
+                // This is used because DOOM 2 had only one HELP
+                // page. I use CREDIT as second page now, but
+                // kept this hack for educational purposes.
+                MainMenu[readthis] = MainMenu[quitdoom]
+                MainDef!!.numitems--
+                MainDef!!.y += 8
+                NewDef!!.prevMenu = MainDef
+                ReadDef1!!.routine = DrawReadThis1
+                ReadDef1!!.x = 330
+                ReadDef1!!.y = 165
+                ReadMenu1[0].routine = FinishReadThis
+            }
+            GameMode.shareware, GameMode.registered -> EpiDef!!.numitems--
+            GameMode.freedoom1, GameMode.retail -> {}
+            else -> {}
         }
-
     }
-
-    
 
     /**
      * M_DrawText Returns the final X coordinate HU_Init must have been called
      * to init the font. Unused?
-     * 
+     *
      * @param x
      * @param y
      * @param direct
      * @param string
      * @return
      */
-
-    public int DrawText(int x, int y, boolean direct, String string) {
-        int c;
-        int w;
-        int ptr = 0;
-        
-        while ((c=string.charAt(ptr)) > 0) {
-            c = Character.toUpperCase(c) - HU_FONTSTART;
-            ptr++;
-            if (c < 0 || c > HU_FONTSIZE) {
-                x += 4;
-                continue;
+    fun DrawText(x: Int, y: Int, direct: Boolean, string: String): Int {
+        var x = x
+        var c: Int
+        var w: Int
+        var ptr = 0
+        while (string[ptr].also { c = it.toInt() }.code > 0) {
+            c = c.toChar().uppercaseChar().code - Defines.HU_FONTSTART
+            ptr++
+            if (c < 0 || c > Defines.HU_FONTSIZE) {
+                x += 4
+                continue
             }
-
-            w = hu_font[c].width;
-            if (x + w > DOOM.vs.getScreenWidth())
-                break;
-            if (direct)
-                DOOM.graphicSystem.DrawPatchScaled(FG, hu_font[c], DOOM.vs, x, y);
-            else
-                DOOM.graphicSystem.DrawPatchScaled(FG, hu_font[c], DOOM.vs, x, y);
-            x += w;
+            w = hu_font[c]!!.width.toInt()
+            if (x + w > DOOM.vs.getScreenWidth()) break
+            if (direct) DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                hu_font[c]!!,
+                DOOM.vs,
+                x,
+                y
+            ) else DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, hu_font[c]!!, DOOM.vs, x, y)
+            x += w
         }
-
-        return x;
+        return x
     }
-
-    
 
     // ////////////////////////// DRAWROUTINES
     // //////////////////////////////////
-
-    class M_DrawEpisode
-            implements DrawRoutine {
-
-        @Override
-        public void invoke() {
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_EPISOD"), DOOM.vs, 54, 38);
+    internal inner class M_DrawEpisode : DrawRoutine {
+        override fun invoke() {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                DOOM.wadLoader.CachePatchName("M_EPISOD"),
+                DOOM.vs,
+                54,
+                38
+            )
         }
-
     }
 
     /**
      * M_LoadGame & Cie.
      */
-
-    class M_DrawLoad
-            implements DrawRoutine {
-        @Override
-        public void invoke() {
-            int i;
-
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_LOADG"), DOOM.vs, 72, 28);
-            for (i = 0; i < load_end; i++) {
-                DrawSaveLoadBorder(LoadDef.x, LoadDef.y + LINEHEIGHT * i);
-                WriteText(LoadDef.x, LoadDef.y + LINEHEIGHT * i,
-                    savegamestrings[i]);
+    internal inner class M_DrawLoad : DrawRoutine {
+        override fun invoke() {
+            var i: Int
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_LOADG"), DOOM.vs, 72, 28)
+            i = 0
+            while (i < load_end) {
+                DrawSaveLoadBorder(LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i)
+                WriteText(
+                    LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i,
+                    savegamestrings[i]
+                )
+                i++
             }
-
         }
     }
 
-    class M_DrawMainMenu
-            implements DrawRoutine {
-        @Override
-        public void invoke() {
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_DOOM"), DOOM.vs, 94, 2);
+    internal inner class M_DrawMainMenu : DrawRoutine {
+        override fun invoke() {
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_DOOM"), DOOM.vs, 94, 2)
         }
     }
 
-    class M_DrawNewGame
-            implements DrawRoutine {
-
-        @Override
-        public void invoke() {
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_NEWG"), DOOM.vs, 96, 14);
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_SKILL"), DOOM.vs, 54, 38);
+    internal inner class M_DrawNewGame : DrawRoutine {
+        override fun invoke() {
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_NEWG"), DOOM.vs, 96, 14)
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_SKILL"), DOOM.vs, 54, 38)
         }
     }
 
-    class M_DrawOptions
-            implements DrawRoutine {
-
-        private final String detailNames[] = { "M_GDHIGH", "M_GDLOW" };
-        private final String msgNames[] = { "M_MSGOFF", "M_MSGON" };
-
-        @Override
-        public void invoke() {
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName("M_OPTTTL"), DOOM.vs, 108, 15);
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName(detailNames[detailLevel]), DOOM.vs, OptionsDef.x + 175, OptionsDef.y + LINEHEIGHT * detail);
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName(msgNames[showMessages?1:0]), DOOM.vs, OptionsDef.x + 120, OptionsDef.y + LINEHEIGHT * messages);
-
-            DrawThermo(OptionsDef.x, OptionsDef.y + LINEHEIGHT
-                    * (mousesens + 1), 10, DOOM.mouseSensitivity);
-
-            DrawThermo(OptionsDef.x,
-                OptionsDef.y + LINEHEIGHT * (scrnsize + 1), 9, screenSize);
-
+    internal inner class M_DrawOptions : DrawRoutine {
+        private val detailNames = arrayOf("M_GDHIGH", "M_GDLOW")
+        private val msgNames = arrayOf("M_MSGOFF", "M_MSGON")
+        override fun invoke() {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                DOOM.wadLoader.CachePatchName("M_OPTTTL"),
+                DOOM.vs,
+                108,
+                15
+            )
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                DOOM.wadLoader.CachePatchName(detailNames[detailLevel]),
+                DOOM.vs,
+                OptionsDef!!.x + 175,
+                OptionsDef!!.y + LINEHEIGHT * detail
+            )
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                DOOM.wadLoader.CachePatchName(msgNames[if (showMessages) 1 else 0]),
+                DOOM.vs,
+                OptionsDef!!.x + 120,
+                OptionsDef!!.y + LINEHEIGHT * messages
+            )
+            DrawThermo(
+                OptionsDef!!.x, OptionsDef!!.y + LINEHEIGHT
+                        * (mousesens + 1), 10, DOOM.mouseSensitivity
+            )
+            DrawThermo(
+                OptionsDef!!.x,
+                OptionsDef!!.y + LINEHEIGHT * (scrnsize + 1), 9, screenSize
+            )
         }
-
     }
 
     /**
      * Read This Menus
      * Had a "quick hack to fix romero bug"
      */
-
-    class M_DrawReadThis1 implements DrawRoutine {
-
-        @Override
-        public void invoke() {
-            String lumpname;
-            int skullx, skully;
-            inhelpscreens = true;
-
-            switch (DOOM.getGameMode()) {
-                case commercial:
-                case freedm:
-                case freedoom2:
-                case pack_plut:
-                case pack_tnt:
-                    skullx = 330;
-                    skully = 165;
-                    lumpname = "HELP";
-                    break;
-                case shareware:
-                    lumpname = "HELP2";
-                    skullx = 280;
-                    skully = 185;
-                    break;
-                default:
-                    lumpname = "CREDIT";
-                    skullx = 330;
-                    skully = 165;
-                    break;
+    internal inner class M_DrawReadThis1 : DrawRoutine {
+        override fun invoke() {
+            val lumpname: String
+            val skullx: Int
+            val skully: Int
+            inhelpscreens = true
+            when (DOOM.getGameMode()) {
+                GameMode.commercial, GameMode.freedm, GameMode.freedoom2, GameMode.pack_plut, GameMode.pack_tnt -> {
+                    skullx = 330
+                    skully = 165
+                    lumpname = "HELP"
+                }
+                GameMode.shareware -> {
+                    lumpname = "HELP2"
+                    skullx = 280
+                    skully = 185
+                }
+                else -> {
+                    lumpname = "CREDIT"
+                    skullx = 330
+                    skully = 165
+                }
             }
-
-            ReadDef1.x = skullx;
-            ReadDef1.y = skully;
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName(lumpname), DOOM.vs, 0, 0);
+            ReadDef1!!.x = skullx
+            ReadDef1!!.y = skully
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName(lumpname), DOOM.vs, 0, 0)
             // Maes: we need to do this here, otherwide the status bar appears "dirty"
-            DOOM.statusBar.forceRefresh();
+            DOOM.statusBar.forceRefresh()
         }
     }
 
     /**
      * Read This Menus - optional second page.
      */
-    class M_DrawReadThis2 implements DrawRoutine {
-
-        @Override
-        public void invoke() {
-            String lumpname;
-            int skullx, skully;
-            inhelpscreens = true;
-
-            lumpname = "HELP1";
-            skullx = 330;
-            skully = 175;
-
-            ReadDef2.x = skullx;
-            ReadDef2.y = skully;
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CachePatchName(lumpname), DOOM.vs, 0, 0);
+    internal inner class M_DrawReadThis2 : DrawRoutine {
+        override fun invoke() {
+            val lumpname: String
+            val skullx: Int
+            val skully: Int
+            inhelpscreens = true
+            lumpname = "HELP1"
+            skullx = 330
+            skully = 175
+            ReadDef2!!.x = skullx
+            ReadDef2!!.y = skully
+            DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName(lumpname), DOOM.vs, 0, 0)
             // Maes: we need to do this here, otherwide the status bar appears "dirty"
-            DOOM.statusBar.forceRefresh();
+            DOOM.statusBar.forceRefresh()
         }
     }
 
     /**
      * Change Sfx & Music volumes
      */
-    class M_DrawSound
-            implements DrawRoutine {
-
-        public void invoke() {
-            DOOM.graphicSystem.DrawPatchScaled(FG, DOOM.wadLoader.CacheLumpName("M_SVOL", PU_CACHE, patch_t.class), DOOM.vs, 60, 38);
-
-            DrawThermo(SoundDef.x, SoundDef.y + LINEHEIGHT * (sfx_vol + 1), 16,
-                DOOM.snd_SfxVolume);
-
-            DrawThermo(SoundDef.x, SoundDef.y + LINEHEIGHT * (music_vol + 1),
-                16, DOOM.snd_MusicVolume);
+    internal inner class M_DrawSound : DrawRoutine {
+        override fun invoke() {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.FG,
+                DOOM.wadLoader.CacheLumpName("M_SVOL", Defines.PU_CACHE, patch_t::class.java),
+                DOOM.vs,
+                60,
+                38
+            )
+            DrawThermo(
+                SoundDef!!.x, SoundDef!!.y + LINEHEIGHT * (sfx_vol + 1), 16,
+                DOOM.snd_SfxVolume
+            )
+            DrawThermo(
+                SoundDef!!.x, SoundDef!!.y + LINEHEIGHT * (music_vol + 1),
+                16, DOOM.snd_MusicVolume
+            )
         }
     }
 
     // /////////////////////////// MENU ROUTINES
     // ///////////////////////////////////
-
-    class M_ChangeDetail implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            choice = 0;
-            detailLevel = 1 - detailLevel;
+    internal inner class M_ChangeDetail : MenuRoutine {
+        override fun invoke(choice: Int) {
+            var choice = choice
+            choice = 0
+            detailLevel = 1 - detailLevel
 
             // FIXME - does not work. Remove anyway?
             //System.err.print("M_ChangeDetail: low detail mode n.a.\n");
 
             //return;
-
-            DOOM.sceneRenderer.SetViewSize (screenblocks, detailLevel); 
-            if (detailLevel==0) DOOM.players[DOOM.consoleplayer].message = englsh.DETAILHI;
-             else DOOM.players[DOOM.consoleplayer].message = englsh.DETAILLO;
-             
-
+            DOOM.sceneRenderer.SetViewSize(screenBlocks, detailLevel)
+            if (detailLevel == 0) DOOM.players[DOOM.consoleplayer].message =
+                englsh.DETAILHI else DOOM.players[DOOM.consoleplayer].message = englsh.DETAILLO
         }
     }
 
     /**
      * Toggle messages on/off
      */
-    class M_ChangeMessages implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
+    internal inner class M_ChangeMessages : MenuRoutine {
+        override fun invoke(choice: Int) {
             // warning: unused parameter `int choice'
             //choice = 0;
-            showMessages = !showMessages;
-
-            if (!showMessages)
-                DOOM.players[DOOM.consoleplayer].message = MSGOFF;
-            else
-                DOOM.players[DOOM.consoleplayer].message = MSGON;
-
-            message_dontfuckwithme = true;
+            showMessages = !showMessages
+            if (!showMessages) DOOM.players[DOOM.consoleplayer].message =
+                englsh.MSGOFF else DOOM.players[DOOM.consoleplayer].message = englsh.MSGON
+            message_dontfuckwithme = true
         }
     }
 
-    class M_ChangeSensitivity implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            switch (choice) {
-            case 0:
-                if (DOOM.mouseSensitivity != 0)
-                	DOOM.mouseSensitivity--;
-                break;
-            case 1:
-                if (DOOM.mouseSensitivity < 9)
-                	DOOM.mouseSensitivity++;
-                break;
+    internal inner class M_ChangeSensitivity : MenuRoutine {
+        override fun invoke(choice: Int) {
+            when (choice) {
+                0 -> if (DOOM.mouseSensitivity != 0) DOOM.mouseSensitivity--
+                1 -> if (DOOM.mouseSensitivity < 9) DOOM.mouseSensitivity++
             }
         }
     }
 
-    class M_ChooseSkill implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
+    internal inner class M_ChooseSkill : MenuRoutine {
+        override fun invoke(choice: Int) {
             if (choice == nightmare) {
-                StartMessage(NIGHTMARE, VerifyNightmare, true);
-                return;
+                StartMessage(englsh.NIGHTMARE, VerifyNightmare, true)
+                return
             }
-
-            DOOM.DeferedInitNew(skill_t.values()[choice], epi + 1, 1);
-            ClearMenus();
+            DOOM.DeferedInitNew(skill_t.values()[choice], epi + 1, 1)
+            ClearMenus()
         }
-
     }
 
     /**
      * M_EndGame
      */
-
-    class M_EndGame implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            choice = 0;
+    internal inner class M_EndGame : MenuRoutine {
+        override fun invoke(choice: Int) {
+            var choice = choice
+            choice = 0
             if (!DOOM.usergame) {
-                 DOOM.doomSound.StartSound(null, sfxenum_t.sfx_oof);
-                return;
+                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_oof)
+                return
             }
-
             if (DOOM.netgame) {
-                StartMessage(NETEND, null, false);
-                return;
+                StartMessage(englsh.NETEND, null, false)
+                return
             }
-
-            StartMessage(ENDGAME, EndGameResponse, true);
+            StartMessage(englsh.ENDGAME, EndGameResponse, true)
         }
     }
 
-    class M_EndGameResponse implements MenuRoutine {
-        @Override
-        public void invoke(int ch) {
-            if (ch != 'y')
-                return;
-
-            currentMenu.lastOn = itemOn;
-            ClearMenus();
-            DOOM.StartTitle();
+    internal inner class M_EndGameResponse : MenuRoutine {
+        override fun invoke(ch: Int) {
+            if (ch != 'y'.code) return
+            currentMenu!!.lastOn = itemOn.toInt()
+            ClearMenus()
+            DOOM.StartTitle()
         }
     }
 
-    class M_Episode implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-
-            if (DOOM.isShareware() && (choice != 0)) {
-                StartMessage(SWSTRING, null, false);
-                SetupNextMenu(ReadDef2);
-                return;
+    internal inner class M_Episode : MenuRoutine {
+        override fun invoke(choice: Int) {
+            var choice = choice
+            if (DOOM.isShareware() && choice != 0) {
+                StartMessage(englsh.SWSTRING, null, false)
+                SetupNextMenu(ReadDef2)
+                return
             }
 
             // Yet another hack...
-            if (!DOOM.isRetail() && (choice > 2)) {
+            if (!DOOM.isRetail() && choice > 2) {
                 System.err
-                        .print("M_Episode: 4th episode requires UltimateDOOM\n");
-                choice = 0;
+                    .print("M_Episode: 4th episode requires UltimateDOOM\n")
+                choice = 0
             }
-
-            epi = choice;
-            SetupNextMenu(NewDef);
+            epi = choice
+            SetupNextMenu(NewDef)
         }
-
     }
 
     /**
      * User wants to load this game
      */
-    class M_LoadSelect implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-            String name;
-
-            if (DOOM.cVarManager.bool(CommandVariable.CDROM))
-                name = ("c:\\doomdata\\" + SAVEGAMENAME + (choice) + ".dsg");
-            else
-                name = (SAVEGAMENAME + (choice) + ".dsg");
-            DOOM.LoadGame(name);
-            ClearMenus();
+    internal inner class M_LoadSelect : MenuRoutine {
+        override fun invoke(choice: Int) {
+            val name: String
+            if (DOOM.cVarManager.bool(CommandVariable.CDROM)) name =
+                "c:\\doomdata\\" + dstrings.SAVEGAMENAME + choice + ".dsg" else name =
+                dstrings.SAVEGAMENAME + choice + ".dsg"
+            DOOM.LoadGame(name)
+            ClearMenus()
         }
     }
 
     /**
      * Selected from DOOM menu
      */
-    class M_LoadGame implements MenuRoutine {
-        @Override
-        public void invoke(int choice) {
-
+    internal inner class M_LoadGame : MenuRoutine {
+        override fun invoke(choice: Int) {
             if (DOOM.netgame) {
-                StartMessage(LOADNET, null, false);
-                return;
+                StartMessage(englsh.LOADNET, null, false)
+                return
             }
-
-            SetupNextMenu(LoadDef);
-            ReadSaveStrings();
+            SetupNextMenu(LoadDef)
+            ReadSaveStrings()
         }
     }
 
-    // ////////////////////// VARIOUS CONSTS //////////////////////
 
-    private static final sfxenum_t[] quitsounds =
-        { sfxenum_t.sfx_pldeth, sfxenum_t.sfx_dmpain, sfxenum_t.sfx_popain,
-                sfxenum_t.sfx_slop, sfxenum_t.sfx_telept, sfxenum_t.sfx_posit1,
-                sfxenum_t.sfx_posit3, sfxenum_t.sfx_sgtatk };
+    companion object {
+        //int menuactive;
+        protected const val SKULLXOFF = -32
+        protected const val LINEHEIGHT = 16
 
-    private static final sfxenum_t[] quitsounds2 =
-        { sfxenum_t.sfx_vilact, sfxenum_t.sfx_getpow, sfxenum_t.sfx_boscub,
-                sfxenum_t.sfx_slop, sfxenum_t.sfx_skeswg, sfxenum_t.sfx_kntdth,
-                sfxenum_t.sfx_bspact, sfxenum_t.sfx_sgtatk };
+        /**
+         * graphic name of skulls warning: initializer-string for array of chars is
+         * too long
+         */
+        private val skullName = arrayOf("M_SKULL1", "M_SKULL2")
 
-    /** episodes_e enum */
-    private static final int ep1 = 0, ep2 = 1, ep3 = 2, ep4 = 3, ep_end = 4;
+        // ////////////////////// VARIOUS CONSTS //////////////////////
+        private val quitsounds = arrayOf(
+            sfxenum_t.sfx_pldeth, sfxenum_t.sfx_dmpain, sfxenum_t.sfx_popain,
+            sfxenum_t.sfx_slop, sfxenum_t.sfx_telept, sfxenum_t.sfx_posit1,
+            sfxenum_t.sfx_posit3, sfxenum_t.sfx_sgtatk
+        )
+        private val quitsounds2 = arrayOf(
+            sfxenum_t.sfx_vilact, sfxenum_t.sfx_getpow, sfxenum_t.sfx_boscub,
+            sfxenum_t.sfx_slop, sfxenum_t.sfx_skeswg, sfxenum_t.sfx_kntdth,
+            sfxenum_t.sfx_bspact, sfxenum_t.sfx_sgtatk
+        )
 
-    /** load_e enum */
-    private static final int load1 = 0, load2 = 1, load3 = 2, load4 = 3, load5 = 4,
-            load6 = 5, load_end = 6;
+        /** episodes_e enum  */
+        private const val ep1 = 0
+        private const val ep2 = 1
+        private const val ep3 = 2
+        private const val ep4 = 3
+        private const val ep_end = 4
 
-    /** options_e enum; */
+        /** load_e enum  */
+        private const val load1 = 0
+        private const val load2 = 1
+        private const val load3 = 2
+        private const val load4 = 3
+        private const val load5 = 4
+        private const val load6 = 5
+        private const val load_end = 6
 
-    private static final int endgame = 0, messages = 1, detail = 2, scrnsize = 3,
-            option_empty1 = 4, mousesens = 5, option_empty2 = 6, soundvol = 7,
-            opt_end = 8;
+        /** options_e enum;  */
+        private const val endgame = 0
+        private const val messages = 1
+        private const val detail = 2
+        private const val scrnsize = 3
+        private const val option_empty1 = 4
+        private const val mousesens = 5
+        private const val option_empty2 = 6
+        private const val soundvol = 7
+        private const val opt_end = 8
 
-    /** main_e enum; */
-    private static final int  newgame = 0, options = 1, loadgam = 2, savegame = 3,
-            readthis = 4, quitdoom = 5, main_end = 6;
+        /** main_e enum;  */
+        private const val newgame = 0
+        private const val options = 1
+        private const val loadgam = 2
+        private const val savegame = 3
+        private const val readthis = 4
+        private const val quitdoom = 5
+        private const val main_end = 6
 
-    /** read_e enum */
-    private static final int rdthsempty1 = 0, read1_end = 1;
+        /** read_e enum  */
+        private const val rdthsempty1 = 0
+        private const val read1_end = 1
 
-    /** read_2 enum */
-    private static final int rdthsempty2 = 0, read2_end = 1;
+        /** read_2 enum  */
+        private const val rdthsempty2 = 0
+        private const val read2_end = 1
 
-    /**  newgame_e enum;*/
-    public static final int killthings = 0, toorough = 1, hurtme = 2, violence = 3,
-            nightmare = 4, newg_end = 5;
-    
-    private static final String[] gammamsg = { GAMMALVL0,
+        /**  newgame_e enum; */
+        const val killthings = 0
+        const val toorough = 1
+        const val hurtme = 2
+        const val violence = 3
+        const val nightmare = 4
+        const val newg_end = 5
+        private val gammamsg = arrayOf(
+            englsh.GAMMALVL0,
+            englsh.GAMMALVL1, englsh.GAMMALVL2, englsh.GAMMALVL3, englsh.GAMMALVL4
+        )
 
-        GAMMALVL1, GAMMALVL2, GAMMALVL3, GAMMALVL4 };
-
-    /** sound_e enum */
-    static final int sfx_vol = 0, sfx_empty1 = 1, music_vol = 2, sfx_empty2 = 3,
-            sound_end = 4;
-
-    @Override
-    public void setScreenBlocks(int val) {
-        this.screenblocks=val;
+        /** sound_e enum  */
+        const val sfx_vol = 0
+        const val sfx_empty1 = 1
+        const val music_vol = 2
+        const val sfx_empty2 = 3
+        const val sound_end = 4
     }
-    
-	@Override
-	public int getScreenBlocks() {
-		return this.screenblocks;
-	}
-
-	@Override
-	public int getDetailLevel() {
-		return this.detailLevel;
-	}
 }

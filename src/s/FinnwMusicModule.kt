@@ -1,806 +1,774 @@
-package s;
+package s
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-import javax.sound.midi.InvalidMidiDataException;
-import javax.sound.midi.MidiDevice;
-import javax.sound.midi.MidiEvent;
-import javax.sound.midi.MidiMessage;
-import javax.sound.midi.MidiSystem;
-import javax.sound.midi.MidiUnavailableException;
-import javax.sound.midi.Receiver;
-import javax.sound.midi.Sequence;
-import javax.sound.midi.ShortMessage;
-import javax.sound.midi.SysexMessage;
-import javax.sound.midi.Track;
-import javax.sound.midi.Transmitter;
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.*
+import java.util.concurrent.*
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+import javax.sound.midi.*
 
 /** A music driver that bypasses Sequences and sends events from a MUS lump
- *  directly to a MIDI device.
+ * directly to a MIDI device.
  *
- *  Some songs (e.g. D_E1M8) vary individual channel volumes dynamically. This
- *  driver multiplies the dynamic volume by the music volume set in the menu.
- *  This does not work well with a {@link Sequence} because changes to events
- *  (e.g. channel volume change events) do not take effect while the sequencer
- *  is running.
- *  
- *  Disadvantages of this driver:
- *  <ul><li>Supports MUS lumps only (no MID, OGG etc.)</li>
- *      <li>Creates its own thread</li>
- *      <li>Pausing is not implemented yet</li></ul>
+ * Some songs (e.g. D_E1M8) vary individual channel volumes dynamically. This
+ * driver multiplies the dynamic volume by the music volume set in the menu.
+ * This does not work well with a [Sequence] because changes to events
+ * (e.g. channel volume change events) do not take effect while the sequencer
+ * is running.
+ *
+ * Disadvantages of this driver:
+ *  * Supports MUS lumps only (no MID, OGG etc.)
+ *  * Creates its own thread
+ *  * Pausing is not implemented yet
  *
  * @author finnw
- *
  */
-public class FinnwMusicModule implements IMusic {
-
-    public FinnwMusicModule() {
-        this.lock = new ReentrantLock();
-        this.channels = new ArrayList<Channel>(15);
-        this.songs = new ArrayList<Song>(1);
-        for (int midiChan = 0; midiChan < 16; ++ midiChan) {
-            if (midiChan != 9) {
-                channels.add(new Channel(midiChan));
-            }
-        }
-        channels.add(new Channel(9));
-    }
-
-    @Override
-    public void InitMusic() {
+class FinnwMusicModule : IMusic {
+    override fun InitMusic() {
         try {
-            receiver = getReceiver();
-            EventGroup genMidiEG = new EventGroup(1f);
-            genMidiEG.generalMidi(1);
-            genMidiEG.sendTo(receiver);
-            sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-        } catch (MidiUnavailableException ex) {
-            System.err.println(ex);
-            receiver = null;
+            receiver = FinnwMusicModule.getReceiver()
+            val genMidiEG = FinnwMusicModule.EventGroup(1f)
+            genMidiEG.generalMidi(1)
+            genMidiEG.sendTo(receiver)
+            FinnwMusicModule.sleepUninterruptibly(100, TimeUnit.MILLISECONDS)
+        } catch (ex: MidiUnavailableException) {
+            System.err.println(ex)
+            receiver = null
         }
-        exec = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl());
+        exec = Executors.newSingleThreadScheduledExecutor(ThreadFactoryImpl())
     }
 
-    /** Not yet implemented */
-    @Override
-    public void PauseSong(int handle) {
-    }
-
-    @Override
-    public void PlaySong(int handle, boolean looping) {
-        lock.lock();
+    /** Not yet implemented  */
+    override fun PauseSong(handle: Int) {}
+    override fun PlaySong(handle: Int, looping: Boolean) {
+        lock.lock()
         try {
             if (currentTransmitter != null) {
-                currentTransmitter.stop();
+                currentTransmitter!!.stop()
             }
-            currentTransmitter = null;
-            if (0 <= handle && handle < songs.size()) {
-                prepare(receiver);
-                Song song = songs.get(handle);
-                currentTransmitter =
-                    new ScheduledTransmitter(song.getScoreBuffer(), looping);
-                currentTransmitter.setReceiver(receiver);
+            currentTransmitter = null
+            if (0 <= handle && handle < songs.size) {
+                prepare(receiver)
+                val song = songs[handle]
+                currentTransmitter = ScheduledTransmitter(song!!.getScoreBuffer(), looping)
+                currentTransmitter!!._receiver = receiver!!
             }
         } finally {
-            lock.unlock();
+            lock.unlock()
         }
     }
 
-    @Override
-    public int RegisterSong(byte[] data) {
-        return RegisterSong(ByteBuffer.wrap(data));
+    override fun RegisterSong(data: ByteArray?): Int {
+        return RegisterSong(ByteBuffer.wrap(data))
     }
 
-    public int RegisterSong(ByteBuffer data) {
-        Song song = new Song(data);
-        lock.lock();
-        try {
-            int result = songs.indexOf(null);
+    fun RegisterSong(data: ByteBuffer): Int {
+        val song = Song(data)
+        lock.lock()
+        return try {
+            var result = songs.indexOf(null)
             if (result >= 0) {
-                songs.set(result, song);
+                songs[result] = song
             } else {
-                result = songs.size();
-                songs.add(song);
+                result = songs.size
+                songs.add(song)
             }
-            return result;
+            result
         } finally {
-            lock.unlock();
+            lock.unlock()
         }
     }
 
-    @Override
-    public void ResumeSong(int handle) {
-    }
-
-    @Override
-    public void SetMusicVolume(int volume) {
-        float fVol = volume * (1/127f);
-        fVol = Math.max(0f, Math.min(fVol, 1f));
-        lock.lock();
+    override fun ResumeSong(handle: Int) {}
+    override fun SetMusicVolume(volume: Int) {
+        var fVol = volume * (1 / 127f)
+        fVol = Math.max(0f, Math.min(fVol, 1f))
+        lock.lock()
         try {
-            this.volume = fVol;
+            this.volume = fVol
             if (currentTransmitter != null) {
-                currentTransmitter.volumeChanged();
+                currentTransmitter!!.volumeChanged()
             }
         } finally {
-            lock.unlock();
+            lock.unlock()
         }
     }
 
-    @Override
-    public void ShutdownMusic() {
-        exec.shutdown();
+    override fun ShutdownMusic() {
+        exec!!.shutdown()
     }
 
-    @Override
-    public void StopSong(int handle) {
-        lock.lock();
+    override fun StopSong(handle: Int) {
+        lock.lock()
         try {
             if (currentTransmitter != null) {
-                currentTransmitter.stop();
-                currentTransmitter = null;
+                currentTransmitter!!.stop()
+                currentTransmitter = null
             }
         } finally {
-            lock.unlock();
+            lock.unlock()
         }
     }
 
-    @Override
-    public void UnRegisterSong(int handle) {
-        lock.lock();
+    override fun UnRegisterSong(handle: Int) {
+        lock.lock()
         try {
-            if (0 <= handle && handle < songs.size()) {
-                songs.set(handle, null);
+            if (0 <= handle && handle < songs.size) {
+                songs[handle] = null
             }
         } finally {
-            lock.unlock();
+            lock.unlock()
         }
     }
 
-    static boolean hasMusMagic(ByteBuffer magicBuf) {
-        return magicBuf.get(0) == 'M' &&
-               magicBuf.get(1) == 'U' &&
-               magicBuf.get(2) == 'S' &&
-               magicBuf.get(3) == 0x1a;
-    }
-
-    EventGroup nextEventGroup(ByteBuffer scoreBuffer, boolean looping)  {
-        EventGroup result = new EventGroup(volume);
-        boolean last;
+    fun nextEventGroup(scoreBuffer: ByteBuffer, looping: Boolean): EventGroup? {
+        val result = EventGroup(volume)
+        var last: Boolean
         do {
-            if (! scoreBuffer.hasRemaining()) {
+            if (!scoreBuffer.hasRemaining()) {
                 if (looping) {
-                    scoreBuffer.flip();
+                    scoreBuffer.flip()
                 } else {
-                    return result.emptyToNull();
+                    return result.emptyToNull()
                 }
             }
-            int descriptor = scoreBuffer.get() & 0xff;
-            last = (descriptor & 0x80) != 0;
-            int eventType = (descriptor >> 4) & 7;
-            int chanIndex = descriptor & 15;
-            Channel channel = channels.get(chanIndex);
-            switch (eventType) {
-            case 0:
-                {
-                    int note = scoreBuffer.get() & 0xff;
-                    if ((note & 0x80) != 0) {
-                        throw new IllegalArgumentException("Invalid note byte");
-                    }
-                    checkChannelExists("note off", channel).noteOff(note, result);
+            val descriptor = scoreBuffer.get().toInt() and 0xff
+            last = descriptor and 0x80 != 0
+            val eventType = descriptor shr 4 and 7
+            val chanIndex = descriptor and 15
+            val channel = channels[chanIndex]
+            when (eventType) {
+                0 -> {
+                    val note = scoreBuffer.get().toInt() and 0xff
+                    require(note and 0x80 == 0) { "Invalid note byte" }
+                    FinnwMusicModule.checkChannelExists("note off", channel).noteOff(note, result)
                 }
-                break;
-            case 1:
-                {
-                    int note = scoreBuffer.get() & 0xff;
-                    boolean hasVelocity = (note & 0x80) != 0;
+                1 -> {
+                    val note = scoreBuffer.get().toInt() and 0xff
+                    val hasVelocity = note and 0x80 != 0
                     if (hasVelocity) {
-                        int velocity = scoreBuffer.get() & 0xff;
-                        if ((velocity & 0x80) != 0) {
-                            throw new IllegalArgumentException("Invalid velocity byte");
-                        }
-                        checkChannelExists("note on", channel).noteOn(note & 127, velocity, result);
+                        val velocity = scoreBuffer.get().toInt() and 0xff
+                        require(velocity and 0x80 == 0) { "Invalid velocity byte" }
+                        FinnwMusicModule.checkChannelExists("note on", channel)
+                            .noteOn(note and 127, velocity, result)
                     } else {
-                        checkChannelExists("note on", channel).noteOn(note, result);
+                        FinnwMusicModule.checkChannelExists("note on", channel).noteOn(note, result)
                     }
                 }
-                break;
-            case 2:
-                {
-                    int wheelVal = scoreBuffer.get() & 0xff;
-                    checkChannelExists("pitch bend", channel).pitchBend(wheelVal, result);
+                2 -> {
+                    val wheelVal = scoreBuffer.get().toInt() and 0xff
+                    FinnwMusicModule.checkChannelExists("pitch bend", channel).pitchBend(wheelVal, result)
                 }
-                break;
-            case 3:
-                {
-                    int sysEvt = scoreBuffer.get() & 0xff;
-                    switch (sysEvt) {
-                    case 10:
-                        checkChannelExists("all sounds off", channel).allSoundsOff(result);
-                        break;
-                    case 11:
-                        checkChannelExists("all notes off", channel).allNotesOff(result);
-                        break;
-                    case 14:
-                        checkChannelExists("reset all controllers", channel).resetAll(result);
-                        break;
-                    default:
-                        String msg = String.format("Invalid system event (%d)", sysEvt);
-                        throw new IllegalArgumentException(msg);
+                3 -> {
+                    val sysEvt = scoreBuffer.get().toInt() and 0xff
+                    when (sysEvt) {
+                        10 -> FinnwMusicModule.checkChannelExists("all sounds off", channel)
+                            .allSoundsOff(result)
+                        11 -> FinnwMusicModule.checkChannelExists("all notes off", channel)
+                            .allNotesOff(result)
+                        14 -> FinnwMusicModule.checkChannelExists("reset all controllers", channel)
+                            .resetAll(result)
+                        else -> {
+                            val msg = String.format("Invalid system event (%d)", sysEvt)
+                            throw IllegalArgumentException(msg)
+                        }
                     }
                 }
-                break;
-            case 4:
-                int cNum = scoreBuffer.get() & 0xff;
-                if ((cNum & 0x80) != 0) {
-                    throw new IllegalArgumentException("Invalid controller number ");
+                4 -> {
+                    val cNum = scoreBuffer.get().toInt() and 0xff
+                    require(cNum and 0x80 == 0) { "Invalid controller number " }
+                    var cVal = scoreBuffer.get().toInt() and 0xff
+                    if (cNum == 3 && 133 <= cVal && cVal <= 135) {
+                        // workaround for some TNT.WAD tracks
+                        cVal = 127
+                    }
+                    if (cVal and 0x80 != 0) {
+                        val msg = String.format("Invalid controller value (%d; cNum=%d)", cVal, cNum)
+                        throw IllegalArgumentException(msg)
+                    }
+                    when (cNum) {
+                        0 -> FinnwMusicModule.checkChannelExists("patch change", channel)
+                            .patchChange(cVal, result)
+                        1 ->                     // Don't forward this to the MIDI device.  Some devices
+                            // react badly to banks that are undefined in GM Level 1
+                            FinnwMusicModule.checkChannelExists("bank switch", channel)
+                        2 -> FinnwMusicModule.checkChannelExists("vibrato change", channel)
+                            .vibratoChange(cVal, result)
+                        3 -> FinnwMusicModule.checkChannelExists("volume", channel).volume(cVal, result)
+                        4 -> FinnwMusicModule.checkChannelExists("pan", channel).pan(cVal, result)
+                        5 -> FinnwMusicModule.checkChannelExists("expression", channel)
+                            .expression(cVal, result)
+                        6 -> FinnwMusicModule.checkChannelExists("reverb depth", channel)
+                            .reverbDepth(cVal, result)
+                        7 -> FinnwMusicModule.checkChannelExists("chorus depth", channel)
+                            .chorusDepth(cVal, result)
+                        else -> throw AssertionError("Controller number $cNum: not yet implemented")
+                    }
                 }
-                int cVal = scoreBuffer.get() & 0xff;
-                if (cNum == 3 && 133 <= cVal && cVal <= 135) {
-                    // workaround for some TNT.WAD tracks
-                    cVal = 127;
-                }
-                if ((cVal & 0x80) != 0) {
-                    String msg = String.format("Invalid controller value (%d; cNum=%d)", cVal, cNum);
-                    throw new IllegalArgumentException(msg);
-                }
-                switch (cNum) {
-                case 0:
-                    checkChannelExists("patch change", channel).patchChange(cVal, result);
-                    break;
-                case 1:
-                    // Don't forward this to the MIDI device.  Some devices
-                    // react badly to banks that are undefined in GM Level 1
-                    checkChannelExists("bank switch", channel);
-                    break;
-                case 2:
-                    checkChannelExists("vibrato change", channel).vibratoChange(cVal, result);
-                    break;
-                case 3:
-                    checkChannelExists("volume", channel).volume(cVal, result);
-                    break;
-                case 4:
-                    checkChannelExists("pan", channel).pan(cVal, result);
-                    break;
-                case 5:
-                    checkChannelExists("expression", channel).expression(cVal, result);
-                    break;
-                case 6:
-                    checkChannelExists("reverb depth", channel).reverbDepth(cVal, result);
-                    break;
-                case 7:
-                    checkChannelExists("chorus depth", channel).chorusDepth(cVal, result);
-                    break;
-                default:
-                    throw new AssertionError("Controller number " + cNum + ": not yet implemented");
-                }
-                break;
-            case 6:
-                if (looping) {
-                    scoreBuffer.flip();
+                6 -> if (looping) {
+                    scoreBuffer.flip()
                 } else {
-                    return result.emptyToNull();
+                    return result.emptyToNull()
                 }
-                break;
-            default:
-                String msg = String.format("Unknown event type: last=%5s eventType=%d chanIndex=%d%n", last, eventType, chanIndex);
-                throw new IllegalArgumentException(msg);
+                else -> {
+                    val msg = String.format(
+                        "Unknown event type: last=%5s eventType=%d chanIndex=%d%n",
+                        last,
+                        eventType,
+                        chanIndex
+                    )
+                    throw IllegalArgumentException(msg)
+                }
             }
-        } while (! last);
-        int qTics = readTime(scoreBuffer);
-        result.addDelay(qTics);
-        return result;
+        } while (!last)
+        val qTics = readTime(scoreBuffer)
+        result.addDelay(qTics)
+        return result
     }
 
-    static class EventGroup {
-        EventGroup(float volScale) {
-            this.messages = new ArrayList<MidiMessage>();
-            this.volScale = volScale;
+    class EventGroup(volScale: Float) {
+        fun addDelay(tics: Int) {
+            delay += tics
         }
-        void addDelay(int tics) {
-            delay += tics;
+
+        fun allNotesOff(midiChan: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CHM_ALL_NOTES_OFF, 0)
         }
-        private static final int CHM_ALL_NOTES_OFF = 123;
-        private static final int CHM_ALL_SOUND_OFF = 120;
-        private static final int CTRL_CHORUS_DEPTH = 93;
-        private static final int CTRL_EXPRESSION_POT = 11;
-        private static final int CTRL_PAN = 10;
-        private static final int RPM_PITCH_BEND_SENSITIVITY = 0;
-        private static final int RPL_PITCH_BEND_SENSITIVITY = 0;
-        private static final int CHM_RESET_ALL = 121;
-        private static final int CTRL_REVERB_DEPTH = 91;
-        private static final int CTRL_MODULATION_POT = 1;
-        private static final int CTRL_VOLUME = 7;
-        void allNotesOff(int midiChan) {
-            addControlChange(midiChan, CHM_ALL_NOTES_OFF, 0);
+
+        fun allSoundsOff(midiChan: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CHM_ALL_SOUND_OFF, 0)
         }
-        void allSoundsOff(int midiChan) {
-            addControlChange(midiChan, CHM_ALL_SOUND_OFF, 0);
-        }
-        long appendTo(Sequence sequence, int trackNum, long pos) {
-            Track track = sequence.getTracks()[trackNum];
-            for (MidiMessage msg: messages) {
-                track.add(new MidiEvent(msg, pos));
+
+        fun appendTo(sequence: javax.sound.midi.Sequence, trackNum: Int, pos: Long): Long {
+            val track = sequence.tracks[trackNum]
+            for (msg in messages) {
+                track.add(MidiEvent(msg, pos))
             }
-            return pos + delay * 3;
+            return pos + delay * 3
         }
-        long appendTo(Track track, long pos, int scale) {
-            for (MidiMessage msg: messages) {
-                track.add(new MidiEvent(msg, pos));
+
+        fun appendTo(track: Track, pos: Long, scale: Int): Long {
+            for (msg in messages) {
+                track.add(MidiEvent(msg, pos))
             }
-            return pos + delay * scale;
+            return pos + delay * scale
         }
-        void chorusDepth(int midiChan, int depth) {
-            addControlChange(midiChan, CTRL_CHORUS_DEPTH, depth);
+
+        fun chorusDepth(midiChan: Int, depth: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CTRL_CHORUS_DEPTH, depth)
         }
-        void generalMidi(int mode) {
-             addSysExMessage(0xf0, (byte)0x7e, (byte)0x7f, (byte)9, (byte)mode, (byte)0xf7);
+
+        fun generalMidi(mode: Int) {
+            addSysExMessage(0xf0, 0x7e.toByte(), 0x7f.toByte(), 9.toByte(), mode.toByte(), 0xf7.toByte())
         }
-        EventGroup emptyToNull() {
-            if (messages.isEmpty()) {
-                return null;
+
+        fun emptyToNull(): FinnwMusicModule.EventGroup? {
+            return if (messages.isEmpty()) {
+                null
             } else {
-                return this;
+                this
             }
         }
-        void expression(int midiChan, int expr) {
-            addControlChange(midiChan, CTRL_EXPRESSION_POT, expr);
+
+        fun expression(midiChan: Int, expr: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CTRL_EXPRESSION_POT, expr)
         }
-        int getDelay() {
-            return delay;
+
+        fun getDelay(): Int {
+            return delay
         }
-        void noteOn(int midiChan, int note, int velocity) {
-            addShortMessage(midiChan, ShortMessage.NOTE_ON, note, velocity);
+
+        fun noteOn(midiChan: Int, note: Int, velocity: Int) {
+            addShortMessage(midiChan, ShortMessage.NOTE_ON, note, velocity)
         }
-        void noteOff(int midiChan, int note) {
-            addShortMessage(midiChan, ShortMessage.NOTE_OFF, note, 0);
+
+        fun noteOff(midiChan: Int, note: Int) {
+            addShortMessage(midiChan, ShortMessage.NOTE_OFF, note, 0)
         }
-        void pan(int midiChan, int pan) {
-            addControlChange(midiChan, CTRL_PAN, pan);
+
+        fun pan(midiChan: Int, pan: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CTRL_PAN, pan)
         }
-        void patchChange(int midiChan, int patchId) {
-            addShortMessage(midiChan, ShortMessage.PROGRAM_CHANGE, patchId, 0);
+
+        fun patchChange(midiChan: Int, patchId: Int) {
+            addShortMessage(midiChan, ShortMessage.PROGRAM_CHANGE, patchId, 0)
         }
-        void pitchBend(int midiChan, int wheelVal) {
-            int pb14 = wheelVal * 64;
-            addShortMessage(midiChan, ShortMessage.PITCH_BEND, pb14 % 128, pb14 / 128);
+
+        fun pitchBend(midiChan: Int, wheelVal: Int) {
+            val pb14 = wheelVal * 64
+            addShortMessage(midiChan, ShortMessage.PITCH_BEND, pb14 % 128, pb14 / 128)
         }
-        void pitchBendSensitivity(int midiChan, int semitones) {
-            addRegParamChange(midiChan, RPM_PITCH_BEND_SENSITIVITY, RPL_PITCH_BEND_SENSITIVITY, semitones);
+
+        fun pitchBendSensitivity(midiChan: Int, semitones: Int) {
+            addRegParamChange(
+                midiChan,
+                FinnwMusicModule.EventGroup.RPM_PITCH_BEND_SENSITIVITY,
+                FinnwMusicModule.EventGroup.RPL_PITCH_BEND_SENSITIVITY,
+                semitones
+            )
         }
-        void resetAllControllern(int midiChan) {
-            addControlChange(midiChan, CHM_RESET_ALL, 0);
+
+        fun resetAllControllern(midiChan: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CHM_RESET_ALL, 0)
         }
-        void reverbDepth(int midiChan, int depth) {
-            addControlChange(midiChan, CTRL_REVERB_DEPTH, depth);
+
+        fun reverbDepth(midiChan: Int, depth: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CTRL_REVERB_DEPTH, depth)
         }
-        void sendTo(Receiver receiver) {
-            for (MidiMessage msg: messages) {
-                receiver.send(msg, -1);
+
+        fun sendTo(receiver: Receiver?) {
+            for (msg in messages) {
+                receiver?.send(msg, -1)
             }
         }
-        void vibratoChange(int midiChan, int depth) {
-            addControlChange(midiChan, CTRL_MODULATION_POT, depth);
+
+        fun vibratoChange(midiChan: Int, depth: Int) {
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CTRL_MODULATION_POT, depth)
         }
-        void volume(int midiChan, int vol) {
-            vol = (int) Math.round(vol * volScale);
-            addControlChange(midiChan, CTRL_VOLUME, vol);
+
+        fun volume(midiChan: Int, vol: Int) {
+            var vol = vol
+            vol = Math.round(vol * volScale)
+            addControlChange(midiChan, FinnwMusicModule.EventGroup.CTRL_VOLUME, vol)
         }
-        private void addControlChange(int midiChan, int ctrlId, int ctrlVal) {
-            addShortMessage(midiChan, ShortMessage.CONTROL_CHANGE, ctrlId, ctrlVal);
+
+        private fun addControlChange(midiChan: Int, ctrlId: Int, ctrlVal: Int) {
+            addShortMessage(midiChan, ShortMessage.CONTROL_CHANGE, ctrlId, ctrlVal)
         }
-        private void addRegParamChange(int midiChan, int paramMsb, int paramLsb, int valMsb) {
-            addControlChange(midiChan, 101, paramMsb);
-            addControlChange(midiChan, 100, paramLsb);
-            addControlChange(midiChan, 6, valMsb);
+
+        private fun addRegParamChange(midiChan: Int, paramMsb: Int, paramLsb: Int, valMsb: Int) {
+            addControlChange(midiChan, 101, paramMsb)
+            addControlChange(midiChan, 100, paramLsb)
+            addControlChange(midiChan, 6, valMsb)
         }
-        private void addShortMessage(int midiChan, int cmd, int data1, int data2) {
+
+        private fun addShortMessage(midiChan: Int, cmd: Int, data1: Int, data2: Int) {
             try {
-                ShortMessage msg = new ShortMessage();
-                msg.setMessage(cmd, midiChan, data1, data2);
-                messages.add(msg);
-            } catch (InvalidMidiDataException ex) {
-                throw new RuntimeException(ex);
+                val msg = ShortMessage()
+                msg.setMessage(cmd, midiChan, data1, data2)
+                messages.add(msg)
+            } catch (ex: InvalidMidiDataException) {
+                throw RuntimeException(ex)
             }
         }
-        private void addSysExMessage(int status, byte... data) {
+
+        private fun addSysExMessage(status: Int, vararg data: Byte) {
             try {
-                SysexMessage msg = new SysexMessage();
-                msg.setMessage(status, data, data.length);
-                messages.add(msg);
-            } catch (InvalidMidiDataException ex) {
-                throw new RuntimeException(ex);
+                val msg = SysexMessage()
+                msg.setMessage(status, data, data.size)
+                messages.add(msg)
+            } catch (ex: InvalidMidiDataException) {
+                throw RuntimeException(ex)
             }
         }
-        private int delay;
-        private final List<MidiMessage> messages;
-        private final float volScale;
+
+        private var delay = 0
+        private val messages: MutableList<MidiMessage>
+        private val volScale: Float
+
+        init {
+            messages = ArrayList()
+            this.volScale = volScale
+        }
+
+        companion object {
+            private const val CHM_ALL_NOTES_OFF = 123
+            private const val CHM_ALL_SOUND_OFF = 120
+            private const val CTRL_CHORUS_DEPTH = 93
+            private const val CTRL_EXPRESSION_POT = 11
+            private const val CTRL_PAN = 10
+            private const val RPM_PITCH_BEND_SENSITIVITY = 0
+            private const val RPL_PITCH_BEND_SENSITIVITY = 0
+            private const val CHM_RESET_ALL = 121
+            private const val CTRL_REVERB_DEPTH = 91
+            private const val CTRL_MODULATION_POT = 1
+            private const val CTRL_VOLUME = 7
+        }
     }
 
-    /** A collection of kludges to pick a MIDI output device until cvars are implemented */
-    static class MidiDeviceComparator implements Comparator<MidiDevice.Info> {
-        @Override
-        public int compare(MidiDevice.Info o1, MidiDevice.Info o2) {
-            float score1 = score(o1), score2 = score(o2);
-            if (score1 < score2) {
-                return 1;
+    /** A collection of kludges to pick a MIDI output device until cvars are implemented  */
+    internal class MidiDeviceComparator : Comparator<MidiDevice.Info> {
+        override fun compare(o1: MidiDevice.Info, o2: MidiDevice.Info): Int {
+            val score1 = score(o1)
+            val score2 = score(o2)
+            return if (score1 < score2) {
+                1
             } else if (score1 > score2) {
-                return -1;
+                -1
             } else {
-                return 0;
+                0
             }
         }
-        private float score(MidiDevice.Info info) {
-            String lcName = info.getName().toLowerCase(Locale.ENGLISH);
-            float result = 0f;
+
+        private fun score(info: MidiDevice.Info): Float {
+            val lcName = info.name.lowercase()
+            var result = 0f
             if (lcName.contains("mapper")) {
                 // "Midi Mapper" is ideal, because the user can select the default output device in the control panel
-                result += 100;
+                result += 100f
             } else {
                 if (lcName.contains("synth")) {
                     // A synthesizer is usually better than a sequencer or USB MIDI port
-                    result += 50;
+                    result += 50f
                     if (lcName.contains("java")) {
                         // "Java Sound Synthesizer" has a low sample rate; Prefer another software synth
-                        result -= 20;
+                        result -= 20f
                     }
                     if (lcName.contains("microsoft")) {
                         // "Microsoft GS Wavetable Synth" is notoriously unpopular, but sometimes it's the only one
                         // with a decent sample rate.
-                        result -= 7;
+                        result -= 7f
                     }
                 }
             }
-            return result;
+            return result
         }
     }
 
-    static class ThreadFactoryImpl implements ThreadFactory {
-        @Override
-        public Thread newThread(final Runnable r) {
-            Thread thread =
-                new Thread(r, String.format("FinnwMusicModule-%d", NEXT_ID.getAndIncrement()));
-            thread.setPriority(Thread.MAX_PRIORITY - 1);
-            return thread;
+    internal class ThreadFactoryImpl : ThreadFactory {
+        override fun newThread(r: Runnable): Thread {
+            val thread = Thread(r, String.format("FinnwMusicModule-%d", NEXT_ID.getAndIncrement()))
+            thread.priority = Thread.MAX_PRIORITY - 1
+            return thread
         }
-        private static final AtomicInteger NEXT_ID =
-            new AtomicInteger(1);
-    }
 
-    final Lock lock;
-
-    static final long nanosPerTick = 1000000000 / 140;
-
-    /** Channels in MUS order (0-14 = instruments, 15 = percussion) */
-    final List<Channel> channels;
-
-    ScheduledExecutorService exec;
-
-    float volume;
-
-    private static Receiver getReceiver() throws MidiUnavailableException {
-        List<MidiDevice.Info> dInfos =
-            new ArrayList<MidiDevice.Info>(Arrays.asList(MidiSystem.getMidiDeviceInfo()));
-        for (Iterator<MidiDevice.Info> it = dInfos.iterator();
-             it.hasNext();
-             ) {
-            MidiDevice.Info dInfo = it.next();
-            MidiDevice dev = MidiSystem.getMidiDevice(dInfo);
-            if (dev.getMaxReceivers() == 0) {
-                // We cannot use input-only devices
-                it.remove();
-            }
-        }
-        if (dInfos.isEmpty()) return null;
-        Collections.sort(dInfos, new MidiDeviceComparator());
-        MidiDevice.Info dInfo = dInfos.get(0);
-        MidiDevice dev = MidiSystem.getMidiDevice((MidiDevice.Info) dInfo);
-        dev.open();
-        return dev.getReceiver();
-    }
-
-    private void prepare(Receiver receiver) {
-        EventGroup setupEG = new EventGroup(volume);
-        for (Channel chan: channels) {
-            chan.allSoundsOff(setupEG);
-            chan.resetAll(setupEG);
-            chan.pitchBendSensitivity(2, setupEG);
-            chan.volume(127, setupEG);
-        }
-        setupEG.sendTo(receiver);
-    }
-
-    private static void sleepUninterruptibly(int timeout, TimeUnit timeUnit) {
-        boolean interrupted = false;
-        long now = System.nanoTime();
-        final long expiry = now + timeUnit.toNanos(timeout);
-        long remaining;
-        while ((remaining = expiry - now) > 0L) {
-            try {
-                TimeUnit.NANOSECONDS.sleep(remaining);
-            } catch (InterruptedException ex) {
-                interrupted = true;
-            } finally {
-                now = System.nanoTime();
-            }
-        }
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-        }
-    }
-    private static Channel checkChannelExists(String type, Channel channel)
-            throws IllegalArgumentException {
-        if (channel == null) {
-            String msg = String.format("Invalid channel for %s message", type);
-            throw new IllegalArgumentException(msg);
-        } else {
-            return channel;
+        companion object {
+            private val NEXT_ID = AtomicInteger(1)
         }
     }
 
-    private int readTime(ByteBuffer scoreBuffer) {
-        int result = 0;
-        boolean last;
+    val lock: Lock
+
+    /** Channels in MUS order (0-14 = instruments, 15 = percussion)  */
+    private lateinit var channels: MutableList<FinnwMusicModule.Channel>
+    var exec: ScheduledExecutorService? = null
+    var volume = 0f
+    private fun prepare(receiver: Receiver?) {
+        val setupEG = FinnwMusicModule.EventGroup(volume)
+        for (chan in channels) {
+            chan.allSoundsOff(setupEG)
+            chan.resetAll(setupEG)
+            chan.pitchBendSensitivity(2, setupEG)
+            chan.volume(127, setupEG)
+        }
+        setupEG.sendTo(receiver)
+    }
+
+    private fun readTime(scoreBuffer: ByteBuffer): Int {
+        var result = 0
+        var last: Boolean
         do {
-            int digit = scoreBuffer.get() & 0xff;
-            last = (digit & 0x80) == 0;
-            result <<= 7;
-            result |= digit & 127;
-        } while (! last);
-        return result;
+            val digit = scoreBuffer.get().toInt() and 0xff
+            last = digit and 0x80 == 0
+            result = result shl 7
+            result = result or (digit and 127)
+        } while (!last)
+        return result
     }
 
-    private static class Channel {
-        Channel(int midiChan) {
-            this.midiChan = midiChan;
+    private class Channel internal constructor(private val midiChan: Int) {
+        fun allNotesOff(eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.allNotesOff(midiChan)
         }
-        void allNotesOff(EventGroup eventGroup) {
-            eventGroup.allNotesOff(midiChan);
+
+        fun allSoundsOff(eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.allSoundsOff(midiChan)
         }
-        void allSoundsOff(EventGroup eventGroup) {
-            eventGroup.allSoundsOff(midiChan);
+
+        fun chorusDepth(depth: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.chorusDepth(midiChan, depth)
         }
-        void chorusDepth(int depth, EventGroup eventGroup) {
-            eventGroup.chorusDepth(midiChan, depth);
+
+        fun expression(expr: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.expression(midiChan, expr)
         }
-        void expression(int expr, EventGroup eventGroup) {
-            eventGroup.expression(midiChan, expr);
+
+        fun noteOff(note: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.noteOff(midiChan, note)
         }
-        void noteOff(int note, EventGroup eventGroup) {
-            eventGroup.noteOff(midiChan, note);
+
+        fun noteOn(note: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.noteOn(midiChan, note, lastVelocity)
         }
-        void noteOn(int note, EventGroup eventGroup) {
-            eventGroup.noteOn(midiChan, note, lastVelocity);
+
+        fun noteOn(note: Int, velocity: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            lastVelocity = velocity
+            noteOn(note, eventGroup)
         }
-        void noteOn(int note, int velocity, EventGroup eventGroup) {
-            lastVelocity = velocity;
-            noteOn(note, eventGroup);
+
+        fun pan(pan: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.pan(midiChan, pan)
         }
-        void pan(int pan, EventGroup eventGroup) {
-            eventGroup.pan(midiChan, pan);
+
+        fun patchChange(patchId: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.patchChange(midiChan, patchId)
         }
-        void patchChange(int patchId, EventGroup eventGroup) {
-            eventGroup.patchChange(midiChan, patchId);
+
+        fun pitchBend(wheelVal: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.pitchBend(midiChan, wheelVal)
         }
-        void pitchBend(int wheelVal, EventGroup eventGroup) {
-            eventGroup.pitchBend(midiChan, wheelVal);
+
+        fun pitchBendSensitivity(semitones: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.pitchBendSensitivity(midiChan, semitones)
         }
-        void pitchBendSensitivity(int semitones, EventGroup eventGroup) {
-            eventGroup.pitchBendSensitivity(midiChan, semitones);
+
+        fun resetAll(eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.resetAllControllern(midiChan)
         }
-        void resetAll(EventGroup eventGroup) {
-            eventGroup.resetAllControllern(midiChan);
+
+        fun reverbDepth(depth: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.reverbDepth(midiChan, depth)
         }
-        void reverbDepth(int depth, EventGroup eventGroup) {
-            eventGroup.reverbDepth(midiChan, depth);
+
+        fun vibratoChange(depth: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.vibratoChange(midiChan, depth)
         }
-        void vibratoChange(int depth, EventGroup eventGroup) {
-            eventGroup.vibratoChange(midiChan, depth);
+
+        fun volume(vol: Int, eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.volume(midiChan, vol)
+            lastVolume = vol
         }
-        void volume(int vol, EventGroup eventGroup) {
-            eventGroup.volume(midiChan, vol);
-            lastVolume = vol;
+
+        fun volumeChanged(eventGroup: FinnwMusicModule.EventGroup) {
+            eventGroup.volume(midiChan, lastVolume)
         }
-        void volumeChanged(EventGroup eventGroup) {
-            eventGroup.volume(midiChan, lastVolume);
-        }
-        private int lastVelocity;
-        private int lastVolume;
-        private final int midiChan;
+
+        private var lastVelocity = 0
+        private var lastVolume = 0
     }
 
-    private class ScheduledTransmitter implements Transmitter {
-
-        @Override
-        public void close() {
-            lock.lock();
+    private inner class ScheduledTransmitter internal constructor(scoreBuffer: ByteBuffer, looping: Boolean) :
+        Transmitter {
+        override fun close() {
+            lock.lock()
             try {
                 if (autoShutdown && exec != null) {
-                    exec.shutdown();
+                    exec!!.shutdown()
                 }
-                autoShutdown = false;
-                exec = null;
+                autoShutdown = false
+                exec = null
             } finally {
-                lock.unlock();
+                lock.unlock()
             }
         }
 
-        @Override
-        public Receiver getReceiver() {
-            return receiver;
+        override fun getReceiver(): Receiver {
+            return _receiver!!
         }
 
-        @Override
-        public void setReceiver(Receiver receiver) {
-            EventGroup currentGroup = null;
-            lock.lock();
+        override fun setReceiver(receiver: Receiver) {
+            var currentGroup: FinnwMusicModule.EventGroup? = null
+            lock.lock()
             try {
-                if (this.receiver != null) {
-                    if (this.future.cancel(false)) {
-                        currentGroup = triggerTask.eventGroup;
+                if (this._receiver != null) {
+                    if (future!!.cancel(false)) {
+                        currentGroup = triggerTask!!.eventGroup
                     }
                 } else {
-                    nextGroupTime = System.nanoTime();
+                    nextGroupTime = System.nanoTime()
                 }
-                this.receiver = receiver;
-                scheduleIfRequired(receiver, currentGroup);
+                this._receiver = receiver
+                scheduleIfRequired(receiver, currentGroup)
             } finally {
-                lock.unlock();
+                lock.unlock()
             }
         }
 
-        ScheduledTransmitter(ByteBuffer scoreBuffer, boolean looping) {
-            this.exec = FinnwMusicModule.this.exec;
-            this.looping = looping;
-            this.scoreBuffer = scoreBuffer;
-        }
-
-        void scheduleIfRequired(Receiver receiver,
-                                EventGroup currentGroup) {
-            assert (((ReentrantLock) lock).isHeldByCurrentThread());
+        fun scheduleIfRequired(
+            receiver: Receiver?,
+            currentGroup: FinnwMusicModule.EventGroup?
+        ) {
+            var currentGroup = currentGroup
+            assert((lock as ReentrantLock).isHeldByCurrentThread)
             if (currentGroup == null) {
                 try {
-                    currentGroup = nextEventGroup(scoreBuffer, looping);
+                    currentGroup = nextEventGroup(scoreBuffer, looping)
                     if (currentGroup != null) {
-                        triggerTask = new TriggerTask(currentGroup, receiver);
-                        long delay = Math.max(0, nextGroupTime - System.nanoTime());
-                        future =
-                            exec.schedule(triggerTask, delay, TimeUnit.NANOSECONDS);
-                        nextGroupTime += currentGroup.getDelay() * nanosPerTick;
+                        triggerTask = TriggerTask(currentGroup, receiver)
+                        val delay = Math.max(0, nextGroupTime - System.nanoTime())
+                        future = exec!!.schedule(triggerTask, delay, TimeUnit.NANOSECONDS)
+                        nextGroupTime += currentGroup.getDelay() * FinnwMusicModule.nanosPerTick
                     } else {
-                        triggerTask = null;
-                        future = null;
+                        triggerTask = null
+                        future = null
                     }
-                } catch (RejectedExecutionException ex) {
+                } catch (ex: RejectedExecutionException) {
                     // This is normal when shutting down
-                } catch (Exception ex) {
-                    System.err.println(ex);
+                } catch (ex: Exception) {
+                    System.err.println(ex)
                 }
             }
         }
 
-        void stop() {
-            assert (((ReentrantLock) lock).isHeldByCurrentThread());
+        fun stop() {
+            assert((lock as ReentrantLock).isHeldByCurrentThread)
             if (future != null) {
-                future.cancel(false);
+                future!!.cancel(false)
                 try {
-                    future.get();
-                } catch (InterruptedException ex) {
-                } catch (ExecutionException ex) {
-                } catch (CancellationException ex) {
+                    future!!.get()
+                } catch (ex: InterruptedException) {
+                } catch (ex: ExecutionException) {
+                } catch (ex: CancellationException) {
                 }
-                future = null;
+                future = null
             }
-            EventGroup cleanup = new EventGroup(0f);
-            for (Channel chan: channels) {
-                chan.allNotesOff(cleanup);
+            val cleanup = FinnwMusicModule.EventGroup(0f)
+            for (chan in channels) {
+                chan.allNotesOff(cleanup)
             }
-            cleanup.sendTo(receiver);
+            cleanup.sendTo(_receiver)
         }
 
-        void volumeChanged() {
-            assert (((ReentrantLock) lock).isHeldByCurrentThread());
-            EventGroup adjust = new EventGroup(volume);
-            for (Channel chan: channels) {
-                chan.volumeChanged(adjust);
+        fun volumeChanged() {
+            assert((lock as ReentrantLock).isHeldByCurrentThread)
+            val adjust = FinnwMusicModule.EventGroup(volume)
+            for (chan in channels) {
+                chan.volumeChanged(adjust)
             }
-            adjust.sendTo(receiver);
+            adjust.sendTo(_receiver)
         }
-        TriggerTask triggerTask;
 
-        private class TriggerTask implements Runnable {
-            @Override
-            public void run() {
-                boolean shouldSend = false;
-                lock.lock();
+        var triggerTask: TriggerTask? = null
+
+        private inner class TriggerTask internal constructor(
+            val eventGroup: FinnwMusicModule.EventGroup,
+            val receiver: Receiver?
+        ) : Runnable {
+            override fun run() {
+                var shouldSend = false
+                lock.lock()
                 try {
-                    if (triggerTask == this) {
-                        shouldSend = true;
-                        scheduleIfRequired(receiver, null);
+                    if (triggerTask === this) {
+                        shouldSend = true
+                        scheduleIfRequired(receiver, null)
                     }
                 } finally {
-                    lock.unlock();
+                    lock.unlock()
                 }
                 if (shouldSend) {
-                    eventGroup.sendTo(receiver);
+                    eventGroup.sendTo(receiver)
                 }
             }
-            TriggerTask(EventGroup eventGroup, Receiver receiver) {
-                this.eventGroup = eventGroup;
-                this.receiver = receiver;
-            }
-
-            final EventGroup eventGroup;
-            final Receiver receiver;
         }
 
-        private boolean autoShutdown;
+        private var autoShutdown = false
+        private var exec: ScheduledExecutorService?
+        private var future: ScheduledFuture<*>? = null
+        private val looping: Boolean
+        private var nextGroupTime: Long = 0
+        var _receiver: Receiver? = null
+        private val scoreBuffer: ByteBuffer
 
-        private ScheduledExecutorService exec;
-
-        private ScheduledFuture<?> future;
-
-        private final boolean looping;
-
-        private long nextGroupTime;
-
-        private Receiver receiver;
-
-        private final ByteBuffer scoreBuffer;
+        init {
+            this.exec = this@FinnwMusicModule.exec
+            this.looping = looping
+            this.scoreBuffer = scoreBuffer
+        }
     }
 
-    /** Contains unfiltered MUS data */
-    private class Song {
-        Song(ByteBuffer data) {
-            this.data = data.asReadOnlyBuffer();
-            this.data.order(ByteOrder.LITTLE_ENDIAN);
-            byte[] magic = new byte[4];
-            this.data.get(magic);
-            ByteBuffer magicBuf = ByteBuffer.wrap(magic);
-            if (! hasMusMagic(magicBuf)) {
-                throw new IllegalArgumentException("Expected magic string \"MUS\\x1a\" but found " + Arrays.toString(magic));
-            }
-            this.scoreLen = this.data.getShort() & 0xffff;
-            this.scoreStart = this.data.getShort() & 0xffff;
+    /** Contains unfiltered MUS data  */
+    private inner class Song internal constructor(data: ByteBuffer) {
+        /** Get only the score part of the data (skipping the header)  */
+        fun getScoreBuffer(): ByteBuffer {
+            val scoreBuffer = data.duplicate()
+            scoreBuffer.position(scoreStart)
+            scoreBuffer.limit(scoreStart + scoreLen)
+            return scoreBuffer.slice()
         }
 
-        /** Get only the score part of the data (skipping the header) */
-        ByteBuffer getScoreBuffer() {
-            ByteBuffer scoreBuffer = this.data.duplicate();
-            scoreBuffer.position(scoreStart);
-            scoreBuffer.limit(scoreStart + scoreLen);
-            ByteBuffer slice = scoreBuffer.slice();
-            return slice;
+        private val data: ByteBuffer
+        private val scoreLen: Int
+        private val scoreStart: Int
+
+        init {
+            this.data = data.asReadOnlyBuffer()
+            this.data.order(ByteOrder.LITTLE_ENDIAN)
+            val magic = ByteArray(4)
+            this.data[magic]
+            val magicBuf = ByteBuffer.wrap(magic)
+            require(FinnwMusicModule.hasMusMagic(magicBuf)) {
+                "Expected magic string \"MUS\\x1a\" but found " + Arrays.toString(
+                    magic
+                )
+            }
+            scoreLen = this.data.short.toInt() and 0xffff
+            scoreStart = this.data.short.toInt() and 0xffff
         }
-        private final ByteBuffer data;
-        private final int scoreLen;
-        private final int scoreStart;
     }
 
-    private ScheduledTransmitter currentTransmitter;
+    private var currentTransmitter: ScheduledTransmitter? = null
+    private var receiver: Receiver? = null
 
-    private Receiver receiver;
+    /** Songs indexed by handle  */
+    private val songs: MutableList<Song?>
 
-    /** Songs indexed by handle */
-    private final List<Song> songs;
+    init {
+        lock = ReentrantLock()
+        channels = ArrayList(15)
+        songs = ArrayList(1)
+        for (midiChan in 0..15) {
+            if (midiChan != 9) {
+                channels.add(FinnwMusicModule.Channel(midiChan))
+            }
+        }
+        channels.add(FinnwMusicModule.Channel(9))
+    }
 
+    companion object {
+        fun hasMusMagic(magicBuf: ByteBuffer): Boolean {
+            return magicBuf[0] == 'M'.code.toByte() && magicBuf[1] == 'U'.code.toByte() && magicBuf[2] == 'S'.code.toByte() && magicBuf[3].toInt() == 0x1a
+        }
+
+        const val nanosPerTick = (1000000000 / 140).toLong()
+        @Throws(MidiUnavailableException::class)
+        private fun getReceiver(): Receiver? {
+            val dInfos: MutableList<MidiDevice.Info> = ArrayList(Arrays.asList(*MidiSystem.getMidiDeviceInfo()))
+            val it = dInfos.iterator()
+            while (it.hasNext()) {
+                val dInfo = it.next()
+                val dev = MidiSystem.getMidiDevice(dInfo)
+                if (dev.maxReceivers == 0) {
+                    // We cannot use input-only devices
+                    it.remove()
+                }
+            }
+            if (dInfos.isEmpty()) return null
+            Collections.sort(dInfos, FinnwMusicModule.MidiDeviceComparator())
+            val dInfo = dInfos[0]
+            val dev = MidiSystem.getMidiDevice(dInfo)
+            dev.open()
+            return dev.receiver
+        }
+
+        private fun sleepUninterruptibly(timeout: Int, timeUnit: TimeUnit) {
+            var interrupted = false
+            var now = System.nanoTime()
+            val expiry = now + timeUnit.toNanos(timeout.toLong())
+            var remaining: Long
+            while (expiry - now.also { remaining = it } > 0L) {
+                try {
+                    TimeUnit.NANOSECONDS.sleep(remaining)
+                } catch (ex: InterruptedException) {
+                    interrupted = true
+                } finally {
+                    now = System.nanoTime()
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt()
+            }
+        }
+
+        @Throws(IllegalArgumentException::class)
+        private fun checkChannelExists(type: String, channel: FinnwMusicModule.Channel?): FinnwMusicModule.Channel {
+            return if (channel == null) {
+                val msg = String.format("Invalid channel for %s message", type)
+                throw IllegalArgumentException(msg)
+            } else {
+                channel
+            }
+        }
+    }
 }

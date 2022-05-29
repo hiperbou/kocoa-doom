@@ -1,7 +1,6 @@
-package p;
+package p
 
-public enum sdt_e {
-	    sdt_openOnly,
-	    sdt_closeOnly,
-	    sdt_openAndClose
-	}
+
+enum class sdt_e {
+    sdt_openOnly, sdt_closeOnly, sdt_openAndClose
+}

@@ -1,95 +1,89 @@
-package m;
+package m
 
-import java.io.DataOutputStream;
-import java.io.IOException;
 
-import w.IWritableDoomObject;
+import w.IWritableDoomObject
+import java.io.DataOutputStream
+import java.io.IOException
 
 /** Yeah, this is actually a PCX header implementation, and Mocha Doom
- *  saved PCX screenshots. Implemented it back just to shot that it can be
- *  done (will switch to PNG ASAP though). 
- *  
- *  @author Maes
- * 
+ * saved PCX screenshots. Implemented it back just to shot that it can be
+ * done (will switch to PNG ASAP though).
+ *
+ * @author Maes
  */
+class pcx_t : IWritableDoomObject {
+    //
+    // SCREEN SHOTS
+    //
+    // char -> byte Bytes.
+    /** manufacturer byte, must be 10 decimal  */
+    var manufacturer: Byte = 0
 
-public class pcx_t implements IWritableDoomObject{
+    /** PCX version number  */
+    var version: Byte = 0
 
-	//
-	// SCREEN SHOTS
-	//
+    /** run length encoding byte, must be 1  */
+    var encoding: Byte = 0
 
-		// char -> byte Bytes.
-        /** manufacturer byte, must be 10 decimal */
-		public byte		manufacturer;
-		
-		/** PCX version number */
-		byte		version;
-		
-		/** run length encoding byte, must be 1 */
-		byte		encoding;
-		
-		/** number of bits per pixel per bit plane */
-		byte		bits_per_pixel;
-		
-		/** image limits in pixels: Xmin, Ymin, Xmax, Ymax */
-		public char	xmin,ymin,xmax,ymax;
-	    
-		/** horizontal dots per inch when printed (unreliable) */
-		char	hres;
-		
-		/** vertical dots per inch when printed (unreliable) */
-		char	vres;
+    /** number of bits per pixel per bit plane  */
+    var bits_per_pixel: Byte = 0
 
-		/** 16-color palette (16 RGB triples between 0-255) 
-		 *  UNUSED in Doom. */
-		byte[]	palette=new byte[48];
-	    
-		/** reserved, must be zero */
-	    byte		reserved;
-	    
-	    /** number of bit planes */
-	    byte		color_planes;
+    /** image limits in pixels: Xmin, Ymin, Xmax, Ymax  */
+    var xmin = 0.toChar()
+    var ymin = 0.toChar()
+    var xmax = 0.toChar()
+    var ymax = 0.toChar()
 
-	    /** video memory bytes per image row */
-	    char	bytes_per_line;
-	    
-	    /** 16-color palette interpretation (unreliable) 0=color/b&w 1=grayscale */
-	    char	palette_type;
-	    
-	    // Seems off-spec. However it's left all zeroed out.
-	    byte[]		filler=new byte[58];
+    /** horizontal dots per inch when printed (unreliable)  */
+    var hres = 0.toChar()
 
-	    //unsigned char	data;
-	    byte[] data;
-	    
-		@Override
-		public void write(DataOutputStream f) throws IOException {
-			// char -> byte Bytes.
+    /** vertical dots per inch when printed (unreliable)  */
+    var vres = 0.toChar()
 
-			f.writeByte(manufacturer);
-			f.writeByte(version);
-			f.writeByte(encoding);
-			f.writeByte(bits_per_pixel);
-			
-			// unsigned short -> char
-			f.writeChar(Swap.SHORT(xmin));
-			f.writeChar(Swap.SHORT(ymin));
-			f.writeChar(Swap.SHORT(xmax));
-			f.writeChar(Swap.SHORT(ymax));
-		    
-			f.writeChar(Swap.SHORT(hres));
-			f.writeChar(Swap.SHORT(vres));
-			f.write(palette);
-		    
-		    f.writeByte(reserved);
-		    f.writeByte(color_planes);
-		 // unsigned short -> char
-		    f.writeChar(Swap.SHORT(bytes_per_line));
-		    f.writeChar(Swap.SHORT(palette_type));
-		    
-		    f.write(filler);
-		    //unsigned char	data;		// unbounded
-		    f.write(data);
-		}
-	} ;
+    /** 16-color palette (16 RGB triples between 0-255)
+     * UNUSED in Doom.  */
+    var palette = ByteArray(48)
+
+    /** reserved, must be zero  */
+    var reserved: Byte = 0
+
+    /** number of bit planes  */
+    var color_planes: Byte = 0
+
+    /** video memory bytes per image row  */
+    var bytes_per_line = 0.toChar()
+
+    /** 16-color palette interpretation (unreliable) 0=color/b&w 1=grayscale  */
+    var palette_type = 0.toChar()
+
+    // Seems off-spec. However it's left all zeroed out.
+    var filler = ByteArray(58)
+
+    //unsigned char	data;
+    lateinit var data: ByteArray
+    @Throws(IOException::class)
+    override fun write(f: DataOutputStream) {
+        // char -> byte Bytes.
+        f.writeByte(manufacturer.toInt())
+        f.writeByte(version.toInt())
+        f.writeByte(encoding.toInt())
+        f.writeByte(bits_per_pixel.toInt())
+
+        // unsigned short -> char
+        f.writeChar(Swap.SHORT(xmin).toInt())
+        f.writeChar(Swap.SHORT(ymin).toInt())
+        f.writeChar(Swap.SHORT(xmax).toInt())
+        f.writeChar(Swap.SHORT(ymax).toInt())
+        f.writeChar(Swap.SHORT(hres).toInt())
+        f.writeChar(Swap.SHORT(vres).toInt())
+        f.write(palette)
+        f.writeByte(reserved.toInt())
+        f.writeByte(color_planes.toInt())
+        // unsigned short -> char
+        f.writeChar(Swap.SHORT(bytes_per_line).toInt())
+        f.writeChar(Swap.SHORT(palette_type).toInt())
+        f.write(filler)
+        //unsigned char	data;		// unbounded
+        f.write(data)
+    }
+}

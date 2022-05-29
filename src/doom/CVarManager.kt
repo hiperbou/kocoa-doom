@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,19 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package doom;
+package doom
 
-import java.lang.reflect.Array;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.logging.Level;
-import mochadoom.Loggers;
-import utils.ResourceIO;
+
+import doom.CommandVariable
+import mochadoom.Loggers
+import utils.ResourceIO
+import java.lang.reflect.InvocationTargetException
+import java.util.*
+import java.util.function.*
+import java.util.logging.Level
 
 /**
  * New, object-oriented Console Variable Manager
@@ -34,97 +32,89 @@ import utils.ResourceIO;
  * 1. Define CVars in CommandVariable Enum
  * 2. In program entry main function, create any ICommandLineManager and pass an instance to create CVarManager
  * 3. Use methods bool, present, get and with to check or get CVars
- * 
+ *
  * @author Good Sign
  */
-public class CVarManager {
-    
-    private final EnumMap<CommandVariable, Object[]> cVarMap = new EnumMap<>(CommandVariable.class);
+class CVarManager(commandList: List<String>) {
+    private val cVarMap = EnumMap<CommandVariable, Array<Any?>?>(
+        CommandVariable::class.java
+    )
 
-    public CVarManager(final List<String> commandList) {
-        System.out.println(processAllArgs(commandList) + " command-line variables");
+    init {
+        println(processAllArgs(commandList).toString() + " command-line variables")
     }
-    
+
     /**
      * Checks that CVar of switch-type is passed as Command Line Argument
      * @param cv
      * @return boolean
      */
-    public boolean bool(final CommandVariable cv) {
-        return cv.getType() == CommandVariable.Type.SWITCH && cVarMap.containsKey(cv);
+    fun bool(cv: CommandVariable): Boolean {
+        return cv.getType() == CommandVariable.Type.SWITCH && cVarMap.containsKey(cv)
     }
-    
+
     /**
      * Checks that CVar of any type is passed as Command Line Argument with proper value(s)
      * @param cv
      * @return boolean
      */
-    public boolean present(final CommandVariable cv) {
-        return cVarMap.get(cv) != null;
+    fun present(cv: CommandVariable): Boolean {
+        return cVarMap[cv] != null
     }
-    
+
     /**
      * Checks that CVar of any type is passed as Command Line Argument
      * @param cv
      * @return boolean
      */
-    public boolean specified(final CommandVariable cv) {
-        return cVarMap.containsKey(cv);
+    fun specified(cv: CommandVariable): Boolean {
+        return cVarMap.containsKey(cv)
     }
-    
+
     /**
      * Gets an Optional with or without a value of CVar argument at position
      * @param cv
      * @return Optional
      */
-    public <T> Optional<T> get(final CommandVariable cv, final Class<T> itemType, final int position) {        
+    operator fun <T> get(cv: CommandVariable, itemType: Class<T>, position: Int): Optional<T> {
         if (cv.arguments[position] == itemType) {
             if (!cVarMap.containsKey(cv)) {
-                return Optional.empty();
+                return Optional.empty()
             }
-            
-            @SuppressWarnings("unchecked")
-            final T ret = (T) cVarMap.get(cv)[position];
-            return Optional.ofNullable(ret);
+            val ret = cVarMap[cv]!![position] as T?
+            return Optional.ofNullable(ret)
         }
-        
-        throw new IllegalArgumentException("CVar argument at position " + position + " is not of class " + itemType.getName());
+        throw IllegalArgumentException("CVar argument at position " + position + " is not of class " + itemType.name)
     }
-    
+
     /**
      * Tries to apply a CVar argument at position to the consuming function
      * The magic is that you declare a lambda function or reference some method
      * and the type of object will be automatically picked from what you hinted
-     * 
+     *
      * i.e. (String s) -> System.out.println(s) will try to get string,
      * (Object o) -> map.put(key, o) or o -> list.add(o.hashCode()) will try to get objects
      * and you dont have to specify class
-     * 
+     *
      * The drawback is the ClassCastException will be thrown if the value is neither
      * what you expected, nor a subclass of it
-     * 
+     *
      * @param cv
      * @param position
      * @param action
      * @return false if CVar is not passed as Command Line Argument or the consuming action is incompatible
      */
-    public <T> boolean with(final CommandVariable cv, final int position, final Consumer<T> action) {
-        try {
-            @SuppressWarnings("unchecked")
-            final Object[] mapped = cVarMap.get(cv);
-            if (mapped == null) {
-                return false;
-            }
-            
-            @SuppressWarnings("unchecked")
-            final T item = (T) mapped[position];
-            action.accept(item);
-            return true;
-        } catch (ClassCastException ex) {
-            return false;
+    fun <T> with(cv: CommandVariable, position: Int, action: Consumer<T>): Boolean {
+        return try {
+            val mapped = cVarMap[cv] ?: return false
+            val item = mapped[position] as T
+            action.accept(item)
+            true
+        } catch (ex: ClassCastException) {
+            false
         }
     }
-    
+
     /**
      * Tries to replace the CVar argument if already present or add it along with CVar
      * @param cv
@@ -132,168 +122,173 @@ public class CVarManager {
      * @param position
      * @return false if invalid position or value class
      */
-    public <T> boolean override(final CommandVariable cv, final T value, final int position) {
-        if (position < 0 || position >= cv.arguments.length) {
-            return false;
+    fun <T> override(cv: CommandVariable, value: T, position: Int): Boolean {
+        if (position < 0 || position >= cv.arguments.size) {
+            return false
         }
-        
         if (!cv.arguments[position].isInstance(value)) {
-            return false;
+            return false
         }
-        
-        cVarMap.compute(cv, (key, array) -> {
+        cVarMap.compute(cv) { key: CommandVariable?, array: Array<Any?>? ->
+            var array = array
             if (array == null) {
-                array = new Object[cv.arguments.length];
+                array = arrayOfNulls(cv.arguments.size)
             }
-            
-            array[position] = value;
-            return array;
-        });
-        
-        return true;
+            array[position] = value
+            array
+        }
+        return true
     }
-    
-    private void readResponseFile(final String filename) {
-        final ResponseReader r = new ResponseReader();
-        if (new ResourceIO(filename).readLines(r)) {
-            System.out.println(String.format("Found response file %s, read %d command line variables", filename, r.cVarCount));
+
+    private fun readResponseFile(filename: String) {
+        val r = ResponseReader()
+        if (ResourceIO(filename).readLines(r as Consumer<String?>)) {
+            println(String.format("Found response file %s, read %d command line variables", filename, r.cVarCount))
         } else {
-            System.out.println(String.format("No such response file %s!", filename));
-            System.exit(1);
+            println(String.format("No such response file %s!", filename))
+            System.exit(1)
         }
     }
 
-    private int processAllArgs(final List<String> commandList) {
-        int cVarCount = 0, position = 0;
-        
-        for (
-            final int limit = commandList.size();
-            limit > position;
-            position = processCVar(commandList, position),
-            ++position,
+    private fun processAllArgs(commandList: List<String>): Int {
+        var cVarCount = 0
+        var position = 0
+        val limit = commandList.size
+        while (limit > position) {
+            position = processCVar(commandList, position)
+            ++position
             ++cVarCount
-        ) {}
-        
-        return cVarCount;
+        }
+        return cVarCount
     }
 
-    private int processCVar(final List<String> commandList, int position) {
-        final String arg = commandList.get(position);
-        
+    private fun processCVar(commandList: List<String>, position: Int): Int {
+        val arg = commandList[position]
         if (!isCommandArgument(arg)) {
-            return position;
+            return position
         }
-        
-        final char cVarPrefix = arg.charAt(0);
-        final String cVarName = arg.substring(1);
-        
+        val cVarPrefix = arg[0]
+        val cVarName = arg.substring(1)
         if (cVarPrefix == '@') {
-            readResponseFile(cVarName);
-            return position;
+            readResponseFile(cVarName)
+            return position
         } else try {
-            final CommandVariable cVar = CommandVariable.valueOf(cVarName.toUpperCase());
+            val cVar = CommandVariable.valueOf(cVarName.uppercase(Locale.getDefault()))
             if (cVar.prefix == cVarPrefix) {
-                switch(cVar.getType()) {
-                    case PARAMETER:
-                        cVarMap.put(cVar, null);
-                    case VARARG:
-                        return processCVarSubArgs(commandList, position, cVar);
-                    case SWITCH:
-                    default:
-                        cVarMap.put(cVar, null);
-                        return position;
+                return when (cVar.getType()) {
+                    CommandVariable.Type.PARAMETER -> {
+                        cVarMap[cVar] = null
+                        processCVarSubArgs(commandList, position, cVar)
+                    }
+                    CommandVariable.Type.VARARG -> processCVarSubArgs(commandList, position, cVar)
+                    CommandVariable.Type.SWITCH -> {
+                        cVarMap[cVar] = null
+                        position
+                    }
+                    else -> {
+                        cVarMap[cVar] = null
+                        position
+                    }
                 }
             }
-        } catch (IllegalArgumentException ex) {} // ignore
-        return position;
+        } catch (ex: IllegalArgumentException) {
+        } // ignore
+        return position
     }
-    
-    private int processCVarSubArgs(final List<String> commandList, int position, final CommandVariable cVar) {
-        final Object[] cVarMappings = new Object[cVar.arguments.length];
-        for (int j = 0; j < cVar.arguments.length; ++j) {
-            if (cVar.arguments[j].isArray()) {
-                final Class<?> elementClass = cVar.arguments[j].getComponentType();
-                final Object[] mapping = processVarArg(elementClass, commandList, position + 1);
-                cVarMappings[j] = mapping;
-                position += mapping.length;
-                if (mapping.length == 0) {
-                    break;
+
+    private fun processCVarSubArgs(commandList: List<String>, position: Int, cVar: CommandVariable): Int {
+        var position = position
+        val cVarMappings = arrayOfNulls<Any>(cVar.arguments.size)
+        for (j in cVar.arguments.indices) {
+            if (cVar.arguments[j].isArray) {
+                val elementClass = cVar.arguments[j].componentType
+                val mapping = processVarArg(elementClass, commandList, position + 1)
+                cVarMappings[j] = mapping
+                position += mapping.size
+                if (mapping.size == 0) {
+                    break
                 }
-            } else if ((cVarMappings[j] = processValue(cVar.arguments[j], commandList, position + 1)) == null) {
-                break;
+            } else if (processValue(cVar.arguments[j], commandList, position + 1).also {
+                    cVarMappings[j] = it
+                } == null) {
+                break
             } else {
-                ++position;
+                ++position
             }
         }
-        cVarMap.put(cVar, cVarMappings);
-        return position;
+        cVarMap[cVar] = cVarMappings
+        return position
     }
 
-    private Object processValue(final Class<?> elementClass, final List<String> commandList, int position) {
-        if (position < commandList.size()) {
-            final String arg = commandList.get(position);
+    private fun processValue(elementClass: Class<*>, commandList: List<String>, position: Int): Any? {
+        if (position < commandList.size) {
+            val arg = commandList[position]
             if (!isCommandArgument(arg)) {
-                return formatArgValue(elementClass, arg);
+                return formatArgValue(elementClass, arg)
             }
         }
-        return null;
+        return null
     }
 
-    private Object[] processVarArg(final Class<?> elementClass, final List<String> commandList, int position) {
-        final List<Object> list = new ArrayList<>();
-        for (Object value; (value = processValue(elementClass, commandList, position)) != null; ++position) {
-            list.add(value);
+    private fun processVarArg(elementClass: Class<*>, commandList: List<String>, position: Int): Array<Any> {
+        var position = position
+        val list: MutableList<Any> = ArrayList()
+        var value: Any
+        while (processValue(elementClass, commandList, position).also { value = it!! } != null) {
+            list.add(value)
+            ++position
         }
         // as String[] instanceof Object[], upcast
-        return list.toArray((Object[]) Array.newInstance(elementClass, list.size()));
+        return list.toArray(java.lang.reflect.Array.newInstance(elementClass, list.size) as IntFunction<Array<*>>)
     }
 
-    private Object formatArgValue(final Class<?> format, final String arg) {
-        if (format == Integer.class) {
-            try {
-                return Integer.parseInt(arg);
-            } catch (NumberFormatException ex) {
-                Loggers.getLogger(CommandVariable.class.getName()).log(Level.WARNING, null, ex);
-                return null;
+    private fun formatArgValue(format: Class<*>, arg: String): Any? {
+        if (format == Int::class.java) {
+            return try {
+                arg.toInt()
+            } catch (ex: NumberFormatException) {
+                Loggers.getLogger(CommandVariable::class.java.name).log(Level.WARNING, null, ex)
+                null
             }
-        } else if (format == String.class) {
-            return arg;
+        } else if (format == String::class.java) {
+            return arg
         }
-        try {
-            return format.getDeclaredConstructor(String.class).newInstance(arg);
-        } catch (
-            NoSuchMethodException
-            | SecurityException
-            | InstantiationException
-            | IllegalAccessException
-            | IllegalArgumentException
-            | InvocationTargetException ex
-        ) {
-            Loggers.getLogger(CommandVariable.class.getName()).log(Level.SEVERE, null, ex);
-            return null;
+        return try {
+            format.getDeclaredConstructor(String::class.java).newInstance(arg)
+        } catch (ex: NoSuchMethodException) {
+            Loggers.getLogger(CommandVariable::class.java.name).log(Level.SEVERE, null, ex)
+            null
+        } catch (ex: SecurityException) {
+            Loggers.getLogger(CommandVariable::class.java.name).log(Level.SEVERE, null, ex)
+            null
+        } catch (ex: InstantiationException) {
+            Loggers.getLogger(CommandVariable::class.java.name).log(Level.SEVERE, null, ex)
+            null
+        } catch (ex: IllegalAccessException) {
+            Loggers.getLogger(CommandVariable::class.java.name).log(Level.SEVERE, null, ex)
+            null
+        } catch (ex: IllegalArgumentException) {
+            Loggers.getLogger(CommandVariable::class.java.name).log(Level.SEVERE, null, ex)
+            null
+        } catch (ex: InvocationTargetException) {
+            Loggers.getLogger(CommandVariable::class.java.name).log(Level.SEVERE, null, ex)
+            null
         }
     }
 
-    private boolean isCommandArgument(final String arg) {
-        if (arg.length() < CommandVariable.MIN_CVAR_LENGTH)
-            return false;
-        
-        switch (arg.charAt(0)) {
-            case '-':
-            case '+':
-            case '@':
-                return true;
+    private fun isCommandArgument(arg: String): Boolean {
+        if (arg.length < CommandVariable.MIN_CVAR_LENGTH) return false
+        when (arg[0]) {
+            '-', '+', '@' -> return true
         }
-        
-        return false;
+        return false
     }
-    
-    private class ResponseReader implements Consumer<String> {
-        int cVarCount = 0;
 
-        @Override
-        public void accept(final String line) {
-            cVarCount += processAllArgs(Arrays.asList(line.split(" ")));
+    private inner class ResponseReader : Consumer<String> {
+        var cVarCount = 0
+        override fun accept(line: String) {
+            cVarCount += processAllArgs(Arrays.asList(*line.split(" ".toRegex()).dropLastWhile { it.isEmpty() }
+                .toTypedArray()))
         }
     }
 }

@@ -1,47 +1,43 @@
-package data;
+package data
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
-import w.CacheableDoomObject;
-import w.DoomBuffer;
+import w.CacheableDoomObject
+import w.DoomBuffer
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * A LineDef, as used for editing, and as input to the BSP builder.
  */
-public class maplinedef_t implements CacheableDoomObject{
+class maplinedef_t : CacheableDoomObject {
+    var v1 = 0.toChar()
+    var v2 = 0.toChar()
+    var flags: Short = 0
+    var special: Short = 0
+    var tag: Short = 0
 
-    public maplinedef_t() {
-        this.sidenum = new char[2];
+    /** sidenum[1] will be 0xFFFF if one sided  */
+    var sidenum: CharArray
+
+    init {
+        sidenum = CharArray(2)
     }
 
-    public char v1;
-
-    public char v2;
-
-    public short flags;
-
-    public short special;
-
-    public short tag;
-
-    /** sidenum[1] will be 0xFFFF if one sided */
-    public char[] sidenum;
-
-    public static int sizeOf() {
-        return 14;
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        v1 = buf.char
+        v2 = buf.char
+        flags = buf.short
+        special = buf.short
+        tag = buf.short
+        DoomBuffer.readCharArray(buf, sidenum, 2)
     }
 
-    @Override
-    public void unpack(ByteBuffer buf)
-            throws IOException {
-    buf.order(ByteOrder.LITTLE_ENDIAN);
-    this.v1 = buf.getChar();
-    this.v2 = buf.getChar();
-    this.flags = buf.getShort();
-    this.special = buf.getShort();
-    this.tag = buf.getShort();
-    DoomBuffer.readCharArray(buf, this.sidenum, 2);
+    companion object {
+        fun sizeOf(): Int {
+            return 14
+        }
     }
 }

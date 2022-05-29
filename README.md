@@ -20,6 +20,7 @@ Mocha Doom contains work from many contributors. Here are the main contributors,
 - Copyright (C) 2010-2013  [Victor Epitropou](https://sourceforge.net/projects/mochadoom/)
 - Copyright (C) 2016-2017  [Alexandre-Xavier Labonté-Lamoureux](https://github.com/AXDOOMER/)
 - Copyright (C) 2017  [Good Sign](https://github.com/GoodSign2017)
+- Copyright (C) 2022  [hiperbou](https://github.com/hiperbou)
 
 Mocha Doom is distributed under the [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html).
 

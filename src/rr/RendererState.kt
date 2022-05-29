@@ -1,72 +1,38 @@
-package rr;
+package rr
 
-import data.Defines;
-import static data.Defines.ANGLETOSKYSHIFT;
-import static data.Defines.NF_SUBSECTOR;
-import static data.Defines.PU_CACHE;
-import static data.Defines.SIL_BOTH;
-import static data.Defines.SIL_BOTTOM;
-import static data.Defines.SIL_TOP;
-import static data.Limits.MAXHEIGHT;
-import static data.Limits.MAXSEGS;
-import static data.Limits.MAXWIDTH;
-import data.Tables;
-import static data.Tables.ANG180;
-import static data.Tables.ANG270;
-import static data.Tables.ANG90;
-import static data.Tables.ANGLETOFINESHIFT;
-import static data.Tables.BITS32;
-import static data.Tables.DBITS;
-import static data.Tables.FINEANGLES;
-import static data.Tables.QUARTERMARK;
-import static data.Tables.SlopeDiv;
-import static data.Tables.addAngles;
-import static data.Tables.finecosine;
-import static data.Tables.finesine;
-import static data.Tables.finetangent;
-import static data.Tables.tantoangle;
-import doom.CommandVariable;
-import doom.DoomMain;
-import doom.SourceCode.R_Draw;
-import static doom.SourceCode.R_Draw.R_FillBackScreen;
-import doom.player_t;
-import doom.thinker_t;
-import i.IDoomSystem;
-import java.awt.Rectangle;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import static m.BBox.BOXBOTTOM;
-import static m.BBox.BOXLEFT;
-import static m.BBox.BOXRIGHT;
-import static m.BBox.BOXTOP;
-import m.IDoomMenu;
-import m.MenuMisc;
-import m.Settings;
-import static m.fixed_t.FRACBITS;
-import static m.fixed_t.FRACUNIT;
-import static m.fixed_t.FixedDiv;
-import static m.fixed_t.FixedMul;
-import mochadoom.Engine;
-import static p.ActiveStates.P_MobjThinker;
-import p.mobj_t;
-import rr.drawfuns.ColFuncs;
-import rr.drawfuns.ColVars;
-import rr.drawfuns.DoomColumnFunction;
-import rr.drawfuns.DoomSpanFunction;
-import rr.drawfuns.SpanVars;
-import static rr.line_t.*;
-import utils.C2JUtils;
-import static utils.GenericCopy.malloc;
-import static v.DoomGraphicSystem.V_NOSCALEOFFSET;
-import static v.DoomGraphicSystem.V_NOSCALEPATCH;
-import static v.DoomGraphicSystem.V_NOSCALESTART;
-import v.graphics.Palettes;
-import v.renderers.DoomScreen;
-import static v.renderers.DoomScreen.*;
-import v.tables.BlurryTable;
-import v.tables.LightsAndColors;
-import w.IWadLoader;
+
+import data.Defines
+import data.Limits
+import data.Tables
+import doom.CommandVariable
+import doom.DoomMain
+import doom.SourceCode.R_Draw
+import doom.player_t
+import doom.thinker_t
+import i.IDoomSystem
+import m.BBox
+import m.IDoomMenu
+import m.MenuMisc
+import m.Settings
+import m.fixed_t.Companion.FRACBITS
+import m.fixed_t.Companion.FRACUNIT
+import m.fixed_t.Companion.FixedDiv
+import m.fixed_t.Companion.FixedMul
+import mochadoom.Engine
+import p.ActiveStates
+import p.mobj_t
+import rr.drawfuns.*
+import rr.visplane_t.Companion.SENTINEL
+import utils.C2JUtils
+import utils.GenericCopy
+import v.DoomGraphicSystem
+import v.graphics.Lights
+import v.renderers.DoomScreen
+import v.tables.BlurryTable
+import v.tables.LightsAndColors
+import w.IWadLoader
+import java.awt.Rectangle
+import java.io.IOException
 
 /**
  * Most shared -essential- status information, methods and classes related to
@@ -79,57 +45,50 @@ import w.IWadLoader;
  *
  * @author velktron
  */
-public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimitResettable {
-
-    protected static final boolean DEBUG = false;
-    protected static final boolean DEBUG2 = false;
-
-    // ///////////////////// STATUS ////////////////////////
-    protected DoomMain<T, V> DOOM;
-    protected ISegDrawer MySegs;
-    protected IDoomMenu Menu;
-    protected BSP MyBSP;
-    protected PlaneDrawer<T, V> MyPlanes;
-    protected IMaskedDrawer<T, V> MyThings;
-    public IVisSpriteManagement<V> VIS;
-    protected TextureManager<T> TexMan;
-    public ViewVars view;
-    public LightsAndColors<V> colormaps;
-    public SegVars seg_vars;
-    public Visplanes vp_vars;
+abstract class RendererState<T, V>(  // ///////////////////// STATUS ////////////////////////
+    var DOOM: DoomMain<T, V>
+) : SceneRenderer<T, V>, ILimitResettable {
+    protected var MySegs: ISegDrawer? = null
+    protected var Menu: IDoomMenu? = null
+    protected var MyBSP: BSP
+    protected var MyPlanes: PlaneDrawer<T, V>
+    protected var MyThings: IMaskedDrawer<T, V>
+    var VIS: IVisSpriteManagement<V>
+    protected var TexMan: TextureManager<T>
+    lateinit var _view: ViewVars
+    var colormaps: LightsAndColors<V>
+    var seg_vars: SegVars
+    var vp_vars: Visplanes
 
     // Rendering subsystems that are detailshift-aware
-    protected List<IDetailAware> detailaware;
+    protected var detailaware: MutableList<IDetailAware>
 
     // The only reason to query scaledviewwidth from outside the renderer, is
     // this.
-    @Override
-    public boolean isFullHeight() {
-        return (view.height == DOOM.vs.getScreenHeight());
+    override fun isFullHeight(): Boolean {
+        return _view.height == DOOM.vs.getScreenHeight()
     }
 
-    public boolean isFullWidth() {
-        return (view.scaledwidth == DOOM.vs.getScreenWidth());
+    fun isFullWidth(): Boolean {
+        return _view.scaledwidth == DOOM.vs.getScreenWidth()
     }
 
-    @Override
-    public boolean isFullScreen() {
-        return isFullWidth() && isFullHeight();
+    override fun isFullScreen(): Boolean {
+        return isFullWidth() && isFullHeight()
     }
 
     /**
      * Increment every time a check is made For some reason, this needs to be
      * visible even by enemies thinking :-S
      */
-    protected int validcount = 1;
+    protected var validcount = 1
 
     /**
      * Who can set this? A: The Menu.
      */
-    protected boolean setsizeneeded;
-    protected int setblocks;
-    protected int setdetail;
-
+    protected var setsizeneeded = false
+    protected var setblocks = 0
+    protected var setdetail = 0
     // private BSPVars bspvars;
     /**
      * R_SetViewSize Do not really change anything here, because it might be in
@@ -140,153 +99,98 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * @param detail
      * 0= high, 1 =low.
      */
-    @Override
-    public void SetViewSize(int blocks, int detail) {
+    override fun SetViewSize(blocks: Int, detail: Int) {
         // System.out.println("SetViewSize");
-        setsizeneeded = true;
-        setblocks = blocks;
-        setdetail = detail;
-
-        detailaware.forEach((d) -> {
-            d.setDetail(setdetail);
-        });
+        setsizeneeded = true
+        setblocks = blocks
+        setdetail = detail
+        detailaware.forEach({ d: IDetailAware -> d.setDetail(setdetail) })
     }
 
     /**
      * R_SetupFrame
      */
-    public void SetupFrame(player_t player) {
-        view.player = player;
-        view.x = player.mo.x;
-        view.y = player.mo.y;
+    fun SetupFrame(player: player_t) {
+        _view.player = player
+        _view.x = player.mo!!._x
+        _view.y = player.mo!!._y
         // viewangle = addAngles(player.mo.angle , viewangleoffset);
-        view.angle = player.mo.angle & BITS32;
+        _view.angle = player.mo!!.angle and Tables.BITS32
         // With 32 colormaps, a bump of 1 or 2 is normal.
         // With more than 32, it should be obviously higher.
-
-        int bumplight = Math.max(colormaps.lightBits() - 5, 0);
+        var bumplight = Math.max(colormaps.lightBits() - 5, 0)
         // Be a bit more generous, otherwise the effect is not
         // as evident with truecolor maps.
-        bumplight += (bumplight > 0) ? 1 : 0;
-
-        colormaps.extralight = player.extralight << bumplight;
-
-        view.z = player.viewz;
-        view.lookdir = player.lookdir;
-        int tempCentery;
+        bumplight += if (bumplight > 0) 1 else 0
+        colormaps.extralight = player.extralight shl bumplight
+        _view.z = player.viewz
+        _view.lookdir = player.lookdir
+        val tempCentery: Int
 
         // MAES: hacks based on Heretic. Weapon movement needs to be compensated
-        if (setblocks == 11) {
-            tempCentery = (view.height / 2) + (int) (view.lookdir * DOOM.vs.getScreenMul() * setblocks) / 11;
+        tempCentery = if (setblocks == 11) {
+            _view.height / 2 + (_view.lookdir * DOOM.vs.getScreenMul() * setblocks).toInt() / 11
         } else {
-            tempCentery = (view.height / 2) + (int) (view.lookdir * DOOM.vs.getScreenMul() * setblocks) / 10;
+            _view.height / 2 + (_view.lookdir * DOOM.vs.getScreenMul() * setblocks).toInt() / 10
         }
-
-        if (view.centery != tempCentery) {
-            view.centery = tempCentery;
-            view.centeryfrac = view.centery << FRACBITS;
-            int yslope[] = vp_vars.yslope;
-            for (int i = 0; i < view.height; i++) {
+        if (_view.centery != tempCentery) {
+            _view.centery = tempCentery
+            _view.centeryfrac = _view.centery shl FRACBITS
+            val yslope = vp_vars.yslope
+            for (i in 0 until _view.height) {
                 yslope[i] = FixedDiv(
-                    (view.width << view.detailshift) / 2 * FRACUNIT,
-                    Math.abs(((i - view.centery) << FRACBITS) + FRACUNIT / 2)
-                );
+                    (_view.width shl _view.detailshift) / 2 * FRACUNIT,
+                    Math.abs((i - _view.centery shl FRACBITS) + FRACUNIT / 2)
+                )
             }
-
-            skydcvars.centery = maskedcvars.centery = dcvars.centery = view.centery;
+            dcvars.centery = _view.centery
+            maskedcvars.centery = dcvars.centery
+            skydcvars.centery = maskedcvars.centery
         }
-
-        view.sin = Tables.finesine(view.angle);
-        view.cos = Tables.finecosine(view.angle);
-
-        sscount = 0;
-
-        if (player.fixedcolormap != Palettes.COLORMAP_FIXED) {
-            colormaps.fixedcolormap = colormaps.getFixedColormap(player);
+        _view.sin = Tables.finesine(_view.angle)
+        _view.cos = Tables.finecosine(_view.angle)
+        sscount = 0
+        if (player.fixedcolormap != Lights.COLORMAP_FIXED) {
+            colormaps.fixedcolormap = colormaps.getFixedColormap(player)
             // Offset by fixedcolomap
             // pfixedcolormap =player.fixedcolormap*256;
-
-            colormaps.walllights = colormaps.scalelightfixed;
-
-            for (int i = 0; i < colormaps.maxLightScale(); i++) {
-                colormaps.scalelightfixed[i] = colormaps.fixedcolormap;
+            colormaps.walllights = colormaps.scalelightfixed as Array<V>
+            for (i in 0 until colormaps.maxLightScale()) {
+                colormaps.scalelightfixed[i] = colormaps.fixedcolormap!!
             }
         } else {
-            colormaps.fixedcolormap = null;
+            colormaps.fixedcolormap = null
         }
-
-        framecount++;
-        validcount++;
+        framecount++
+        validcount++
     }
 
     /**
      * R_SetupFrame for a particular actor.
      */
-    public void SetupFrame(mobj_t actor) {
+    fun SetupFrame(actor: mobj_t) {
 
         // viewplayer = player;
-        view.x = actor.x;
-        view.y = actor.y;
+        _view.x = actor._x
+        _view.y = actor._y
         // viewangle = addAngles(player.mo.angle , viewangleoffset);
-        view.angle = actor.angle & BITS32;
+        _view.angle = actor.angle and Tables.BITS32
         // extralight = actor.extralight;
-
-        view.z = actor.z + actor.height;
-
-        view.sin = finesine(view.angle);
-        view.cos = finecosine(view.angle);
-
-        sscount = 0;
-
-        framecount++;
-        validcount++;
-    }
-
-    public RendererState(DoomMain<T, V> DOOM) {
-        this.DOOM = DOOM;
-
-        // These don't change between implementations, yet.
-        this.MyBSP = new BSP();
-
-        this.view = new ViewVars(DOOM.vs);
-        this.seg_vars = new SegVars();
-        this.dcvars = new ColVars<>();
-        this.dsvars = new SpanVars<>();
-        this.maskedcvars = new ColVars<>();
-        this.skydcvars = new ColVars<>();
-        this.colfunclow = new ColFuncs<>();
-        this.colfunchi = new ColFuncs<>();
-
-        this.detailaware = new ArrayList<>();
-        this.colormaps = new LightsAndColors<>(DOOM);
-        // It's better to construct this here
-        @SuppressWarnings("unchecked")
-        final TextureManager<T> tm = (TextureManager<T>) new SimpleTextureManager(DOOM);
-        this.TexMan = tm;
-
-        // Visplane variables
-        this.vp_vars = new Visplanes(DOOM.vs, view, TexMan);
-
-        // Set rendering functions only after screen sizes
-        // and stuff have been set.
-        this.MyPlanes = new Planes(DOOM, this);
-        this.VIS = new VisSprites<>(this);
-        this.MyThings = new SimpleThings<>(DOOM.vs, this);
+        _view.z = actor._z + actor.height
+        _view.sin = Tables.finesine(_view.angle)
+        _view.cos = Tables.finecosine(_view.angle)
+        sscount = 0
+        framecount++
+        validcount++
     }
 
     // ////////////////////////////// THINGS ////////////////////////////////
-    protected final class BSP extends BSPVars {
-
+    protected inner class BSP internal constructor() : BSPVars() {
         /**
          * newend is one past the last valid seg (cliprange_t)
          */
-        int newend;
-
-        cliprange_t[] solidsegs;
-
-        BSP() {
-            solidsegs = malloc(cliprange_t::new, cliprange_t[]::new, MAXSEGS + 1);
-        }
+        var newend = 0
+        var solidsegs: Array<cliprange_t>
 
         /**
          * R_ClipSolidWallSegment Does handle solid walls, single sided LineDefs
@@ -298,19 +202,17 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * @param last
          * ending y coord?
          */
-        private void ClipSolidWallSegment(int first, int last) {
-
-            int next;
-            int start;
+        private fun ClipSolidWallSegment(first: Int, last: Int) {
+            var next: Int
+            var start: Int
             // int maxlast=Integer.MIN_VALUE;
-
-            start = 0; // within solidsegs
+            start = 0 // within solidsegs
 
             // Find the first cliprange that touches the range.
             // Actually, the first one not completely hiding it (its last must
             // be lower than first.
             while (solidsegs[start].last < first - 1) {
-                start++;
+                start++
             }
 
             // If the post begins above the lastly found cliprange...
@@ -320,15 +222,14 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
                     // ... then the post is entirely visible (above start),
                     // so insert a new clippost. Calling this function
                     // tells the renderer that there is an obstruction.
-                    MySegs.StoreWallRange(first, last);
+                    MySegs!!.StoreWallRange(first, last)
 
                     // Newend should have a value of 2 if we are at the
                     // beginning of a new frame.
-                    next = newend;
-                    newend++;
-
-                    if (next >= solidsegs.length) {
-                        ResizeSolidSegs();
+                    next = newend
+                    newend++
+                    if (next >= solidsegs.size) {
+                        ResizeSolidSegs()
                     }
                     while (next != start) {
                         // *next=*(next-1);
@@ -340,97 +241,92 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
                          * some point, the value of the start solidseg is
                          * duplicated.
                          */
-
-                        solidsegs[next].copy(solidsegs[next - 1]);
-
-                        next--;
+                        solidsegs[next].copy(solidsegs[next - 1])
+                        next--
                     }
 
                     // At this point, next points at start.
                     // Therefore, start
-                    solidsegs[next].first = first;
-                    solidsegs[next].last = last;
-                    return;
+                    solidsegs[next].first = first
+                    solidsegs[next].last = last
+                    return
                 }
 
                 // There is a fragment above *start. This can occur if it a
                 // post does start before another, but its lower edge overlaps
                 // (partial, upper occlusion)
-                MySegs.StoreWallRange(first, solidsegs[start].first - 1);
+                MySegs!!.StoreWallRange(first, solidsegs[start].first - 1)
                 // Now adjust the clip size.
-                solidsegs[start].first = first;
+                solidsegs[start].first = first
             }
 
             // We can reach this only if a post starts AFTER another
             // Bottom contained in start? Obviously it won't be visible.
             if (last <= solidsegs[start].last) {
-                return;
+                return
             }
-
-            next = start;
-            while (last >= solidsegs[(next + 1)].first - 1) {
+            next = start
+            while (last >= solidsegs[next + 1].first - 1) {
                 // There is a fragment between two posts.
-                MySegs.StoreWallRange(solidsegs[next].last + 1,
-                    solidsegs[next + 1].first - 1);
-                next++;
-
+                MySegs!!.StoreWallRange(
+                    solidsegs[next].last + 1,
+                    solidsegs[next + 1].first - 1
+                )
+                next++
                 if (last <= solidsegs[next].last) {
                     // Bottom is contained in next.
                     // Adjust the clip size.
-                    solidsegs[start].last = solidsegs[next].last;
+                    solidsegs[start].last = solidsegs[next].last
                     // goto crunch;
-
-                    { // crunch code
+                    run {
+                        // crunch code
                         if (next == start) {
                             // Post just extended past the bottom of one post.
-                            return;
+                            return
                         }
-
                         while (next++ != newend) {
                             // Remove a post.
                             // MAES: this is a struct copy.
-                            if (next >= solidsegs.length) {
-                                ResizeSolidSegs();
+                            if (next >= solidsegs.size) {
+                                ResizeSolidSegs()
                             }
-                            solidsegs[++start].copy(solidsegs[next]);
+                            solidsegs[++start].copy(solidsegs[next])
                         }
-
-                        newend = start + 1;
-                        return;
+                        newend = start + 1
+                        return
                     }
                 }
             }
 
             // There is a fragment after *next.
-            MySegs.StoreWallRange(solidsegs[next].last + 1, last);
+            MySegs!!.StoreWallRange(solidsegs[next].last + 1, last)
             // Adjust the clip size.
-            solidsegs[start].last = last;
+            solidsegs[start].last = last
 
             // Remove start+1 to next from the clip list,
             // because start now covers their area.
-            { // crunch code
+            run {
+                // crunch code
                 if (next == start) {
                     // Post just extended past the bottom of one post.
-                    return;
+                    return
                 }
-
                 while (next++ != newend) {
                     // Remove a post.
                     // MAES: this is a struct copy.
                     // MAES: this can overflow, breaking e.g. MAP30 of Final
                     // Doom.
-                    if (next >= solidsegs.length) {
-                        ResizeSolidSegs();
+                    if (next >= solidsegs.size) {
+                        ResizeSolidSegs()
                     }
-                    solidsegs[++start].copy(solidsegs[next]);
+                    solidsegs[++start].copy(solidsegs[next])
                 }
-
-                newend = start + 1;
+                newend = start + 1
             }
         }
 
-        void ResizeSolidSegs() {
-            solidsegs = C2JUtils.resize(solidsegs, solidsegs.length * 2);
+        fun ResizeSolidSegs() {
+            solidsegs = C2JUtils.resize(solidsegs as Array<cliprange_t?>, solidsegs.size * 2) as  Array<cliprange_t>
         }
 
         //
@@ -440,49 +336,48 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
         // Does handle windows,
         // e.g. LineDefs with upper and lower texture.
         //
-        private void ClipPassWallSegment(int first, int last) {
+        private fun ClipPassWallSegment(first: Int, last: Int) {
 
             // Find the first range that touches the range
             // (adjacent pixels are touching).
-            int start = 0;
-
+            var start = 0
             while (solidsegs[start].last < first - 1) {
-                start++;
+                start++
             }
-
             if (first < solidsegs[start].first) {
                 if (last < solidsegs[start].first - 1) {
                     // Post is entirely visible (above start).
-                    MySegs.StoreWallRange(first, last);
-                    return;
+                    MySegs!!.StoreWallRange(first, last)
+                    return
                 }
 
                 // There is a fragment above *start.
-                MySegs.StoreWallRange(first, solidsegs[start].first - 1);
+                MySegs!!.StoreWallRange(first, solidsegs[start].first - 1)
             }
 
             // Bottom contained in start?
             if (last <= solidsegs[start].last) {
-                return;
+                return
             }
 
             // MAES: Java absolutely can't do without a sanity check here.
             // if (startptr>=MAXSEGS-2) return;
             while (last >= solidsegs[start + 1].first - 1) {
                 // There is a fragment between two posts.
-                MySegs.StoreWallRange(solidsegs[start].last + 1,
-                    solidsegs[start + 1].first - 1);
-                start++;
+                MySegs!!.StoreWallRange(
+                    solidsegs[start].last + 1,
+                    solidsegs[start + 1].first - 1
+                )
+                start++
                 // if (startptr>=MAXSEGS-2) return;
                 // start=solidsegs[startptr];
-
                 if (last <= solidsegs[start].last) {
-                    return;
+                    return
                 }
             }
 
             // There is a fragment after *next.
-            MySegs.StoreWallRange(solidsegs[start].last + 1, last);
+            MySegs!!.StoreWallRange(solidsegs[start].last + 1, last)
         }
 
         /**
@@ -492,12 +387,12 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * how the solidsegs begin and end just "outside" the visible borders of
          * the screen.
          */
-        public void ClearClipSegs() {
-            solidsegs[0].first = -0x7fffffff;
-            solidsegs[0].last = -1;
-            solidsegs[1].first = view.width;
-            solidsegs[1].last = 0x7fffffff;
-            newend = 2; // point so solidsegs[2];
+        fun ClearClipSegs() {
+            solidsegs[0].first = -0x7fffffff
+            solidsegs[0].last = -1
+            solidsegs[1].first = _view.width
+            solidsegs[1].last = 0x7fffffff
+            newend = 2 // point so solidsegs[2];
         }
 
         /**
@@ -508,112 +403,109 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * 1-sided line, closed door etc.) CAREFUL: was the source of much
          * frustration with visplanes...
          */
-        private void AddLine(seg_t line) {
-            if (DEBUG) {
-                System.out.println("Entered AddLine for " + line);
+        private fun AddLine(line: seg_t) {
+            if (RendererState.DEBUG) {
+                println("Entered AddLine for $line")
             }
-            int x1;
-            int x2;
-            long angle1;
-            long angle2;
-            long span;
-            long tspan;
-
-            curline = line;
+            val x1: Int
+            val x2: Int
+            var angle1: Long
+            var angle2: Long
+            val span: Long
+            var tspan: Long
+            curline = line
 
             // OPTIMIZE: quickly reject orthogonal back sides.
-            angle1 = view.PointToAngle(line.v1x, line.v1y);
-            angle2 = view.PointToAngle(line.v2x, line.v2y);
+            angle1 = _view.PointToAngle(line.v1x, line.v1y)
+            angle2 = _view.PointToAngle(line.v2x, line.v2y)
 
             // Clip to view edges.
             // OPTIMIZE: make constant out of 2*clipangle (FIELDOFVIEW).
-            span = addAngles(angle1, -angle2);
+            span = Tables.addAngles(angle1, -angle2)
 
             // Back side? I.e. backface culling?
-            if (span >= ANG180) {
-                return;
+            if (span >= Tables.ANG180) {
+                return
             }
 
             // Global angle needed by segcalc.
-            MySegs.setGlobalAngle(angle1);
-            angle1 -= view.angle;
-            angle2 -= view.angle;
-
-            angle1 &= BITS32;
-            angle2 &= BITS32;
-
-            tspan = addAngles(angle1, clipangle);
-
+            MySegs!!.setGlobalAngle(angle1)
+            angle1 -= _view.angle
+            angle2 -= _view.angle
+            angle1 = angle1 and Tables.BITS32
+            angle2 = angle2 and Tables.BITS32
+            tspan = Tables.addAngles(angle1, clipangle)
             if (tspan > CLIPANGLE2) {
-                tspan -= CLIPANGLE2;
-                tspan &= BITS32;
+                tspan -= CLIPANGLE2
+                tspan = tspan and Tables.BITS32
 
                 // Totally off the left edge?
                 if (tspan >= span) {
-                    return;
+                    return
                 }
-
-                angle1 = clipangle;
+                angle1 = clipangle
             }
-            tspan = addAngles(clipangle, -angle2);
-
+            tspan = Tables.addAngles(clipangle, -angle2)
             if (tspan > CLIPANGLE2) {
-                tspan -= CLIPANGLE2;
-                tspan &= BITS32;
+                tspan -= CLIPANGLE2
+                tspan = tspan and Tables.BITS32
 
                 // Totally off the left edge?
                 if (tspan >= span) {
-                    return;
+                    return
                 }
-                angle2 = -clipangle;
-                angle2 &= BITS32;
+                angle2 = -clipangle
+                angle2 = angle2 and Tables.BITS32
             }
 
             // The seg is in the view range,
             // but not necessarily visible.
-            angle1 = ((angle1 + ANG90) & BITS32) >>> ANGLETOFINESHIFT;
-            angle2 = ((angle2 + ANG90) & BITS32) >>> ANGLETOFINESHIFT;
-            x1 = viewangletox[(int) angle1];
-            x2 = viewangletox[(int) angle2];
+            angle1 = angle1 + Tables.ANG90 and Tables.BITS32 ushr Tables.ANGLETOFINESHIFT
+            angle2 = angle2 + Tables.ANG90 and Tables.BITS32 ushr Tables.ANGLETOFINESHIFT
+            x1 = viewangletox[angle1.toInt()]
+            x2 = viewangletox[angle2.toInt()]
 
             // Does not cross a pixel?
             if (x1 == x2) {
-                return;
+                return
             }
-
-            backsector = line.backsector;
+            backsector = line.backsector
 
             // Single sided line?
             if (backsector == null) {
-                if (DEBUG) {
-                    System.out .println("Entering ClipSolidWallSegment SS with params " + x1 + " " + (x2 - 1));
+                if (RendererState.DEBUG) {
+                    println("Entering ClipSolidWallSegment SS with params " + x1 + " " + (x2 - 1))
                 }
-                ClipSolidWallSegment(x1, x2 - 1); // to clipsolid
-                if (DEBUG) {
-                    System.out.println("Exiting ClipSolidWallSegment");
+                ClipSolidWallSegment(x1, x2 - 1) // to clipsolid
+                if (RendererState.DEBUG) {
+                    println("Exiting ClipSolidWallSegment")
                 }
-                return;
+                return
             }
 
+            val backsector = backsector!!
+            val frontsector = frontsector!!
             // Closed door.
             if (backsector.ceilingheight <= frontsector.floorheight
-                || backsector.floorheight >= frontsector.ceilingheight) {
-                if (DEBUG) {
-                    System.out.println("Entering ClipSolidWallSegment Closed door with params " + x1 + " " + (x2 - 1));
+                || backsector.floorheight >= frontsector.ceilingheight
+            ) {
+                if (RendererState.DEBUG) {
+                    println("Entering ClipSolidWallSegment Closed door with params " + x1 + " " + (x2 - 1))
                 }
-                ClipSolidWallSegment(x1, x2 - 1);
+                ClipSolidWallSegment(x1, x2 - 1)
                 // to clipsolid
-                return;
+                return
             }
 
             // Window. This includes same-level floors with different textures
             if (backsector.ceilingheight != frontsector.ceilingheight
-                || backsector.floorheight != frontsector.floorheight) {
-                if (DEBUG) {
-                    System.out.println("Entering ClipSolidWallSegment window with params " + x1 + " " + (x2 - 1));
+                || backsector.floorheight != frontsector.floorheight
+            ) {
+                if (RendererState.DEBUG) {
+                    println("Entering ClipSolidWallSegment window with params " + x1 + " " + (x2 - 1))
                 }
-                ClipPassWallSegment(x1, x2 - 1); // to clippass
-                return;
+                ClipPassWallSegment(x1, x2 - 1) // to clippass
+                return
             }
 
             // Reject empty lines used for triggers
@@ -621,11 +513,8 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
             // Identical floor and ceiling on both sides,
             // identical light levels on both sides,
             // and no middle texture.
-            if (backsector.ceilingpic == frontsector.ceilingpic
-                && backsector.floorpic == frontsector.floorpic
-                && backsector.lightlevel == frontsector.lightlevel
-                && curline.sidedef.midtexture == 0) {
-                return;
+            if (backsector.ceilingpic == frontsector.ceilingpic && backsector.floorpic == frontsector.floorpic && backsector.lightlevel == frontsector.lightlevel && curline!!.sidedef!!.midtexture.toInt() == 0) {
+                return
             }
 
             // If nothing of the previous holds, then we are
@@ -633,9 +522,9 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
             // textured floors. ACHTUNG, this caused the "bleeding floor"
             // bug, which is now fixed.
             // Fucking GOTOs....
-            ClipPassWallSegment(x1, x2 - 1); // to clippass
-            if (DEBUG) {
-                System.out.println("Exiting AddLine for " + line);
+            ClipPassWallSegment(x1, x2 - 1) // to clippass
+            if (RendererState.DEBUG) {
+                println("Exiting AddLine for $line")
             }
         }
 
@@ -645,140 +534,130 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
         // Returns true
         // if some part of the bbox might be visible.
         //
-        private final int[][] checkcoord = {
-            {3, 0, 2, 1},
-            {3, 0, 2, 0},
-            {3, 1, 2, 0},
-            {0},
-            {2, 0, 2, 1},
-            {0, 0, 0, 0},
-            {3, 1, 3, 0},
-            {0},
-            {2, 0, 3, 1},
-            {2, 1, 3, 1},
-            {2, 1, 3, 0}
-        };
+        private val checkcoord = arrayOf(
+            intArrayOf(3, 0, 2, 1),
+            intArrayOf(3, 0, 2, 0),
+            intArrayOf(3, 1, 2, 0),
+            intArrayOf(0),
+            intArrayOf(2, 0, 2, 1),
+            intArrayOf(0, 0, 0, 0),
+            intArrayOf(3, 1, 3, 0),
+            intArrayOf(0),
+            intArrayOf(2, 0, 3, 1),
+            intArrayOf(2, 1, 3, 1),
+            intArrayOf(2, 1, 3, 0)
+        )
+
+        init {
+            solidsegs = GenericCopy.malloc({ cliprange_t() }, Limits.MAXSEGS + 1)
+        }
 
         /**
          * @param bspcoord
          * (fixed_t* as bbox)
          * @return
          */
-        public boolean CheckBBox(int[] bspcoord) {
-            int boxx;
-            int boxy;
-            int boxpos;
+        fun CheckBBox(bspcoord: IntArray): Boolean {
+            val boxx: Int
+            val boxy: Int
+            val boxpos: Int
 
             // fixed_t
-            int x1;
-            int y1;
-            int x2;
-            int y2;
+            val x1: Int
+            val y1: Int
+            val x2: Int
+            val y2: Int
 
             // angle_t
-            long angle1;
-            long angle2;
-            long span;
-            long tspan;
-
-            cliprange_t start;
-
-            int sx1;
-            int sx2;
+            var angle1: Long
+            var angle2: Long
+            var span: Long
+            var tspan: Long
+            var start: cliprange_t
+            val sx1: Int
+            var sx2: Int
 
             // Find the corners of the box
             // that define the edges from current viewpoint.
-            if (view.x <= bspcoord[BOXLEFT]) {
-                boxx = 0;
-            } else if (view.x < bspcoord[BOXRIGHT]) {
-                boxx = 1;
+            boxx = if (_view.x <= bspcoord[BBox.BOXLEFT]) {
+                0
+            } else if (_view.x < bspcoord[BBox.BOXRIGHT]) {
+                1
             } else {
-                boxx = 2;
+                2
             }
-
-            if (view.y >= bspcoord[BOXTOP]) {
-                boxy = 0;
-            } else if (view.y > bspcoord[BOXBOTTOM]) {
-                boxy = 1;
+            boxy = if (_view.y >= bspcoord[BBox.BOXTOP]) {
+                0
+            } else if (_view.y > bspcoord[BBox.BOXBOTTOM]) {
+                1
             } else {
-                boxy = 2;
+                2
             }
-
-            boxpos = (boxy << 2) + boxx;
+            boxpos = (boxy shl 2) + boxx
             if (boxpos == 5) {
-                return true;
+                return true
             }
-
-            x1 = bspcoord[checkcoord[boxpos][0]];
-            y1 = bspcoord[checkcoord[boxpos][1]];
-            x2 = bspcoord[checkcoord[boxpos][2]];
-            y2 = bspcoord[checkcoord[boxpos][3]];
+            x1 = bspcoord[checkcoord[boxpos][0]]
+            y1 = bspcoord[checkcoord[boxpos][1]]
+            x2 = bspcoord[checkcoord[boxpos][2]]
+            y2 = bspcoord[checkcoord[boxpos][3]]
 
             // check clip list for an open space
-            angle1 = view.PointToAngle(x1, y1) - view.angle;
-            angle2 = view.PointToAngle(x2, y2) - view.angle;
-
-            angle1 &= BITS32;
-            angle2 &= BITS32;
-
-            span = angle1 - angle2;
-
-            span &= BITS32;
+            angle1 = _view.PointToAngle(x1, y1) - _view.angle
+            angle2 = _view.PointToAngle(x2, y2) - _view.angle
+            angle1 = angle1 and Tables.BITS32
+            angle2 = angle2 and Tables.BITS32
+            span = angle1 - angle2
+            span = span and Tables.BITS32
 
             // Sitting on a line?
-            if (span >= ANG180) {
-                return true;
+            if (span >= Tables.ANG180) {
+                return true
             }
-
-            tspan = angle1 + clipangle;
-            tspan &= BITS32;
-
+            tspan = angle1 + clipangle
+            tspan = tspan and Tables.BITS32
             if (tspan > CLIPANGLE2) {
-                tspan -= CLIPANGLE2;
-                tspan &= BITS32;
+                tspan -= CLIPANGLE2
+                tspan = tspan and Tables.BITS32
                 // Totally off the left edge?
                 if (tspan >= span) {
-                    return false;
+                    return false
                 }
-
-                angle1 = clipangle;
+                angle1 = clipangle
             }
-            tspan = (clipangle - angle2) & BITS32;
+            tspan = clipangle - angle2 and Tables.BITS32
             if (tspan > CLIPANGLE2) {
-                tspan -= CLIPANGLE2;
-                tspan &= BITS32;
+                tspan -= CLIPANGLE2
+                tspan = tspan and Tables.BITS32
 
                 // Totally off the left edge?
                 if (tspan >= span) {
-                    return false;
+                    return false
                 }
-
-                angle2 = -clipangle;
-                angle2 &= BITS32;
+                angle2 = -clipangle
+                angle2 = angle2 and Tables.BITS32
             }
 
             // Find the first clippost
             // that touches the source post
             // (adjacent pixels are touching).
-            angle1 = ((angle1 + ANG90) & BITS32) >>> ANGLETOFINESHIFT;
-            angle2 = ((angle2 + ANG90) & BITS32) >>> ANGLETOFINESHIFT;
-            sx1 = viewangletox[(int) angle1];
-            sx2 = viewangletox[(int) angle2];
+            angle1 = angle1 + Tables.ANG90 and Tables.BITS32 ushr Tables.ANGLETOFINESHIFT
+            angle2 = angle2 + Tables.ANG90 and Tables.BITS32 ushr Tables.ANGLETOFINESHIFT
+            sx1 = viewangletox[angle1.toInt()]
+            sx2 = viewangletox[angle2.toInt()]
 
             // Does not cross a pixel.
             if (sx1 == sx2) {
-                return false;
+                return false
             }
-            sx2--;
-
-            int pstart = 0;
-            start = solidsegs[pstart];
+            sx2--
+            var pstart = 0
+            start = solidsegs[pstart]
             // FIXME: possible solidseg overflow here overflows
-            while (start.last < sx2 && pstart < MAXSEGS) {
-                start = solidsegs[pstart++];
+            while (start.last < sx2 && pstart < Limits.MAXSEGS) {
+                start = solidsegs[pstart++]
             }
-
-            return !(sx1 >= start.first && sx2 <= start.last);
+            return !(sx1 >= start.first && sx2 <= start.last)
         }
 
         /**
@@ -789,69 +668,69 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * @param num
          * Subsector from subsector_t list in Lever Loader.
          */
-        private void Subsector(int num) {
-            if (DEBUG) {
-                System.out.println("\t\tSubSector " + num + " to render");
+        private fun Subsector(num: Int) {
+            if (RendererState.DEBUG) {
+                println("\t\tSubSector $num to render")
             }
-            int count;
-            int line; // pointer into a list of segs instead of seg_t
-            subsector_t sub;
-
-            if (RANGECHECK) {
+            var count: Int
+            var line: Int // pointer into a list of segs instead of seg_t
+            val sub: subsector_t
+            if (RendererState.RANGECHECK) {
                 if (num >= DOOM.levelLoader.numsubsectors) {
-                    DOOM.doomSystem.Error("R_Subsector: ss %d with numss = %d", num,
-                        DOOM.levelLoader.numsubsectors);
+                    DOOM.doomSystem.Error(
+                        "R_Subsector: ss %d with numss = %d", num,
+                        DOOM.levelLoader.numsubsectors
+                    )
                 }
             }
-
-            sscount++;
-            sub = DOOM.levelLoader.subsectors[num];
-
-            frontsector = sub.sector;
-            if (DEBUG) {
-                System.out.println("Frontsector to render :" + frontsector);
+            sscount++
+            sub = DOOM.levelLoader.subsectors[num]
+            frontsector = sub.sector
+            val frontsector = frontsector!!
+            if (RendererState.DEBUG) {
+                println("Frontsector to render :$frontsector")
             }
-            count = sub.numlines;
+            count = sub.numlines
             // line = LL.segs[sub.firstline];
-            line = sub.firstline;
-
-            if (DEBUG) {
-                System.out.println("Trying to find an existing FLOOR visplane...");
+            line = sub.firstline
+            if (RendererState.DEBUG) {
+                println("Trying to find an existing FLOOR visplane...")
             }
-            if (frontsector.floorheight < view.z) {
-                vp_vars.floorplane
-                    = vp_vars.FindPlane(frontsector.floorheight,
-                        frontsector.floorpic, frontsector.lightlevel);
+            if (frontsector.floorheight < _view.z) {
+                vp_vars.floorplane = vp_vars.FindPlane(
+                    frontsector.floorheight,
+                    frontsector.floorpic.toInt(), frontsector.lightlevel.toInt()
+                )
             } else {
                 // FIXME: unclear what would happen with a null visplane used
                 // It's never checked explicitly for either condition, just
                 // called straight.
-                vp_vars.floorplane = -1; // in lieu of NULL
+                vp_vars.floorplane = -1 // in lieu of NULL
             }
 
             // System.out.println("Trying to find an existing CEILING visplane...");
-            if (frontsector.ceilingheight > view.z
-                || frontsector.ceilingpic == TexMan.getSkyFlatNum()) {
-                vp_vars.ceilingplane
-                    = vp_vars.FindPlane(frontsector.ceilingheight,
-                        frontsector.ceilingpic, frontsector.lightlevel);
+            if (frontsector.ceilingheight > _view.z
+                || frontsector.ceilingpic.toInt() == TexMan.getSkyFlatNum()
+            ) {
+                vp_vars.ceilingplane = vp_vars.FindPlane(
+                    frontsector.ceilingheight,
+                    frontsector.ceilingpic.toInt(), frontsector.lightlevel.toInt()
+                )
             } else {
-                vp_vars.ceilingplane = -1; // In lieu of NULL. Will bomb if
+                vp_vars.ceilingplane = -1 // In lieu of NULL. Will bomb if
                 // actually
                 // used.
             }
-
-            VIS.AddSprites(frontsector);
-
-            if (DEBUG) {
-                System.out.println("Enter Addline for SubSector " + num + " count " + count);
+            VIS.AddSprites(frontsector)
+            if (RendererState.DEBUG) {
+                println("Enter Addline for SubSector $num count $count")
             }
             while (count-- > 0) {
-                AddLine(DOOM.levelLoader.segs[line]);
-                line++;
+                AddLine(DOOM.levelLoader.segs[line])
+                line++
             }
-            if (DEBUG) {
-                System.out.println("Exit Addline for SubSector " + num);
+            if (RendererState.DEBUG) {
+                println("Exit Addline for SubSector $num")
             }
         }
 
@@ -859,158 +738,156 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * RenderBSPNode Renders all subsectors below a given node, traversing
          * subtree recursively. Just call with BSP root.
          */
-        public void RenderBSPNode(int bspnum) {
-            if (DEBUG) {
-                System.out.println("Processing BSP Node " + bspnum);
+        fun RenderBSPNode(bspnum: Int) {
+            if (RendererState.DEBUG) {
+                println("Processing BSP Node $bspnum")
             }
-
-            node_t bsp;
-            int side;
+            val bsp: node_t
+            val side: Int
 
             // Found a subsector? Then further decisions are taken, in, well,
             // SubSector.
-            if (C2JUtils.flags(bspnum, NF_SUBSECTOR)) {
-                if (DEBUG) {
-                    System.out.println("Subsector found.");
+            if (C2JUtils.flags(bspnum, Defines.NF_SUBSECTOR)) {
+                if (RendererState.DEBUG) {
+                    println("Subsector found.")
                 }
                 if (bspnum == -1) {
-                    Subsector(0);
+                    Subsector(0)
                 } else {
-                    Subsector(bspnum & (~NF_SUBSECTOR));
+                    Subsector(bspnum and Defines.NF_SUBSECTOR.inv())
                 }
-                return;
+                return
             }
-
-            bsp = DOOM.levelLoader.nodes[bspnum];
+            bsp = DOOM.levelLoader.nodes[bspnum]
 
             // Decide which side the view point is on.
-            side = bsp.PointOnSide(view.x, view.y);
-            if (DEBUG) {
-                System.out.println("\tView side: " + side);
+            side = bsp.PointOnSide(_view.x, _view.y)
+            if (RendererState.DEBUG) {
+                println("\tView side: $side")
             }
 
             // Recursively divide front space.
-            if (DEBUG) {
-                System.out.println("\tEnter Front space of " + bspnum);
+            if (RendererState.DEBUG) {
+                println("\tEnter Front space of $bspnum")
             }
-            RenderBSPNode(bsp.children[side]);
-            if (DEBUG) {
-                System.out.println("\tReturn Front space of " + bspnum);
+            RenderBSPNode(bsp.children[side])
+            if (RendererState.DEBUG) {
+                println("\tReturn Front space of $bspnum")
             }
 
             // Possibly divide back space.
-            if (CheckBBox(bsp.bbox[side ^ 1].bbox)) {
-                if (DEBUG) {
-                    System.out.println("\tEnter Back space of " + bspnum);
+            if (CheckBBox(bsp.bbox[side xor 1].bbox)) {
+                if (RendererState.DEBUG) {
+                    println("\tEnter Back space of $bspnum")
                 }
-                RenderBSPNode(bsp.children[side ^ 1]);
-                if (DEBUG) {
-                    System.out.println("\tReturn Back space of " + bspnum);
+                RenderBSPNode(bsp.children[side xor 1])
+                if (RendererState.DEBUG) {
+                    println("\tReturn Back space of $bspnum")
                 }
             }
         }
-
     }
 
-    protected abstract class SegDrawer implements ISegDrawer {
-
-        protected static final int HEIGHTBITS = 12;
-        protected static final int HEIGHTUNIT = (1 << HEIGHTBITS);
-        protected final Visplanes vp_vars;
-        protected final SegVars seg_vars;
+    protected abstract inner class SegDrawer(R: SceneRenderer<*, *>) : ISegDrawer {
+        protected val vp_vars: Visplanes
+        protected val seg_vars: SegVars
 
         // Fast blanking buffers.
-        protected short[] BLANKFLOORCLIP;
-        protected short[] BLANKCEILINGCLIP;
+        protected var _BLANKFLOORCLIP: ShortArray
+        protected var _BLANKCEILINGCLIP: ShortArray
 
-        @Override
-        public short[] getBLANKFLOORCLIP() {
-            return BLANKFLOORCLIP;
+        override fun getBLANKFLOORCLIP(): ShortArray {
+            return _BLANKFLOORCLIP
         }
 
-        @Override
-        public short[] getBLANKCEILINGCLIP() {
-            return BLANKCEILINGCLIP;
+        override fun getBLANKCEILINGCLIP(): ShortArray {
+            return _BLANKCEILINGCLIP
         }
 
         /**
          * fixed_t
          */
-        protected int pixhigh, pixlow, pixhighstep, pixlowstep, topfrac, topstep, bottomfrac, bottomstep;
-        protected int worldtop, worldbottom, worldhigh, worldlow;
+        protected var pixhigh = 0
+        protected var pixlow = 0
+        protected var pixhighstep = 0
+        protected var pixlowstep = 0
+        protected var topfrac = 0
+        protected var topstep = 0
+        protected var bottomfrac = 0
+        protected var bottomstep = 0
+        protected var worldtop = 0
+        protected var worldbottom = 0
+        protected var worldhigh = 0
+        protected var worldlow = 0
 
         /**
          * True if any of the segs textures might be visible.
          */
-        protected boolean segtextured;
+        protected var segtextured = false
 
         /**
          * Clip values are the solid pixel bounding the range. floorclip starts
          * out vs.getScreenHeight() ceilingclip starts out -1
          */
-        protected short[] floorclip, ceilingclip;
-
-        @Override
-        public final short[] getFloorClip() {
-            return floorclip;
+        protected var floorclip: ShortArray
+        protected var ceilingclip: ShortArray
+        override fun getFloorClip(): ShortArray {
+            return floorclip
         }
 
-        @Override
-        public short[] getCeilingClip() {
-            return ceilingclip;
+        override fun getCeilingClip(): ShortArray {
+            return ceilingclip
         }
 
         /**
          * False if the back side is the same plane.
          */
-        protected boolean markfloor, markceiling;
-
-        protected boolean maskedtexture;
-
-        protected int toptexture;
-
-        protected int bottomtexture;
-
-        protected int midtexture;
+        protected var markfloor = false
+        protected var markceiling = false
+        protected var maskedtexture = false
+        protected var toptexture = 0
+        protected var bottomtexture = 0
+        protected var midtexture = 0
 
         /**
          * angle_t, used after adding ANG90 in StoreWallRange
          */
-        protected long rw_normalangle;
+        protected var rw_normalangle: Long = 0
 
         /**
          * angle to line origin
          */
-        protected long rw_angle1;
+        protected var rw_angle1: Long = 0
 
         //
         // regular wall
         //
-        protected int rw_x;
-
-        protected int rw_stopx;
-
-        protected long rw_centerangle; // angle_t
+        protected var rw_x = 0
+        protected var rw_stopx = 0
+        protected var rw_centerangle // angle_t
+                : Long = 0
 
         /**
          * fixed_t
          */
-        protected int rw_offset, rw_distance, rw_scale, rw_scalestep,
-            rw_midtexturemid, rw_toptexturemid, rw_bottomtexturemid;
-
-        @Override
-        public void resetLimits() {
-            drawseg_t[] tmp = new drawseg_t[seg_vars.MAXDRAWSEGS];
-            System.arraycopy(seg_vars.drawsegs, 0, tmp, 0, seg_vars.MAXDRAWSEGS);
+        protected var rw_offset = 0
+        protected var rw_distance = 0
+        protected var rw_scale = 0
+        protected var rw_scalestep = 0
+        protected var rw_midtexturemid = 0
+        protected var rw_toptexturemid = 0
+        protected var rw_bottomtexturemid = 0
+        override fun resetLimits() {
+            val tmp = arrayOfNulls<drawseg_t>(seg_vars.MAXDRAWSEGS)
+            System.arraycopy(seg_vars.drawsegs, 0, tmp, 0, seg_vars.MAXDRAWSEGS)
 
             // Now, that was quite a haircut!.
-            seg_vars.drawsegs = tmp;
+            seg_vars.drawsegs = tmp as Array<drawseg_t>
 
             // System.out.println("Drawseg buffer cut back to original limit of "+MAXDRAWSEGS);
         }
 
-        @Override
-        public void sync() {
+        override fun sync() {
             // Nothing required if serial.
         }
 
@@ -1022,42 +899,37 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          *
          * @throws IOException
          */
-        @Override
-        public void StoreWallRange(int start, int stop) {
-
-            if (DEBUG2) {
-                System.out.println("\t\t\t\tStorewallrange called between " + start + " and " + stop);
+        override fun StoreWallRange(start: Int, stop: Int) {
+            if (RendererState.DEBUG2) {
+                println("\t\t\t\tStorewallrange called between $start and $stop")
             }
-
-            int hyp; // fixed_t
-            int sineval; // fixed_t
-            int distangle;
-            long offsetangle; // angle_t
-            int vtop; // fixed_t
-            int lightnum;
-            drawseg_t seg;
+            val hyp: Int // fixed_t
+            var sineval: Int // fixed_t
+            val distangle: Int
+            var offsetangle: Long // angle_t
+            val vtop: Int // fixed_t
+            var lightnum: Int
+            val seg: drawseg_t
 
             // don't overflow and crash
-            if (seg_vars.ds_p == seg_vars.drawsegs.length) {
-                seg_vars.ResizeDrawsegs();
+            if (seg_vars.ds_p == seg_vars.drawsegs.size) {
+                seg_vars.ResizeDrawsegs()
             }
-
-            if (RANGECHECK) {
-                if (start >= view.width || start > stop) {
-                    DOOM.doomSystem.Error("Bad R_RenderWallRange: %d to %d", start, stop);
+            if (RendererState.RANGECHECK) {
+                if (start >= _view.width || start > stop) {
+                    DOOM.doomSystem.Error("Bad R_RenderWallRange: %d to %d", start, stop)
                 }
             }
-
-            seg = seg_vars.drawsegs[seg_vars.ds_p];
-
-            MyBSP.sidedef = MyBSP.curline.sidedef;
-            MyBSP.linedef = MyBSP.curline.linedef;
+            seg = seg_vars.drawsegs[seg_vars.ds_p]
+            val curline = MyBSP.curline!!
+            MyBSP.sidedef = curline.sidedef
+            MyBSP.linedef = curline.linedef
 
             // mark the segment as visible for auto map
-            MyBSP.linedef.flags |= ML_MAPPED;
+            MyBSP.linedef!!.flags = (MyBSP.linedef!!.flags.toInt() or line_t.ML_MAPPED).toShort()
 
             // calculate rw_distance for scale calculation
-            rw_normalangle = addAngles(MyBSP.curline.angle, ANG90);
+            rw_normalangle = Tables.addAngles(curline.angle, Tables.ANG90)
 
             /*
              * MAES: ok, this is a tricky spot. angle_t's are supposed to be
@@ -1067,39 +939,33 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
              * are supposed to be treated as SIGNED and result in differences
              * <180 degrees -_- The only way to coerce this behavior is to cast
              * both as signed ints.
-             */
-            offsetangle = Math.abs((int) rw_normalangle - (int) rw_angle1);
-
-            if (offsetangle > ANG90) {
-                offsetangle = ANG90;
+             */offsetangle = Math.abs(rw_normalangle.toInt() - rw_angle1.toInt()).toLong()
+            if (offsetangle > Tables.ANG90) {
+                offsetangle = Tables.ANG90
             }
 
             // It should fit even in a signed int, by now.
-            distangle = (int) (ANG90 - offsetangle);
-            hyp = PointToDist(MyBSP.curline.v1x, MyBSP.curline.v1y);
-            sineval = finesine(distangle);
-            rw_distance = FixedMul(hyp, sineval);
-
-            seg.x1 = rw_x = start;
-            seg.x2 = stop;
-            seg.curline = MyBSP.curline;
+            distangle = (Tables.ANG90 - offsetangle).toInt()
+            hyp = PointToDist(curline.v1x, curline.v1y)
+            sineval = Tables.finesine(distangle)
+            rw_distance = FixedMul(hyp, sineval)
+            rw_x = start
+            seg.x1 = rw_x
+            seg.x2 = stop
+            seg.curline = curline
             /*
              * This is the only place it's ever explicitly assigned. Therefore
              * it always starts at stop+1.
-             */
-            rw_stopx = stop + 1;
+             */rw_stopx = stop + 1
 
             // calculate scale at both ends and step
             // this is the ONLY place where rw_scale is set.
-            seg.scale1
-                = rw_scale
-                = ScaleFromGlobalAngle((view.angle + view.xtoviewangle[start]));
-
+            rw_scale = ScaleFromGlobalAngle(_view.angle + _view.xtoviewangle[start])
+            seg.scale1 = rw_scale
             if (stop > start) {
-                seg.scale2
-                    = ScaleFromGlobalAngle(view.angle + view.xtoviewangle[stop]);
-                seg.scalestep
-                    = rw_scalestep = (seg.scale2 - rw_scale) / (stop - start);
+                seg.scale2 = ScaleFromGlobalAngle(_view.angle + _view.xtoviewangle[stop])
+                rw_scalestep = (seg.scale2 - rw_scale) / (stop - start)
+                seg.scalestep = rw_scalestep
             } else {
                 // UNUSED: try to fix the stretched line bug
                 /*
@@ -1109,201 +975,188 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
                  * -FixedMul(try,viewsin); seg.scale1 = FixedDiv(projection,
                  * gxt-gyt)<<detailshift; } #endif
                  */
-                seg.scale2 = seg.scale1;
+                seg.scale2 = seg.scale1
             }
 
             // calculate texture boundaries
             // and decide if floor / ceiling marks are needed
-            worldtop = MyBSP.frontsector.ceilingheight - view.z;
-            worldbottom = MyBSP.frontsector.floorheight - view.z;
+            val frontsector = MyBSP.frontsector!!
+            val linedef = MyBSP.linedef!!
+            val sidedef = MyBSP.sidedef!!
 
-            midtexture = toptexture = bottomtexture = 0;
-            maskedtexture = false;
-            seg.setMaskedTextureCol(null, 0);
+            worldtop = frontsector.ceilingheight - _view.z
+            worldbottom = frontsector.floorheight - _view.z
+            bottomtexture = 0
+            toptexture = bottomtexture
+            midtexture = toptexture
+            maskedtexture = false
+            seg.setMaskedTextureCol(null, 0)
             // seg.maskedtexturecol = null;
-
             if (MyBSP.backsector == null) {
                 // single sided line
-                midtexture
-                    = TexMan.getTextureTranslation(MyBSP.sidedef.midtexture);
+                midtexture = TexMan.getTextureTranslation(sidedef.midtexture.toInt())
                 // a single sided line is terminal, so it must mark ends
-                markfloor = markceiling = true;
-                if ((MyBSP.linedef.flags & ML_DONTPEGBOTTOM) != 0) {
-                    vtop
-                        = MyBSP.frontsector.floorheight
-                        + TexMan.getTextureheight(MyBSP.sidedef.midtexture);
+                markceiling = true
+                markfloor = markceiling
+                if (linedef.flags.toInt() and line_t.ML_DONTPEGBOTTOM != 0) {
+                    vtop = (frontsector.floorheight
+                            + TexMan.getTextureheight(sidedef.midtexture.toInt()))
                     // bottom of texture at bottom
-                    rw_midtexturemid = vtop - view.z;
+                    rw_midtexturemid = vtop - _view.z
                 } else {
                     // top of texture at top
-                    rw_midtexturemid = worldtop;
+                    rw_midtexturemid = worldtop
                 }
-                rw_midtexturemid += MyBSP.sidedef.rowoffset;
-
-                seg.silhouette = SIL_BOTH;
-                seg.setSprTopClip(view.screenheightarray, 0);
-                seg.setSprBottomClip(view.negonearray, 0);
-                seg.bsilheight = Integer.MAX_VALUE;
-                seg.tsilheight = Integer.MIN_VALUE;
+                rw_midtexturemid += sidedef.rowoffset
+                seg.silhouette = Defines.SIL_BOTH
+                seg.setSprTopClip(_view.screenheightarray, 0)
+                seg.setSprBottomClip(_view.negonearray, 0)
+                seg.bsilheight = Int.MAX_VALUE
+                seg.tsilheight = Int.MIN_VALUE
             } else {
                 // two sided line
-                seg.setSprTopClip(null, 0);
-                seg.setSprBottomClip(null, 0);
-                seg.silhouette = 0;
-
-                if (MyBSP.frontsector.floorheight > MyBSP.backsector.floorheight) {
-                    seg.silhouette = SIL_BOTTOM;
-                    seg.bsilheight = MyBSP.frontsector.floorheight;
-                } else if (MyBSP.backsector.floorheight > view.z) {
-                    seg.silhouette = SIL_BOTTOM;
-                    seg.bsilheight = Integer.MAX_VALUE;
+                val backsector = MyBSP.backsector!!
+                seg.setSprTopClip(null, 0)
+                seg.setSprBottomClip(null, 0)
+                seg.silhouette = 0
+                if (frontsector.floorheight > backsector.floorheight) {
+                    seg.silhouette = Defines.SIL_BOTTOM
+                    seg.bsilheight = frontsector.floorheight
+                } else if (backsector.floorheight > _view.z) {
+                    seg.silhouette = Defines.SIL_BOTTOM
+                    seg.bsilheight = Int.MAX_VALUE
                     // seg.sprbottomclip = negonearray;
                 }
-
-                if (MyBSP.frontsector.ceilingheight < MyBSP.backsector.ceilingheight) {
-                    seg.silhouette |= SIL_TOP;
-                    seg.tsilheight = MyBSP.frontsector.ceilingheight;
-                } else if (MyBSP.backsector.ceilingheight < view.z) {
-                    seg.silhouette |= SIL_TOP;
-                    seg.tsilheight = Integer.MIN_VALUE;
+                if (frontsector.ceilingheight < backsector.ceilingheight) {
+                    seg.silhouette = seg.silhouette or Defines.SIL_TOP
+                    seg.tsilheight = frontsector.ceilingheight
+                } else if (backsector.ceilingheight < _view.z) {
+                    seg.silhouette = seg.silhouette or Defines.SIL_TOP
+                    seg.tsilheight = Int.MIN_VALUE
                     // seg.sprtopclip = screenheightarray;
                 }
-
-                if (MyBSP.backsector.ceilingheight <= MyBSP.frontsector.floorheight) {
-                    seg.setSprBottomClip(view.negonearray, 0);
-                    seg.bsilheight = Integer.MAX_VALUE;
-                    seg.silhouette |= SIL_BOTTOM;
+                if (backsector.ceilingheight <= frontsector.floorheight) {
+                    seg.setSprBottomClip(_view.negonearray, 0)
+                    seg.bsilheight = Int.MAX_VALUE
+                    seg.silhouette = seg.silhouette or Defines.SIL_BOTTOM
                 }
-
-                if (MyBSP.backsector.floorheight >= MyBSP.frontsector.ceilingheight) {
-                    seg.setSprTopClip(view.screenheightarray, 0);
-                    seg.tsilheight = Integer.MIN_VALUE;
-                    seg.silhouette |= SIL_TOP;
+                if (backsector.floorheight >= frontsector.ceilingheight) {
+                    seg.setSprTopClip(_view.screenheightarray, 0)
+                    seg.tsilheight = Int.MIN_VALUE
+                    seg.silhouette = seg.silhouette or Defines.SIL_TOP
                 }
-
-                worldhigh = MyBSP.backsector.ceilingheight - view.z;
-                worldlow = MyBSP.backsector.floorheight - view.z;
+                worldhigh = backsector.ceilingheight - _view.z
+                worldlow = backsector.floorheight - _view.z
 
                 // hack to allow height changes in outdoor areas
-                if (MyBSP.frontsector.ceilingpic == TexMan.getSkyFlatNum()
-                    && MyBSP.backsector.ceilingpic == TexMan
-                        .getSkyFlatNum()) {
-                    worldtop = worldhigh;
+                if (frontsector.ceilingpic.toInt() == TexMan.getSkyFlatNum()
+                    && backsector.ceilingpic.toInt() == TexMan
+                        .getSkyFlatNum()
+                ) {
+                    worldtop = worldhigh
                 }
-
-                markfloor = worldlow != worldbottom
-                    || MyBSP.backsector.floorpic != MyBSP.frontsector.floorpic
-                    || MyBSP.backsector.lightlevel != MyBSP.frontsector.lightlevel; // same plane on both sides
-                markceiling = worldhigh != worldtop
-                    || MyBSP.backsector.ceilingpic != MyBSP.frontsector.ceilingpic
-                    || MyBSP.backsector.lightlevel != MyBSP.frontsector.lightlevel; // same plane on both sides
-
-                if (MyBSP.backsector.ceilingheight <= MyBSP.frontsector.floorheight
-                    || MyBSP.backsector.floorheight >= MyBSP.frontsector.ceilingheight) {
+                markfloor =
+                    worldlow != worldbottom || backsector.floorpic != frontsector.floorpic || backsector.lightlevel != frontsector.lightlevel // same plane on both sides
+                markceiling =
+                    worldhigh != worldtop || backsector.ceilingpic != frontsector.ceilingpic || backsector.lightlevel != frontsector.lightlevel // same plane on both sides
+                if (backsector.ceilingheight <= frontsector.floorheight
+                    || backsector.floorheight >= frontsector.ceilingheight
+                ) {
                     // closed door
-                    markceiling = markfloor = true;
+                    markfloor = true
+                    markceiling = markfloor
                 }
-
                 if (worldhigh < worldtop) {
                     // top texture
-                    toptexture
-                        = TexMan.getTextureTranslation(MyBSP.sidedef.toptexture);
-                    if ((MyBSP.linedef.flags & ML_DONTPEGTOP) != 0) {
+                    toptexture = TexMan.getTextureTranslation(sidedef.toptexture.toInt())
+                    if (linedef.flags.toInt() and line_t.ML_DONTPEGTOP != 0) {
                         // top of texture at top
-                        rw_toptexturemid = worldtop;
+                        rw_toptexturemid = worldtop
                     } else {
-                        vtop
-                            = MyBSP.backsector.ceilingheight
-                            + TexMan.getTextureheight(MyBSP.sidedef.toptexture);
+                        vtop = (backsector.ceilingheight
+                                + TexMan.getTextureheight(sidedef.toptexture.toInt()))
 
                         // bottom of texture
-                        rw_toptexturemid = vtop - view.z;
+                        rw_toptexturemid = vtop - _view.z
                     }
                 }
                 if (worldlow > worldbottom) {
                     // bottom texture
-                    bottomtexture
-                        = TexMan.getTextureTranslation(MyBSP.sidedef.bottomtexture);
-
-                    if ((MyBSP.linedef.flags & ML_DONTPEGBOTTOM) != 0) {
+                    bottomtexture = TexMan.getTextureTranslation(sidedef.bottomtexture.toInt())
+                    rw_bottomtexturemid = if (linedef.flags.toInt() and line_t.ML_DONTPEGBOTTOM != 0) {
                         // bottom of texture at bottom
                         // top of texture at top
-                        rw_bottomtexturemid = worldtop;
+                        worldtop
                     } else {
                         // top of texture at top
-                        rw_bottomtexturemid = worldlow;
+                        worldlow
                     }
                 }
-                rw_toptexturemid += MyBSP.sidedef.rowoffset;
-                rw_bottomtexturemid += MyBSP.sidedef.rowoffset;
+                rw_toptexturemid += sidedef.rowoffset
+                rw_bottomtexturemid += sidedef.rowoffset
 
                 // allocate space for masked texture tables
-                if (MyBSP.sidedef.midtexture != 0) {
+                if (sidedef.midtexture.toInt() != 0) {
                     // masked midtexture
-                    maskedtexture = true;
-                    seg_vars.maskedtexturecol = vp_vars.openings;
-                    seg_vars.pmaskedtexturecol = vp_vars.lastopening - rw_x;
-                    seg.setMaskedTextureCol(seg_vars.maskedtexturecol,
-                        seg_vars.pmaskedtexturecol);
-                    vp_vars.lastopening += rw_stopx - rw_x;
+                    maskedtexture = true
+                    seg_vars.maskedtexturecol = vp_vars.openings
+                    seg_vars.pmaskedtexturecol = vp_vars.lastopening - rw_x
+                    seg.setMaskedTextureCol(
+                        seg_vars.maskedtexturecol,
+                        seg_vars.pmaskedtexturecol
+                    )
+                    vp_vars.lastopening += rw_stopx - rw_x
                 }
             }
 
             // calculate rw_offset (only needed for textured lines)
-            segtextured
-                = (((midtexture | toptexture | bottomtexture) != 0) | maskedtexture);
 
+            // calculate rw_offset (only needed for textured lines)
+            segtextured = (midtexture or toptexture or bottomtexture != 0) or maskedtexture
             if (segtextured) {
-                offsetangle = addAngles(rw_normalangle, -rw_angle1);
+                offsetangle = Tables.addAngles(rw_normalangle, -rw_angle1)
 
                 // Another "tricky spot": negative of an unsigned number?
-                if (offsetangle > ANG180) {
-                    offsetangle = (-(int) offsetangle) & BITS32;
+                if (offsetangle > Tables.ANG180) {
+                    offsetangle = (-offsetangle.toInt()).toLong() and Tables.BITS32
                 }
-
-                if (offsetangle > ANG90) {
-                    offsetangle = ANG90;
+                if (offsetangle > Tables.ANG90) {
+                    offsetangle = Tables.ANG90
                 }
-
-                sineval = finesine(offsetangle);
-                rw_offset = FixedMul(hyp, sineval);
+                sineval = Tables.finesine(offsetangle)
+                rw_offset = FixedMul(hyp, sineval)
 
                 // Another bug: we CAN'T assume that the result won't wrap
                 // around.
                 // If that assumption is made, then texture alignment issues
                 // appear
-                if (((rw_normalangle - rw_angle1) & BITS32) < ANG180) {
-                    rw_offset = -rw_offset;
+                if (rw_normalangle - rw_angle1 and Tables.BITS32 < Tables.ANG180) {
+                    rw_offset = -rw_offset
                 }
-
-                rw_offset += MyBSP.sidedef.textureoffset + MyBSP.curline.offset;
+                rw_offset += sidedef.textureoffset + curline.offset
                 // This is OK, however: we can add as much shit as we want,
                 // as long as we trim it to the 32 LSB. Proof as to why
                 // this is always true is left as an exercise to the reader.
-                rw_centerangle = (ANG90 + view.angle - rw_normalangle) & BITS32;
+                rw_centerangle = Tables.ANG90 + _view.angle - rw_normalangle and Tables.BITS32
 
                 // calculate light table
                 // use different light tables
                 // for horizontal / vertical / diagonal
                 // OPTIMIZE: get rid of LIGHTSEGSHIFT globally
                 if (colormaps.fixedcolormap == null) {
-                    lightnum
-                        = (MyBSP.frontsector.lightlevel >> colormaps.lightSegShift())
-                        + colormaps.extralight;
-
-                    if (MyBSP.curline.v1y == MyBSP.curline.v2y) {
-                        lightnum--;
-                    } else if (MyBSP.curline.v1x == MyBSP.curline.v2x) {
-                        lightnum++;
+                    lightnum = ((frontsector.lightlevel.toInt() shr colormaps.lightSegShift())
+                            + colormaps.extralight)
+                    if (curline.v1y == curline.v2y) {
+                        lightnum--
+                    } else if (curline.v1x == curline.v2x) {
+                        lightnum++
                     }
-
                     if (lightnum < 0) {
-                        colormaps.walllights = colormaps.scalelight[0];
+                        colormaps.walllights = colormaps.scalelight[0] as Array<V>
                     } else if (lightnum >= colormaps.lightLevels()) {
-                        colormaps.walllights
-                            = colormaps.scalelight[colormaps.lightLevels() - 1];
+                        colormaps.walllights = colormaps.scalelight[colormaps.lightLevels() - 1] as Array<V>
                     } else {
-                        colormaps.walllights = colormaps.scalelight[lightnum];
+                        colormaps.walllights = colormaps.scalelight[lightnum] as Array<V>
                     }
                 }
             }
@@ -1311,93 +1164,87 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
             // if a floor / ceiling plane is on the wrong side
             // of the view plane, it is definitely invisible
             // and doesn't need to be marked.
-            if (MyBSP.frontsector.floorheight >= view.z) {
+            if (frontsector.floorheight >= _view.z) {
                 // above view plane
-                markfloor = false;
+                markfloor = false
             }
-
-            if (MyBSP.frontsector.ceilingheight <= view.z
-                && MyBSP.frontsector.ceilingpic != TexMan.getSkyFlatNum()) {
+            if (frontsector.ceilingheight <= _view.z
+                && frontsector.ceilingpic.toInt() != TexMan.getSkyFlatNum()
+            ) {
                 // below view plane
-                markceiling = false;
+                markceiling = false
             }
 
             // calculate incremental stepping values for texture edges
-            worldtop >>= 4;
-            worldbottom >>= 4;
-
-            topstep = -FixedMul(rw_scalestep, worldtop);
-            topfrac = (view.centeryfrac >> 4) - FixedMul(worldtop, rw_scale);
-
-            bottomstep = -FixedMul(rw_scalestep, worldbottom);
-            bottomfrac
-                = (view.centeryfrac >> 4) - FixedMul(worldbottom, rw_scale);
-
+            worldtop = worldtop shr 4
+            worldbottom = worldbottom shr 4
+            topstep = -FixedMul(rw_scalestep, worldtop)
+            topfrac = (_view.centeryfrac shr 4) - FixedMul(worldtop, rw_scale)
+            bottomstep = -FixedMul(rw_scalestep, worldbottom)
+            bottomfrac = (_view.centeryfrac shr 4) - FixedMul(worldbottom, rw_scale)
             if (MyBSP.backsector != null) {
-                worldhigh >>= 4;
-                worldlow >>= 4;
-
+                worldhigh = worldhigh shr 4
+                worldlow = worldlow shr 4
                 if (worldhigh < worldtop) {
-                    pixhigh
-                        = (view.centeryfrac >> 4) - FixedMul(worldhigh, rw_scale);
-                    pixhighstep = -FixedMul(rw_scalestep, worldhigh);
+                    pixhigh = (_view.centeryfrac shr 4) - FixedMul(worldhigh, rw_scale)
+                    pixhighstep = -FixedMul(rw_scalestep, worldhigh)
                 }
-
                 if (worldlow > worldbottom) {
-                    pixlow
-                        = (view.centeryfrac >> 4) - FixedMul(worldlow, rw_scale);
-                    pixlowstep = -FixedMul(rw_scalestep, worldlow);
+                    pixlow = (_view.centeryfrac shr 4) - FixedMul(worldlow, rw_scale)
+                    pixlowstep = -FixedMul(rw_scalestep, worldlow)
                 }
             }
 
             // render it
             if (markceiling) {
                 // System.out.println("Markceiling");
-                vp_vars.ceilingplane
-                    = vp_vars.CheckPlane(vp_vars.ceilingplane, rw_x, rw_stopx - 1);
+                vp_vars.ceilingplane = vp_vars.CheckPlane(vp_vars.ceilingplane, rw_x, rw_stopx - 1)
             }
-
             if (markfloor) {
                 // System.out.println("Markfloor");
-                vp_vars.floorplane
-                    = vp_vars.CheckPlane(vp_vars.floorplane, rw_x, rw_stopx - 1);
+                vp_vars.floorplane = vp_vars.CheckPlane(vp_vars.floorplane, rw_x, rw_stopx - 1)
             }
-
-            RenderSegLoop();
+            RenderSegLoop()
 
             // After rendering is actually performed, clipping is set.
             // save sprite clipping info ... no top clipping?
-            if ((C2JUtils.flags(seg.silhouette, SIL_TOP) || maskedtexture)
-                && seg.nullSprTopClip()) {
+            if ((C2JUtils.flags(seg.silhouette, Defines.SIL_TOP) || maskedtexture)
+                && seg.nullSprTopClip()
+            ) {
 
                 // memcpy (lastopening, ceilingclip+start, 2*(rw_stopx-start));
-                System.arraycopy(ceilingclip, start, vp_vars.openings,
-                    vp_vars.lastopening, rw_stopx - start);
-
-                seg.setSprTopClip(vp_vars.openings, vp_vars.lastopening - start);
+                System.arraycopy(
+                    ceilingclip, start, vp_vars.openings,
+                    vp_vars.lastopening, rw_stopx - start
+                )
+                seg.setSprTopClip(vp_vars.openings, vp_vars.lastopening - start)
                 // seg.setSprTopClipPointer();
-                vp_vars.lastopening += rw_stopx - start;
+                vp_vars.lastopening += rw_stopx - start
             }
             // no floor clipping?
-            if ((C2JUtils.flags(seg.silhouette, SIL_BOTTOM) || maskedtexture)
-                && seg.nullSprBottomClip()) {
+            if ((C2JUtils.flags(seg.silhouette, Defines.SIL_BOTTOM) || maskedtexture)
+                && seg.nullSprBottomClip()
+            ) {
                 // memcpy (lastopening, floorclip+start, 2*(rw_stopx-start));
-                System.arraycopy(floorclip, start, vp_vars.openings,
-                    vp_vars.lastopening, rw_stopx - start);
-                seg.setSprBottomClip(vp_vars.openings, vp_vars.lastopening
-                    - start);
-                vp_vars.lastopening += rw_stopx - start;
+                System.arraycopy(
+                    floorclip, start, vp_vars.openings,
+                    vp_vars.lastopening, rw_stopx - start
+                )
+                seg.setSprBottomClip(
+                    vp_vars.openings, vp_vars.lastopening
+                            - start
+                )
+                vp_vars.lastopening += rw_stopx - start
             }
-
-            if (maskedtexture && C2JUtils.flags(seg.silhouette, SIL_TOP)) {
-                seg.silhouette |= SIL_TOP;
-                seg.tsilheight = Integer.MIN_VALUE;
+            if (maskedtexture && C2JUtils.flags(seg.silhouette, Defines.SIL_TOP)) {
+                seg.silhouette = seg.silhouette or Defines.SIL_TOP
+                seg.tsilheight = Int.MIN_VALUE
             }
-            if (maskedtexture && (seg.silhouette & SIL_BOTTOM) == 0) {
-                seg.silhouette |= SIL_BOTTOM;
-                seg.bsilheight = Integer.MAX_VALUE;
+            if (maskedtexture && seg.silhouette and Defines.SIL_BOTTOM == 0) {
+                seg.silhouette = seg.silhouette or Defines.SIL_BOTTOM
+                seg.bsilheight = Int.MAX_VALUE
             }
-            seg_vars.ds_p++;
+            seg_vars.ds_p++
         }
 
         /**
@@ -1411,59 +1258,50 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * RWIs. This can surely be unified to avoid replicating code. CALLED:
          * CORE LOOPING ROUTINE.
          */
-        protected void RenderSegLoop() {
-            int angle; // angle_t
-            int index;
-            int yl; // low
-            int yh; // hight
-            int mid;
-            int texturecolumn = 0; // fixed_t
-            int top;
-            int bottom;
+        protected open fun RenderSegLoop() {
+            var angle: Int // angle_t
+            var index: Int
+            var yl: Int // low
+            var yh: Int // hight
+            var mid: Int
+            var texturecolumn = 0 // fixed_t
+            var top: Int
+            var bottom: Int
+            while (rw_x < rw_stopx) {
 
-            for (; rw_x < rw_stopx; rw_x++) {
                 // mark floor / ceiling areas
-                yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+                yl = topfrac + HEIGHTUNIT - 1 shr HEIGHTBITS
 
                 // no space above wall?
                 if (yl < ceilingclip[rw_x] + 1) {
-                    yl = ceilingclip[rw_x] + 1;
+                    yl = ceilingclip[rw_x] + 1
                 }
-
                 if (markceiling) {
-                    top = ceilingclip[rw_x] + 1;
-                    bottom = yl - 1;
-
+                    top = ceilingclip[rw_x] + 1
+                    bottom = yl - 1
                     if (bottom >= floorclip[rw_x]) {
-                        bottom = floorclip[rw_x] - 1;
+                        bottom = floorclip[rw_x] - 1
                     }
-
                     if (top <= bottom) {
-                        vp_vars.visplanes[vp_vars.ceilingplane].setTop(rw_x,
-                            (char) top);
-                        vp_vars.visplanes[vp_vars.ceilingplane].setBottom(rw_x,
-                            (char) bottom);
+                        vp_vars.visplanes[vp_vars.ceilingplane]!!.setTop(rw_x, top.toChar())
+                        vp_vars.visplanes[vp_vars.ceilingplane]!!.setBottom(rw_x, bottom.toChar())
                     }
                 }
-
-                yh = bottomfrac >> HEIGHTBITS;
-
+                yh = bottomfrac shr HEIGHTBITS
                 if (yh >= floorclip[rw_x]) {
-                    yh = floorclip[rw_x] - 1;
+                    yh = floorclip[rw_x] - 1
                 }
 
                 // A particular seg has been identified as a floor marker.
                 if (markfloor) {
-                    top = yh + 1;
-                    bottom = floorclip[rw_x] - 1;
+                    top = yh + 1
+                    bottom = floorclip[rw_x] - 1
                     if (top <= ceilingclip[rw_x]) {
-                        top = ceilingclip[rw_x] + 1;
+                        top = ceilingclip[rw_x] + 1
                     }
                     if (top <= bottom) {
-                        vp_vars.visplanes[vp_vars.floorplane].setTop(rw_x,
-                            (char) top);
-                        vp_vars.visplanes[vp_vars.floorplane].setBottom(rw_x,
-                            (char) bottom);
+                        vp_vars.visplanes[vp_vars.floorplane]!!.setTop(rw_x, top.toChar())
+                        vp_vars.visplanes[vp_vars.floorplane]!!.setBottom(rw_x, bottom.toChar())
                     }
                 }
 
@@ -1478,9 +1316,10 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
                     // shifting). If added with pure unsigned rules, this
                     // doesn't hold anymore,
                     // not even if accounting for overflow.
-                    angle
-                        = Tables.toBAMIndex(rw_centerangle
-                            + (int) view.xtoviewangle[rw_x]);
+                    angle = Tables.toBAMIndex(
+                        rw_centerangle
+                                + _view.xtoviewangle[rw_x].toInt()
+                    )
 
                     // FIXME: We are accessing finetangent here, the code seems
                     // pretty confident in that angle won't exceed 4K no matter
@@ -1493,115 +1332,103 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
                     // it by anding
                     // with 0x1FFF if you're so inclined.
                     // FIXED by allowing overflow. See Tables for details.
-                    texturecolumn
-                        = rw_offset - FixedMul(finetangent[angle], rw_distance);
-                    texturecolumn >>= FRACBITS;
+                    texturecolumn = rw_offset - FixedMul(Tables.finetangent[angle], rw_distance)
+                    texturecolumn = texturecolumn shr FRACBITS
                     // calculate lighting
-                    index = rw_scale >> colormaps.lightScaleShift();
-
+                    index = rw_scale shr colormaps.lightScaleShift()
                     if (index >= colormaps.maxLightScale()) {
-                        index = colormaps.maxLightScale() - 1;
+                        index = colormaps.maxLightScale() - 1
                     }
-
-                    dcvars.dc_colormap = colormaps.walllights[index];
-                    dcvars.dc_x = rw_x;
-                    dcvars.dc_iscale = (int) (0xffffffffL / rw_scale);
+                    dcvars.dc_colormap = colormaps.walllights[index]
+                    dcvars.dc_x = rw_x
+                    dcvars.dc_iscale = (0xffffffffL / rw_scale).toInt()
                 }
 
                 // draw the wall tiers
                 if (midtexture != 0) {
                     // single sided line
-                    dcvars.dc_yl = yl;
-                    dcvars.dc_yh = yh;
-                    dcvars.dc_texheight
-                        = TexMan.getTextureheight(midtexture) >> FRACBITS; // killough
-                    dcvars.dc_texturemid = rw_midtexturemid;
-                    dcvars.dc_source_ofs = 0;
-                    dcvars.dc_source
-                        = TexMan.GetCachedColumn(midtexture, texturecolumn);
-                    CompleteColumn();
-                    ceilingclip[rw_x] = (short) view.height;
-                    floorclip[rw_x] = -1;
+                    dcvars.dc_yl = yl
+                    dcvars.dc_yh = yh
+                    dcvars.dc_texheight = TexMan.getTextureheight(midtexture) shr FRACBITS // killough
+                    dcvars.dc_texturemid = rw_midtexturemid
+                    dcvars.dc_source_ofs = 0
+                    dcvars.dc_source = TexMan.GetCachedColumn(midtexture, texturecolumn)
+                    CompleteColumn()
+                    ceilingclip[rw_x] = _view.height.toShort()
+                    floorclip[rw_x] = -1
                 } else {
                     // two sided line
                     if (toptexture != 0) {
                         // top wall
-                        mid = pixhigh >> HEIGHTBITS;
-                        pixhigh += pixhighstep;
-
+                        mid = pixhigh shr HEIGHTBITS
+                        pixhigh += pixhighstep
                         if (mid >= floorclip[rw_x]) {
-                            mid = floorclip[rw_x] - 1;
+                            mid = floorclip[rw_x] - 1
                         }
-
                         if (mid >= yl) {
-                            dcvars.dc_yl = yl;
-                            dcvars.dc_yh = mid;
-                            dcvars.dc_texturemid = rw_toptexturemid;
-                            dcvars.dc_texheight = TexMan.getTextureheight(toptexture) >> FRACBITS;
-                            dcvars.dc_source = TexMan.GetCachedColumn(toptexture, texturecolumn);
-                            dcvars.dc_source_ofs = 0;
+                            dcvars.dc_yl = yl
+                            dcvars.dc_yh = mid
+                            dcvars.dc_texturemid = rw_toptexturemid
+                            dcvars.dc_texheight = TexMan.getTextureheight(toptexture) shr FRACBITS
+                            dcvars.dc_source = TexMan.GetCachedColumn(toptexture, texturecolumn)
+                            dcvars.dc_source_ofs = 0
                             if (dcvars.dc_colormap == null) {
-                                System.out.println("Two-sided");
+                                println("Two-sided")
                             }
-                            CompleteColumn();
-                            ceilingclip[rw_x] = (short) mid;
+                            CompleteColumn()
+                            ceilingclip[rw_x] = mid.toShort()
                         } else {
-                            ceilingclip[rw_x] = (short) (yl - 1);
+                            ceilingclip[rw_x] = (yl - 1).toShort()
                         }
                     } else {
                         // no top wall
                         if (markceiling) {
-                            ceilingclip[rw_x] = (short) (yl - 1);
+                            ceilingclip[rw_x] = (yl - 1).toShort()
                         }
                     }
-
                     if (bottomtexture != 0) {
                         // bottom wall
-                        mid = (pixlow + HEIGHTUNIT - 1) >> HEIGHTBITS;
-                        pixlow += pixlowstep;
+                        mid = pixlow + HEIGHTUNIT - 1 shr HEIGHTBITS
+                        pixlow += pixlowstep
 
                         // no space above wall?
                         if (mid <= ceilingclip[rw_x]) {
-                            mid = ceilingclip[rw_x] + 1;
+                            mid = ceilingclip[rw_x] + 1
                         }
-
                         if (mid <= yh) {
-                            dcvars.dc_yl = mid;
-                            dcvars.dc_yh = yh;
-                            dcvars.dc_texturemid = rw_bottomtexturemid;
-                            dcvars.dc_texheight = TexMan.getTextureheight(bottomtexture) >> FRACBITS;
-                            dcvars.dc_source = TexMan.GetCachedColumn(bottomtexture, texturecolumn);
-                            dcvars.dc_source_ofs = 0;
-                            CompleteColumn();
-
-                            floorclip[rw_x] = (short) mid;
+                            dcvars.dc_yl = mid
+                            dcvars.dc_yh = yh
+                            dcvars.dc_texturemid = rw_bottomtexturemid
+                            dcvars.dc_texheight = TexMan.getTextureheight(bottomtexture) shr FRACBITS
+                            dcvars.dc_source = TexMan.GetCachedColumn(bottomtexture, texturecolumn)
+                            dcvars.dc_source_ofs = 0
+                            CompleteColumn()
+                            floorclip[rw_x] = mid.toShort()
                         } else {
-                            floorclip[rw_x] = (short) (yh + 1);
+                            floorclip[rw_x] = (yh + 1).toShort()
                         }
                     } else {
                         // no bottom wall
                         if (markfloor) {
-                            floorclip[rw_x] = (short) (yh + 1);
+                            floorclip[rw_x] = (yh + 1).toShort()
                         }
                     }
-
                     if (maskedtexture) {
                         // save texturecol
                         // for backdrawing of masked mid texture
-                        seg_vars.maskedtexturecol[seg_vars.pmaskedtexturecol + rw_x] = (short) texturecolumn;
+                        seg_vars.maskedtexturecol[seg_vars.pmaskedtexturecol + rw_x] = texturecolumn.toShort()
                     }
                 }
-
-                rw_scale += rw_scalestep;
-                topfrac += topstep;
-                bottomfrac += bottomstep;
+                rw_scale += rw_scalestep
+                topfrac += topstep
+                bottomfrac += bottomstep
+                rw_x++
             }
         }
 
-        @Override
-        public void ClearClips() {
-            System.arraycopy(BLANKFLOORCLIP, 0, floorclip, 0, view.width);
-            System.arraycopy(BLANKCEILINGCLIP, 0, ceilingclip, 0, view.width);
+        override fun ClearClips() {
+            System.arraycopy(_BLANKFLOORCLIP, 0, floorclip, 0, _view.width)
+            System.arraycopy(_BLANKCEILINGCLIP, 0, ceilingclip, 0, _view.width)
         }
 
         /**
@@ -1610,32 +1437,29 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * version. It's the only difference between the parallel and serial
          * renderer, BTW. So override and implement accordingly.
          */
-        protected abstract void CompleteColumn();
-
-        @Override
-        public void ExecuteSetViewSize(int viewwidth) {
-            for (int i = 0; i < viewwidth; i++) {
-                BLANKFLOORCLIP[i] = (short) view.height;
-                BLANKCEILINGCLIP[i] = -1;
+        protected abstract fun CompleteColumn()
+        override fun ExecuteSetViewSize(viewwidth: Int) {
+            for (i in 0 until viewwidth) {
+                _BLANKFLOORCLIP[i] = _view.height.toShort()
+                _BLANKCEILINGCLIP[i] = -1
             }
         }
 
-        @Override
-        public void CompleteRendering() {
+        override fun CompleteRendering() {
             // Nothing to do for serial. 
         }
 
-        protected column_t col;
+        protected var col: column_t
 
-        public SegDrawer(SceneRenderer<?, ?> R) {
-            this.vp_vars = R.getVPVars();
-            this.seg_vars = R.getSegVars();
-            col = new column_t();
-            seg_vars.drawsegs = malloc(drawseg_t::new, drawseg_t[]::new, seg_vars.MAXDRAWSEGS);
-            this.floorclip = new short[DOOM.vs.getScreenWidth()];
-            this.ceilingclip = new short[DOOM.vs.getScreenWidth()];
-            BLANKFLOORCLIP = new short[DOOM.vs.getScreenWidth()];
-            BLANKCEILINGCLIP = new short[DOOM.vs.getScreenWidth()];
+        init {
+            this.vp_vars = R.getVPVars()
+            this.seg_vars = R.getSegVars()
+            col = column_t()
+            seg_vars.drawsegs = GenericCopy.malloc({ drawseg_t() }, seg_vars.MAXDRAWSEGS)
+            floorclip = ShortArray(DOOM.vs.getScreenWidth())
+            ceilingclip = ShortArray(DOOM.vs.getScreenWidth())
+            _BLANKFLOORCLIP = ShortArray(DOOM.vs.getScreenWidth())
+            _BLANKCEILINGCLIP = ShortArray(DOOM.vs.getScreenWidth())
         }
 
         /**
@@ -1643,14 +1467,14 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * current line (horizontal span) at the given angle. rw_distance must
          * be calculated first.
          */
-        protected int ScaleFromGlobalAngle(long visangle) {
-            int scale; // fixed_t
-            long anglea;
-            long angleb;
-            int sinea;
-            int sineb;
-            int num; // fixed_t
-            int den;
+        protected fun ScaleFromGlobalAngle(visangle: Long): Int {
+            var scale: Int // fixed_t
+            val anglea: Long
+            val angleb: Long
+            val sinea: Int
+            val sineb: Int
+            val num: Int // fixed_t
+            val den: Int
 
             // UNUSED
             /*
@@ -1660,77 +1484,73 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
              * finecosine[(viewangle-visangle)>>ANGLETOFINESHIFT]; z =
              * abs(FixedMul (dist, cosv)); scale = FixedDiv(projection, z);
              * return scale; }
-             */
-            anglea = (ANG90 + visangle - view.angle) & BITS32;
-            angleb = (ANG90 + visangle - rw_normalangle) & BITS32;
+             */anglea = Tables.ANG90 + visangle - _view.angle and Tables.BITS32
+            angleb = Tables.ANG90 + visangle - rw_normalangle and Tables.BITS32
 
             // both sines are allways positive
-            sinea = finesine(anglea);
-            sineb = finesine(angleb);
-            num = FixedMul(view.projection, sineb) << view.detailshift;
-            den = FixedMul(rw_distance, sinea);
-
-            if (den > num >> 16) {
-                scale = FixedDiv(num, den);
-
+            sinea = Tables.finesine(anglea)
+            sineb = Tables.finesine(angleb)
+            num = FixedMul(_view.projection, sineb) shl _view.detailshift
+            den = FixedMul(rw_distance, sinea)
+            if (den > num shr 16) {
+                scale = FixedDiv(num, den)
                 if (scale > 64 * FRACUNIT) {
-                    scale = 64 * FRACUNIT;
+                    scale = 64 * FRACUNIT
                 } else if (scale < 256) {
-                    scale = 256;
+                    scale = 256
                 }
             } else {
-                scale = 64 * FRACUNIT;
+                scale = 64 * FRACUNIT
             }
-
-            return scale;
+            return scale
         }
 
-        @Override
-        public void setGlobalAngle(long angle) {
-            this.rw_angle1 = angle;
+        override fun setGlobalAngle(angle: Long) {
+            rw_angle1 = angle
         }
+
+        //companion object {
+            protected /*const */val HEIGHTBITS = 12
+            protected /*const*/ val HEIGHTUNIT = 1 shl HEIGHTBITS
+        //}
     }
 
-    protected interface IPlaneDrawer {
-        void InitPlanes();
-        void MapPlane(int y, int x1, int x2);
-        void DrawPlanes();
-        int[] getDistScale();
+    interface IPlaneDrawer {
+        fun InitPlanes()
+        fun MapPlane(y: Int, x1: Int, x2: Int)
+        fun DrawPlanes()
+        fun getDistScale(): IntArray
 
         /**
          * Sync up in case there's concurrent planes/walls rendering
          */
-        void sync();
+        fun sync()
     }
 
-    protected interface ISegDrawer extends ILimitResettable {
-        void ClearClips();
-        short[] getBLANKCEILINGCLIP();
-        short[] getBLANKFLOORCLIP();
-        short[] getFloorClip();
-        short[] getCeilingClip();
-        void ExecuteSetViewSize(int viewwidth);
-        void setGlobalAngle(long angle1);
-        void StoreWallRange(int first, int last);
+    protected interface ISegDrawer : ILimitResettable {
+        fun ClearClips()
+        fun getBLANKCEILINGCLIP(): ShortArray
+        fun getBLANKFLOORCLIP(): ShortArray
+        fun getFloorClip(): ShortArray
+        fun getCeilingClip(): ShortArray
+        fun ExecuteSetViewSize(viewwidth: Int)
+        fun setGlobalAngle(angle1: Long)
+        fun StoreWallRange(first: Int, last: Int)
 
         /**
          * If there is anything to do beyond the BPS traversal,
          * e.g. parallel rendering
          */
-        void CompleteRendering();
+        fun CompleteRendering()
 
         /**
          * Sync up in case there's concurrent planes/walls rendering
          */
-        void sync();
+        fun sync()
     }
 
-    protected class Planes extends PlaneDrawer<T, V> {
-
-        Planes(DoomMain<T, V> DOOM, RendererState<T, V> R) {
-            super(DOOM, R);
-        }
-
+    protected inner class Planes internal constructor(DOOM: DoomMain<T, V>, R: RendererState<T, V>) :
+        PlaneDrawer<T, V>(DOOM, R) {
         /**
          * R_DrawPlanes At the end of each frame. This also means that visplanes
          * must have been set BEFORE we called this function. Therefore, look
@@ -1738,151 +1558,139 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          *
          * @throws IOException
          */
-        @Override
-        public void DrawPlanes() {
-            if (DEBUG) {
-                System.out.println(" >>>>>>>>>>>>>>>>>>>>>   DrawPlanes: " + vp_vars.lastvisplane);
+        override fun DrawPlanes() {
+            if (RendererState.DEBUG) {
+                println(" >>>>>>>>>>>>>>>>>>>>>   DrawPlanes: " + vp_vars.lastvisplane)
             }
-            visplane_t pln; // visplane_t
-            int light;
-            int x;
-            int stop;
-            int angle;
-
+            var pln: visplane_t // visplane_t
+            var light: Int
+            var x: Int
+            var stop: Int
+            var angle: Int
             if (RANGECHECK) {
-                rangeCheckErrors();
+                rangeCheckErrors()
             }
-
-            for (int pl = 0; pl < vp_vars.lastvisplane; pl++) {
-                pln = vp_vars.visplanes[pl];
-                if (DEBUG2) {
-                    System.out.println(pln);
+            for (pl in 0 until vp_vars.lastvisplane) {
+                pln = vp_vars.visplanes[pl]!!
+                if (RendererState.DEBUG2) {
+                    println(pln)
                 }
-
                 if (pln.minx > pln.maxx) {
-                    continue;
+                    continue
                 }
                 // sky flat
                 if (pln.picnum == TexMan.getSkyFlatNum()) {
                     // Cache skytexture stuff here. They aren't going to change
                     // while
                     // being drawn, after all, are they?
-                    int skytexture = TexMan.getSkyTexture();
-                    skydcvars.dc_texheight
-                        = TexMan.getTextureheight(skytexture) >> FRACBITS;
-                    skydcvars.dc_iscale
-                        = vpvars.getSkyScale() >> view.detailshift;
-
+                    val skytexture = TexMan.getSkyTexture()
+                    skydcvars.dc_texheight = TexMan.getTextureheight(skytexture) shr FRACBITS
+                    skydcvars.dc_iscale = vpvars.getSkyScale() shr view.detailshift
                     /**
                      * Sky is allways drawn full bright, i.e. colormaps[0] is
                      * used. Because of this hack, sky is not affected by INVUL
                      * inverse mapping.
                      * Settings.fixskypalette handles the fix
                      */
-                    if (DOOM.CM.equals(Settings.fix_sky_palette, Boolean.TRUE) && colormap.fixedcolormap != null) {
-                        skydcvars.dc_colormap = colormap.fixedcolormap;
+                    if (DOOM.CM.equals(
+                            Settings.fix_sky_palette,
+                            java.lang.Boolean.TRUE
+                        ) && colormap.fixedcolormap != null
+                    ) {
+                        skydcvars.dc_colormap = colormap.fixedcolormap
                     } else {
-                        skydcvars.dc_colormap = colormap.colormaps[Palettes.COLORMAP_FIXED];
+                        skydcvars.dc_colormap = colormap.colormaps[Lights.COLORMAP_FIXED]
                     }
-                    skydcvars.dc_texturemid = TexMan.getSkyTextureMid();
-                    for (x = pln.minx; x <= pln.maxx; x++) {
-
-                        skydcvars.dc_yl = pln.getTop(x);
-                        skydcvars.dc_yh = pln.getBottom(x);
-
+                    skydcvars.dc_texturemid = TexMan.getSkyTextureMid()
+                    x = pln.minx
+                    while (x <= pln.maxx) {
+                        skydcvars.dc_yl = pln.getTop(x).code
+                        skydcvars.dc_yh = pln.getBottom(x)
                         if (skydcvars.dc_yl <= skydcvars.dc_yh) {
-                            angle
-                                = (int) (addAngles(view.angle, view.xtoviewangle[x]) >>> ANGLETOSKYSHIFT);
-                            skydcvars.dc_x = x;
+                            angle = (Tables.addAngles(
+                                view.angle,
+                                view.xtoviewangle[x]
+                            ) ushr Defines.ANGLETOSKYSHIFT).toInt()
+                            skydcvars.dc_x = x
                             // Optimized: texheight is going to be the same
                             // during normal skies drawing...right?
-                            skydcvars.dc_source
-                                = TexMan.GetCachedColumn(skytexture, angle);
-                            colfunc.sky.invoke();
+                            skydcvars.dc_source = TexMan.GetCachedColumn(skytexture, angle)
+                            colfunc!!.sky!!.invoke()
                         }
+                        x++
                     }
-                    continue;
+                    continue
                 }
 
                 // regular flat
-                dsvars.ds_source = TexMan.getSafeFlat(pln.picnum);
-
-                planeheight = Math.abs(pln.height - view.z);
-                light = (pln.lightlevel >> colormap.lightSegShift()) + colormap.extralight;
-
+                dsvars.ds_source = TexMan.getSafeFlat(pln.picnum)
+                planeheight = Math.abs(pln.height - view.z)
+                light = (pln.lightlevel shr colormap.lightSegShift()) + colormap.extralight
                 if (light >= colormap.lightLevels()) {
-                    light = colormap.lightLevels() - 1;
+                    light = colormap.lightLevels() - 1
                 }
-
                 if (light < 0) {
-                    light = 0;
+                    light = 0
                 }
-
-                planezlight = colormap.zlight[light];
+                planezlight = colormap.zlight[light] as Array<V>
 
                 // We set those values at the border of a plane's top to a
                 // "sentinel" value...ok.
-                pln.setTop(pln.maxx + 1, visplane_t.SENTINEL);
-                pln.setTop(pln.minx - 1, visplane_t.SENTINEL);
-
-                stop = pln.maxx + 1;
-
-                for (x = pln.minx; x <= stop; x++) {
-                    MakeSpans(x, pln.getTop(x - 1), pln.getBottom(x - 1), pln.getTop(x), pln.getBottom(x));
+                pln.setTop(pln.maxx + 1, SENTINEL)
+                pln.setTop(pln.minx - 1, SENTINEL)
+                stop = pln.maxx + 1
+                x = pln.minx
+                while (x <= stop) {
+                    MakeSpans(x, pln.getTop(x - 1).code, pln.getBottom(x - 1), pln.getTop(x).code, pln.getBottom(x))
+                    x++
                 }
 
                 // Z_ChangeTag (ds_source, PU_CACHE);
             }
         }
-
     } // End Plane class
-
     // /////////////////////// LIGHTS, POINTERS, COLORMAPS ETC. ////////////////
     // /// FROM R_DATA, R_MAIN , R_DRAW //////////
     /**
      * OK< this is supposed to "peg" into screen buffer 0. It will work AS LONG
      * AS SOMEONE FUCKING ACTUALLY SETS IT !!!!
      */
-    protected V screen;
-
-    protected static final boolean RANGECHECK = false;
+    protected var screen: V? = null
 
     /**
      * These are actually offsets inside screen 0 (or any screen). Therefore
      * anything using them should "draw" inside screen 0
      */
-    protected int[] ylookup = new int[MAXHEIGHT];
+    protected var ylookup = IntArray(Limits.MAXHEIGHT)
 
     /**
      * Columns offset to set where?!
      */
-    protected int[] columnofs = new int[MAXWIDTH];
+    protected var columnofs = IntArray(Limits.MAXWIDTH)
 
     /**
      * General purpose. Used for solid walls and as an intermediary for
      * threading
      */
-    protected ColVars<T, V> dcvars;
+    protected var dcvars: ColVars<T, V>
 
     /**
      * Used for spans
      */
-    protected SpanVars<T, V> dsvars;
+    protected var dsvars: SpanVars<T, V>
 
     // Used for sky drawer, to avoid clashing with shared dcvars
-    protected ColVars<T, V> skydcvars;
+    protected var skydcvars: ColVars<T, V>
 
     /**
      * Masked drawing functions get "pegged" to this set of dcvars, passed upon
      * initialization. However, multi-threaded vars are better off carrying each
      * their own ones.
      */
-    protected ColVars<T, V> maskedcvars;
-
+    protected var maskedcvars: ColVars<T, V>
     /**
      * e6y: wide-res Borrowed from PrBoom+;
      */
-
     /*
      * protected int wide_centerx, wide_ratio, wide_offsetx, wide_offset2x,
      * wide_offsety, wide_offset2y; protected final base_ratio_t[]
@@ -1895,30 +1703,29 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
     /**
      * just for profiling purposes
      */
-    protected int framecount;
-    protected int sscount;
-    protected int linecount;
-    protected int loopcount;
+    protected var framecount = 0
+    protected var sscount = 0
+    protected var linecount = 0
+    protected var loopcount = 0
 
     //
     // precalculated math tables
     //
-    protected long clipangle;
+    protected var clipangle: Long = 0
 
     // Set to 2*clipangle later.
-    protected long CLIPANGLE2;
+    protected var CLIPANGLE2: Long = 0
 
     // The viewangletox[viewangle + FINEANGLES/4] lookup
     // maps the visible view angles to screen X coordinates,
     // flattening the arc to a flat projection plane.
     // There will be many angles mapped to the same X.
-    protected final int[] viewangletox = new int[FINEANGLES / 2];
-
+    protected val viewangletox = IntArray(Tables.FINEANGLES / 2)
     /**
      * The xtoviewangle[] table maps a screen pixel to the lowest viewangle that
      * maps back to x ranges from clipangle to -clipangle.
      *
-     * @see view.xtoviewangle
+     * @see _view.xtoviewangle
      */
     //protected long[] view.xtoviewangle;// MAES: to resize
     // UNUSED.
@@ -1931,7 +1738,6 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
     // Also wtf @ this hack....this points to approx 1/4th of the finesine
     // table, but what happens if I read past it?
     // int[] finecosine = finesine[FINEANGLES/4];
-
     /*
      * MAES: what's going on with light tables here. OK...so these should be
      * "unsigned bytes", since, after all, they'll be used as pointers inside an
@@ -1942,99 +1748,17 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * Assigns a point of view before calling PointToAngle CAREFUL: this isn't a
      * pure function, as it alters the renderer's state!
      */
-    @Override
-    public final long PointToAngle2(int x1, int y1, int x2, int y2) {
+    override fun PointToAngle2(x1: Int, y1: Int, x2: Int, y2: Int): Long {
         // Careful with assignments...
-        view.x = x1;
-        view.y = y1;
-
-        return view.PointToAngle(x2, y2);
-    }
-
-    //
-    // R_InitPointToAngle
-    //
-    /*
-     * protected final void InitPointToAngle () { // UNUSED - now getting from
-     * tables.c if (false){ int i; long t; float f; // // slope (tangent) to
-     * angle lookup // for (i=0 ; i<=SLOPERANGE ; i++) { f = (float) Math.atan(
-     * (double)(i/SLOPERANGE )/(3.141592657*2)); t = (long) (0xffffffffL*f);
-     * tantoangle[i] = (int) t; } } }
-     */
-    /**
-     * Public, static, stateless version of PointToAngle2. Call this one when
-     * "renderless" use of PointToAngle2 is required.
-     */
-    public static long PointToAngle(int viewx, int viewy, int x, int y) {
-        // MAES: note how we don't use &BITS32 here. That is because
-        // we know that the maximum possible value of tantoangle is angle
-        // This way, we are actually working with vectors emanating
-        // from our current position.
-        x -= viewx;
-        y -= viewy;
-
-        if ((x == 0) && (y == 0)) {
-            return 0;
-        }
-
-        if (x >= 0) {
-            // x >=0
-            if (y >= 0) {
-                // y>= 0
-
-                if (x > y) {
-                    // octant 0
-                    return tantoangle[SlopeDiv(y, x)];
-                } else {
-                    // octant 1
-                    return (ANG90 - 1 - tantoangle[SlopeDiv(x, y)]);
-                }
-            } else {
-                // y<0
-                y = -y;
-
-                if (x > y) {
-                    // octant 8
-                    return (-tantoangle[SlopeDiv(y, x)]);
-                } else {
-                    // octant 7
-                    return (ANG270 + tantoangle[SlopeDiv(x, y)]);
-                }
-            }
-        } else {
-            // x<0
-            x = -x;
-
-            if (y >= 0) {
-                // y>= 0
-                if (x > y) {
-                    // octant 3
-                    return (ANG180 - 1 - tantoangle[SlopeDiv(y, x)]);
-                } else {
-                    // octant 2
-                    return (ANG90 + tantoangle[SlopeDiv(x, y)]);
-                }
-            } else {
-                // y<0
-                y = -y;
-
-                if (x > y) {
-                    // octant 4
-                    return (ANG180 + tantoangle[SlopeDiv(y, x)]);
-                } else {
-                    // octant 5
-                    return (ANG270 - 1 - tantoangle[SlopeDiv(x, y)]);
-                }
-            }
-        }
-        // This is actually unreachable.
-        // return 0;
+        _view.x = x1
+        _view.y = y1
+        return _view.PointToAngle(x2, y2)
     }
 
     //
     // R_InitTables
     //
-    protected void InitTables() {
+    protected fun InitTables() {
         // UNUSED: now getting from tables.c
         /*
          * int i; float a; float fv; int t; // viewangle tangent table for (i=0
@@ -2043,7 +1767,6 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          * table for (i=0 ; i<5*FINEANGLES/4 ; i++) { // OPTIMIZE: mirro.. a =
          * (i+0.5)*PI*2/FINEANGLES; t = FRACUNIT*sin (a); finesine[i] = t; }
          */
-
     }
 
     /**
@@ -2055,15 +1778,14 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * fixed_t
      * @return
      */
-    protected int PointToDist(int x, int y) {
-        int angle;
-        int dx;
-        int dy;
-        int temp;
-        int dist;
-
-        dx = Math.abs(x - view.x);
-        dy = Math.abs(y - view.y);
+    protected fun PointToDist(x: Int, y: Int): Int {
+        var angle: Int
+        var dx: Int
+        var dy: Int
+        val temp: Int
+        val dist: Int
+        dx = Math.abs(x - _view.x)
+        dy = Math.abs(y - _view.y)
 
         // If something is farther north/south than west/east, it gets swapped.
         // Probably as a crude way to avoid divisions by zero. This divides
@@ -2071,16 +1793,16 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
         // angle to
         // consider is 45...right? So dy/dx can never exceed 1.0, in theory.
         if (dy > dx) {
-            temp = dx;
-            dx = dy;
-            dy = temp;
+            temp = dx
+            dx = dy
+            dy = temp
         }
 
         // If one or both of the distances are *exactly* zero at this point,
         // then this means that the wall is in your face anyway, plus we want to
         // avoid a division by zero. So you get zero.
         if (dx == 0) {
-            return 0;
+            return 0
         }
 
         /*
@@ -2095,226 +1817,214 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
          */
         // This effectively limits the angle to
         // angle = Math.max(FixedDiv(dy, dx), 2048) >> DBITS;
-        angle = (FixedDiv(dy, dx) & 0x1FFFF) >> DBITS;
+        angle = FixedDiv(dy, dx) and 0x1FFFF shr Tables.DBITS
 
         // Since the division will be 0xFFFF at most, DBITS will restrict
         // the maximum angle index to 7FF, about 45, so adding ANG90 with
         // no other safeguards is OK.
-        angle = (int) ((tantoangle[angle] + ANG90) >> ANGLETOFINESHIFT);
+        angle = (Tables.tantoangle[angle] + Tables.ANG90 shr Tables.ANGLETOFINESHIFT).toInt()
 
         // use as cosine
-        dist = FixedDiv(dx, finesine[angle]);
-
-        return dist;
+        dist = FixedDiv(dx, Tables.finesine[angle])
+        return dist
     }
 
     // //////////// COMMON RENDERING GLOBALS ////////////////
     // //////////////// COLUMN AND SPAN FUNCTIONS //////////////
-    protected ColFuncs<T, V> colfunc;
+    protected var colfunc: ColFuncs<T, V>? = null
 
     // Keep two sets of functions.
-    protected ColFuncs<T, V> colfunchi;
-
-    protected ColFuncs<T, V> colfunclow;
-
-    protected void setHiColFuns() {
-        colfunchi.main = colfunchi.base = DrawColumn;
-        colfunchi.masked = DrawColumnMasked;
-        colfunchi.fuzz = DrawFuzzColumn;
-        colfunchi.trans = DrawTranslatedColumn;
-        colfunchi.glass = DrawTLColumn;
-        colfunchi.player = DrawColumnPlayer;
-        colfunchi.sky = DrawColumnSkies;
+    protected var colfunchi: ColFuncs<T, V>
+    protected var colfunclow: ColFuncs<T, V>
+    protected fun setHiColFuns() {
+        colfunchi.base = DrawColumn
+        colfunchi.main = colfunchi.base
+        colfunchi.masked = DrawColumnMasked
+        colfunchi.fuzz = DrawFuzzColumn
+        colfunchi.trans = DrawTranslatedColumn
+        colfunchi.glass = DrawTLColumn
+        colfunchi.player = DrawColumnPlayer
+        colfunchi.sky = DrawColumnSkies
     }
 
-    protected void setLowColFuns() {
-        colfunclow.main = colfunclow.base = DrawColumnLow;
-        colfunclow.masked = DrawColumnMaskedLow;
-        colfunclow.fuzz = DrawFuzzColumnLow;
-        colfunclow.trans = DrawTranslatedColumnLow;
-        colfunclow.glass = DrawTLColumn;
-        colfunclow.player = DrawColumnMaskedLow;
-        colfunclow.sky = DrawColumnSkiesLow;
+    protected fun setLowColFuns() {
+        colfunclow.base = DrawColumnLow
+        colfunclow.main = colfunclow.base
+        colfunclow.masked = DrawColumnMaskedLow
+        colfunclow.fuzz = DrawFuzzColumnLow
+        colfunclow.trans = DrawTranslatedColumnLow
+        colfunclow.glass = DrawTLColumn
+        colfunclow.player = DrawColumnMaskedLow
+        colfunclow.sky = DrawColumnSkiesLow
     }
 
-    @Override
-    public ColFuncs<T, V> getColFuncsHi() {
-        return this.colfunchi;
+    override fun getColFuncsHi(): ColFuncs<T, V> {
+        return colfunchi
     }
 
-    @Override
-    public ColFuncs<T, V> getColFuncsLow() {
-        return this.colfunclow;
+    override fun getColFuncsLow(): ColFuncs<T, V> {
+        return colfunclow
     }
 
-    @Override
-    public ColVars<T, V> getMaskedDCVars() {
-        return this.maskedcvars;
+    override fun getMaskedDCVars(): ColVars<T, V> {
+        return maskedcvars
     }
 
     // These column functions are "fixed" for a given renderer, and are
     // not used directly, but only after passing them to colfuncs
-    protected DoomColumnFunction<T, V> DrawTranslatedColumn;
-    protected DoomColumnFunction<T, V> DrawTranslatedColumnLow;
-    protected DoomColumnFunction<T, V> DrawColumnPlayer;
-    protected DoomColumnFunction<T, V> DrawColumnSkies;
-    protected DoomColumnFunction<T, V> DrawColumnSkiesLow;
-    protected DoomColumnFunction<T, V> DrawFuzzColumn;
-    protected DoomColumnFunction<T, V> DrawFuzzColumnLow;
-    protected DoomColumnFunction<T, V> DrawColumn;
-    protected DoomColumnFunction<T, V> DrawColumnLow;
-    protected DoomColumnFunction<T, V> DrawColumnMasked;
-    protected DoomColumnFunction<T, V> DrawColumnMaskedLow;
-    protected DoomColumnFunction<T, V> DrawTLColumn;
+    protected var DrawTranslatedColumn: DoomColumnFunction<T, V>? = null
+    protected var DrawTranslatedColumnLow: DoomColumnFunction<T, V>? = null
+    protected var DrawColumnPlayer: DoomColumnFunction<T, V>? = null
+    protected var DrawColumnSkies: DoomColumnFunction<T, V>? = null
+    protected var DrawColumnSkiesLow: DoomColumnFunction<T, V>? = null
+    protected var DrawFuzzColumn: DoomColumnFunction<T, V>? = null
+    protected var DrawFuzzColumnLow: DoomColumnFunction<T, V>? = null
+    protected var DrawColumn: DoomColumnFunction<T, V>? = null
+    protected var DrawColumnLow: DoomColumnFunction<T, V>? = null
+    protected var DrawColumnMasked: DoomColumnFunction<T, V>? = null
+    protected var DrawColumnMaskedLow: DoomColumnFunction<T, V>? = null
+    protected var DrawTLColumn: DoomColumnFunction<T, V>? = null
 
     /**
      * to be set in UnifiedRenderer
      */
-    protected DoomSpanFunction<T, V> DrawSpan, DrawSpanLow;
-
+    protected var DrawSpan: DoomSpanFunction<T, V>? = null
+    protected var DrawSpanLow: DoomSpanFunction<T, V>? = null
     // ////////////// r_draw methods //////////////
     /**
      * R_DrawViewBorder Draws the border around the view for different size windows
      * Made use of CopyRect there
      * - Good Sign 2017/04/06
      */
-    @Override
-    public void DrawViewBorder() {
-        if (view.scaledwidth == DOOM.vs.getScreenWidth()) {
-            return;
+    override fun DrawViewBorder() {
+        if (_view.scaledwidth == DOOM.vs.getScreenWidth()) {
+            return
         }
-
-        final int top = ((DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight()) - view.height) / 2;
-        final int side = (DOOM.vs.getScreenWidth() - view.scaledwidth) / 2;
-        final Rectangle rect;
+        val top = (DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight() - _view.height) / 2
+        val side = (DOOM.vs.getScreenWidth() - _view.scaledwidth) / 2
+        val rect: Rectangle
         // copy top
-        rect = new Rectangle(0, 0, DOOM.vs.getScreenWidth(), top);
-        DOOM.graphicSystem.CopyRect(BG, rect, FG);
+        rect = Rectangle(0, 0, DOOM.vs.getScreenWidth(), top)
+        DOOM.graphicSystem.CopyRect(DoomScreen.BG, rect, DoomScreen.FG)
         // copy left side
-        rect.setBounds(0, top, side, view.height);
-        DOOM.graphicSystem.CopyRect(BG, rect, FG);
+        rect.setBounds(0, top, side, _view.height)
+        DOOM.graphicSystem.CopyRect(DoomScreen.BG, rect, DoomScreen.FG)
         // copy right side
-        rect.x = side + view.scaledwidth;
-        DOOM.graphicSystem.CopyRect(BG, rect, FG);
+        rect.x = side + _view.scaledwidth
+        DOOM.graphicSystem.CopyRect(DoomScreen.BG, rect, DoomScreen.FG)
         // copy bottom
-        rect.setBounds(0, top + view.height, DOOM.vs.getScreenWidth(), top);
-        DOOM.graphicSystem.CopyRect(BG, rect, FG);
+        rect.setBounds(0, top + _view.height, DOOM.vs.getScreenWidth(), top)
+        DOOM.graphicSystem.CopyRect(DoomScreen.BG, rect, DoomScreen.FG)
     }
 
-    @Override
-    public void ExecuteSetViewSize() {
-        int cosadj;
-        int dy;
-        int level;
-        int startmap;
-
-        setsizeneeded = false;
+    override fun ExecuteSetViewSize() {
+        var cosadj: Int
+        var dy: Int
+        var level: Int
+        var startmap: Int
+        setsizeneeded = false
 
         // 11 Blocks means "full screen"
         if (setblocks == 11) {
-            view.scaledwidth = DOOM.vs.getScreenWidth();
-            view.height = DOOM.vs.getScreenHeight();
-        } else if (DOOM.CM.equals(Settings.scale_screen_tiles, Boolean.TRUE)) {
+            _view.scaledwidth = DOOM.vs.getScreenWidth()
+            _view.height = DOOM.vs.getScreenHeight()
+        } else if (DOOM.CM.equals(Settings.scale_screen_tiles, java.lang.Boolean.TRUE)) {
             /**
              * Make it exactly as in vanilla DOOM
-             *  - Good Sign 2017/05/08
+             * - Good Sign 2017/05/08
              */
-            view.scaledwidth = (setblocks * 32) * DOOM.vs.getScalingX();
-            view.height = ((setblocks * 168 / 10) & ~7) * DOOM.vs.getScalingY();
+            _view.scaledwidth = setblocks * 32 * DOOM.vs.getScalingX()
+            _view.height = (setblocks * 168 / 10 and 7.inv()) * DOOM.vs.getScalingY()
         } else { // Mocha Doom formula looks better for non-scaled tiles
-            view.scaledwidth = setblocks * (DOOM.vs.getScreenWidth() / 10);
+            _view.scaledwidth = setblocks * (DOOM.vs.getScreenWidth() / 10)
             // Height can only be a multiple of 8.
-            view.height = (short) ((setblocks * (DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight()) / 10) & ~7);
+            _view.height =
+                (setblocks * (DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight()) / 10 and 7.inv()).toShort().toInt()
         }
-
-        skydcvars.viewheight
-            = maskedcvars.viewheight = dcvars.viewheight = view.height;
-
-        view.detailshift = setdetail;
-        view.width = view.scaledwidth >> view.detailshift;
-
-        view.centery = view.height / 2;
-        view.centerx = view.width / 2;
-        view.centerxfrac = (view.centerx << FRACBITS);
-        view.centeryfrac = (view.centery << FRACBITS);
-        view.projection = view.centerxfrac;
-
-        skydcvars.centery = maskedcvars.centery = dcvars.centery = view.centery;
+        dcvars.viewheight = _view.height
+        maskedcvars.viewheight = dcvars.viewheight
+        skydcvars.viewheight = maskedcvars.viewheight
+        _view.detailshift = setdetail
+        _view.width = _view.scaledwidth shr _view.detailshift
+        _view.centery = _view.height / 2
+        _view.centerx = _view.width / 2
+        _view.centerxfrac = _view.centerx shl FRACBITS
+        _view.centeryfrac = _view.centery shl FRACBITS
+        _view.projection = _view.centerxfrac
+        dcvars.centery = _view.centery
+        maskedcvars.centery = dcvars.centery
+        skydcvars.centery = maskedcvars.centery
 
         // High detail
-        if (view.detailshift == 0) {
-
-            colfunc = colfunchi;
-            dsvars.spanfunc = DrawSpan;
+        if (_view.detailshift == 0) {
+            colfunc = colfunchi
+            dsvars.spanfunc = DrawSpan
         } else {
             // Low detail
-            colfunc = colfunclow;
-            dsvars.spanfunc = DrawSpanLow;
-
+            colfunc = colfunclow
+            dsvars.spanfunc = DrawSpanLow
         }
-
-        InitBuffer(view.scaledwidth, view.height);
-
-        InitTextureMapping();
+        InitBuffer(_view.scaledwidth, _view.height)
+        InitTextureMapping()
 
         // psprite scales
         // pspritescale = FRACUNIT*viewwidth/vs.getScreenWidth();
         // pspriteiscale = FRACUNIT*vs.getScreenWidth()/viewwidth;
-        MyThings.setPspriteScale((int) (FRACUNIT * (DOOM.vs.getScreenMul() * view.width) / DOOM.vs.getScreenWidth()));
-        MyThings.setPspriteIscale((int) (FRACUNIT * (DOOM.vs.getScreenWidth() / (view.width * DOOM.vs.getScreenMul()))));
-        vp_vars.setSkyScale((int) (FRACUNIT * (DOOM.vs.getScreenWidth() / (view.width * DOOM.vs.getScreenMul()))));
-
-        view.BOBADJUST = this.DOOM.vs.getSafeScaling() << 15;
-        view.WEAPONADJUST = (int) ((DOOM.vs.getScreenWidth() / (2 * DOOM.vs.getScreenMul())) * FRACUNIT);
+        MyThings.setPspriteScale((FRACUNIT * (DOOM.vs.getScreenMul() * _view.width) / DOOM.vs.getScreenWidth()).toInt())
+        MyThings.setPspriteIscale((FRACUNIT * (DOOM.vs.getScreenWidth() / (_view.width * DOOM.vs.getScreenMul()))).toInt())
+        vp_vars.setSkyScale(
+            (FRACUNIT * (DOOM.vs.getScreenWidth() / (_view.width * DOOM.vs.getScreenMul()))).toInt())
+        _view.BOBADJUST = DOOM.vs.getSafeScaling() shl 15
+        _view.WEAPONADJUST = (DOOM.vs.getScreenWidth() / (2 * DOOM.vs.getScreenMul()) * FRACUNIT).toInt()
 
         // thing clipping
-        for (int i = 0; i < view.width; i++) {
-            view.screenheightarray[i] = (short) view.height;
+        for (i in 0 until _view.width) {
+            _view.screenheightarray[i] = _view.height.toShort()
         }
 
         // planes
-        for (int i = 0; i < view.height; i++) {
-            dy = ((i - view.height / 2) << FRACBITS) + FRACUNIT / 2;
-            dy = Math.abs(dy);
-            vp_vars.yslope[i] = FixedDiv((view.width << view.detailshift) / 2 * FRACUNIT, dy);
+        for (i in 0 until _view.height) {
+            dy = (i - _view.height / 2 shl FRACBITS) + FRACUNIT / 2
+            dy = Math.abs(dy)
+            vp_vars.yslope[i] =
+                FixedDiv((_view.width shl _view.detailshift) / 2 * FRACUNIT, dy)
             // MyPlanes.yslopef[i] = ((viewwidth<<detailshift)/2)/ dy;
         }
 
         // double cosadjf;
-        for (int i = 0; i < view.width; i++) {
+        for (i in 0 until _view.width) {
             // MAES: In this spot we must interpet it as SIGNED, else it's
             // pointless, right?
             // MAES: this spot caused the "warped floor bug", now fixed. Don't
             // forget xtoviewangle[i]!
-            cosadj = Math.abs(finecosine(view.xtoviewangle[i]));
+            cosadj = Math.abs(Tables.finecosine(_view.xtoviewangle[i]))
             // cosadjf =
             // Math.abs(Math.cos((double)xtoviewangle[i]/(double)0xFFFFFFFFL));
-            MyPlanes.getDistScale()[i] = FixedDiv(FRACUNIT, cosadj);
+            MyPlanes.getDistScale()[i] = FixedDiv(FRACUNIT, cosadj)
             // MyPlanes.distscalef[i] = (float) (1.0/cosadjf);
         }
 
         // Calculate the light levels to use
         // for each level / scale combination.
-        for (int i = 0; i < colormaps.lightLevels(); i++) {
-            startmap = ((colormaps.lightLevels() - colormaps.lightBright() - i) * 2) * colormaps.numColorMaps() / colormaps.lightLevels();
-            for (int j = 0; j < colormaps.maxLightScale(); j++) {
-                level
-                    = startmap - j / DISTMAP;
+        for (i in 0 until colormaps.lightLevels()) {
+            startmap =
+                (colormaps.lightLevels() - colormaps.lightBright() - i) * 2 * colormaps.numColorMaps() / colormaps.lightLevels()
+            for (j in 0 until colormaps.maxLightScale()) {
+                level = startmap - j / RendererState.DISTMAP
                 if (level < 0) {
-                    level = 0;
+                    level = 0
                 }
                 if (level >= colormaps.numColorMaps()) {
-                    level = colormaps.numColorMaps() - 1;
+                    level = colormaps.numColorMaps() - 1
                 }
-                colormaps.scalelight[i][j] = colormaps.colormaps[level];
+                colormaps.scalelight[i][j] = colormaps.colormaps[level]
             }
         }
-
-        MySegs.ExecuteSetViewSize(view.width);
+        MySegs!!.ExecuteSetViewSize(_view.width)
     }
-    
-    private final Rectangle backScreenRect = new Rectangle();
-    private final Rectangle tilePatchRect = new Rectangle();
+
+    private val backScreenRect = Rectangle()
+    private val tilePatchRect = Rectangle()
 
     /**
      * R_FillBackScreen Fills the back screen with a pattern for variable screen
@@ -2322,144 +2032,195 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * is only OCCASIONALLY written to screen 0 (the visible one) by calling
      * R_VideoErase.
      */
-    @Override
-    @R_Draw.C(R_FillBackScreen)
-    public void FillBackScreen() {
-        final boolean scaleSetting = Engine.getConfig().equals(Settings.scale_screen_tiles, Boolean.TRUE);
-        flat_t src;
-        DoomScreen dest;
-        int x;
-        int y;
-        patch_t patch;
+    @R_Draw.C(R_Draw.R_FillBackScreen)
+    override fun FillBackScreen() {
+        val scaleSetting: Boolean =
+            Engine.getConfig().equals(Settings.scale_screen_tiles, java.lang.Boolean.TRUE)
+        val src: flat_t
+        val dest: DoomScreen
+        var x: Int
+        var y: Int
+        var patch: patch_t?
 
         // DOOM border patch.
-        String name1 = "FLOOR7_2";
+        val name1 = "FLOOR7_2"
 
         // DOOM II border patch.
-        String name2 = "GRNROCK";
-
-        String name;
-
-        if (view.scaledwidth == DOOM.vs.getScreenWidth()) {
-            return;
+        val name2 = "GRNROCK"
+        val name: String
+        if (_view.scaledwidth == DOOM.vs.getScreenWidth()) {
+            return
         }
-
-        if (DOOM.isCommercial()) {
-            name = name2;
+        name = if (DOOM.isCommercial()) {
+            name2
         } else {
-            name = name1;
+            name1
         }
 
-        /* This is a flat we're reading here */
-        src = DOOM.wadLoader.CacheLumpName(name, PU_CACHE, flat_t.class);
-        dest = BG;
-        
+        /* This is a flat we're reading here */src =
+            DOOM.wadLoader.CacheLumpName(name, Defines.PU_CACHE, flat_t::class.java)
+        dest = DoomScreen.BG
         /**
          * TODO: cache it?
          * This part actually draws the border itself, without bevels
-         * 
+         *
          * MAES:
          * improved drawing routine for extended bit-depth compatibility.
          *
          * Now supports configurable vanilla-like scaling of tiles
          * - Good Sign 2017/04/09
-         * 
+         *
          * @SourceCode.Compatible
          */
-        Tiling: {
-            this.backScreenRect.setBounds(0, 0, DOOM.vs.getScreenWidth(), DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight());
-            this.tilePatchRect.setBounds(0, 0, 64, 64);
-            V block = DOOM.graphicSystem.convertPalettedBlock(src.data);
+        Tiling@ run {
+            backScreenRect.setBounds(0, 0, DOOM.vs.getScreenWidth(), DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight())
+            tilePatchRect.setBounds(0, 0, 64, 64)
+            var block = DOOM.graphicSystem.convertPalettedBlock(*src.data)
             if (scaleSetting) {
-                block = DOOM.graphicSystem.ScaleBlock(block, DOOM.vs, tilePatchRect.width, tilePatchRect.height);
-                this.tilePatchRect.width *= DOOM.graphicSystem.getScalingX();
-                this.tilePatchRect.height *= DOOM.graphicSystem.getScalingY();
+                block = DOOM.graphicSystem.ScaleBlock(block, DOOM.vs, tilePatchRect.width, tilePatchRect.height)
+                tilePatchRect.width *= DOOM.graphicSystem.getScalingX()
+                tilePatchRect.height *= DOOM.graphicSystem.getScalingY()
             }
-            DOOM.graphicSystem.TileScreenArea(dest, backScreenRect, block, tilePatchRect);
+            DOOM.graphicSystem.TileScreenArea(dest, backScreenRect, block, tilePatchRect)
         }
-        
-        final int scaleFlags = V_NOSCALESTART | (scaleSetting ? 0 : V_NOSCALEOFFSET | V_NOSCALEPATCH);
-        final int stepX = scaleSetting ? DOOM.graphicSystem.getScalingX() << 3 : 8;
-        final int stepY = scaleSetting ? DOOM.graphicSystem.getScalingY() << 3 : 8;
-
-        patch = DOOM.wadLoader.CachePatchName("BRDR_T", PU_CACHE);
-        for (x = 0; x < view.scaledwidth; x += stepX) {
-            DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx + x, view.windowy - stepY, scaleFlags);
+        val scaleFlags: Int =
+            DoomGraphicSystem.V_NOSCALESTART or if (scaleSetting) 0 else DoomGraphicSystem.V_NOSCALEOFFSET or DoomGraphicSystem.V_NOSCALEPATCH
+        val stepX = if (scaleSetting) DOOM.graphicSystem.getScalingX() shl 3 else 8
+        val stepY = if (scaleSetting) DOOM.graphicSystem.getScalingY() shl 3 else 8
+        patch = DOOM.wadLoader.CachePatchName("BRDR_T", Defines.PU_CACHE)
+        x = 0
+        while (x < _view.scaledwidth) {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.BG,
+                patch,
+                DOOM.vs,
+                _view.windowx + x,
+                _view.windowy - stepY,
+                scaleFlags
+            )
+            x += stepX
         }
-
-        patch = DOOM.wadLoader.CachePatchName("BRDR_B", PU_CACHE);
-        for (x = 0; x < view.scaledwidth; x += stepX) {
-            DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx + x, view.windowy + view.height, scaleFlags);
+        patch = DOOM.wadLoader.CachePatchName("BRDR_B", Defines.PU_CACHE)
+        x = 0
+        while (x < _view.scaledwidth) {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.BG,
+                patch,
+                DOOM.vs,
+                _view.windowx + x,
+                _view.windowy + _view.height,
+                scaleFlags
+            )
+            x += stepX
         }
-
-        patch = DOOM.wadLoader.CachePatchName("BRDR_L", PU_CACHE);
-        for (y = 0; y < view.height; y += stepY) {
-            DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx - stepX, view.windowy + y, scaleFlags);
+        patch = DOOM.wadLoader.CachePatchName("BRDR_L", Defines.PU_CACHE)
+        y = 0
+        while (y < _view.height) {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.BG,
+                patch,
+                DOOM.vs,
+                _view.windowx - stepX,
+                _view.windowy + y,
+                scaleFlags
+            )
+            y += stepY
         }
-
-        patch = DOOM.wadLoader.CachePatchName("BRDR_R", PU_CACHE);
-        for (y = 0; y < view.height; y += stepY) {
-            DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx + view.scaledwidth, view.windowy + y, scaleFlags);
+        patch = DOOM.wadLoader.CachePatchName("BRDR_R", Defines.PU_CACHE)
+        y = 0
+        while (y < _view.height) {
+            DOOM.graphicSystem.DrawPatchScaled(
+                DoomScreen.BG,
+                patch,
+                DOOM.vs,
+                _view.windowx + _view.scaledwidth,
+                _view.windowy + y,
+                scaleFlags
+            )
+            y += stepY
         }
 
         // Draw beveled edge. Top-left
-        patch = DOOM.wadLoader.CachePatchName("BRDR_TL", PU_CACHE);
-        DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx - stepX, view.windowy - stepY, scaleFlags);
+        patch = DOOM.wadLoader.CachePatchName("BRDR_TL", Defines.PU_CACHE)
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.BG,
+            patch,
+            DOOM.vs,
+            _view.windowx - stepX,
+            _view.windowy - stepY,
+            scaleFlags
+        )
 
         // Top-right.
-        patch = DOOM.wadLoader.CachePatchName("BRDR_TR", PU_CACHE);
-        DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx + view.scaledwidth, view.windowy - stepY, scaleFlags);
+        patch = DOOM.wadLoader.CachePatchName("BRDR_TR", Defines.PU_CACHE)
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.BG,
+            patch,
+            DOOM.vs,
+            _view.windowx + _view.scaledwidth,
+            _view.windowy - stepY,
+            scaleFlags
+        )
 
         // Bottom-left
-        patch = DOOM.wadLoader.CachePatchName("BRDR_BL", PU_CACHE);
-        DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx - stepX, view.windowy + view.height, scaleFlags);
-        
+        patch = DOOM.wadLoader.CachePatchName("BRDR_BL", Defines.PU_CACHE)
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.BG,
+            patch,
+            DOOM.vs,
+            _view.windowx - stepX,
+            _view.windowy + _view.height,
+            scaleFlags
+        )
+
         // Bottom-right.
-        patch = DOOM.wadLoader.CachePatchName("BRDR_BR", PU_CACHE);
-        DOOM.graphicSystem.DrawPatchScaled(BG, patch, DOOM.vs, view.windowx + view.width, view.windowy + view.height, scaleFlags);
+        patch = DOOM.wadLoader.CachePatchName("BRDR_BR", Defines.PU_CACHE)
+        DOOM.graphicSystem.DrawPatchScaled(
+            DoomScreen.BG,
+            patch,
+            DOOM.vs,
+            _view.windowx + _view.width,
+            _view.windowy + _view.height,
+            scaleFlags
+        )
     }
 
     /**
      * R_Init
      */
-    @Override
-    public void Init() {
+    override fun Init() {
         // Any good reason for this to be here?
         // drawsegs=new drawseg_t[MAXDRAWSEGS];
         // C2JUtils.initArrayOfObjects(drawsegs);
 
         // DON'T FORGET ABOUT MEEEEEE!!!11!!!
-        this.screen = this.DOOM.graphicSystem.getScreen(FG);
-
-        System.out.print("\nR_InitData");
-        InitData();
+        screen = DOOM.graphicSystem.getScreen(DoomScreen.FG)
+        print("\nR_InitData")
+        InitData()
         // InitPointToAngle ();
-        System.out.print("\nR_InitPointToAngle");
+        print("\nR_InitPointToAngle")
 
         // ds.DM.viewwidth / ds.viewheight / detailLevel are set by the defaults
-        System.out.print("\nR_InitTables");
-        InitTables();
-
-        SetViewSize(DOOM.menu.getScreenBlocks(), DOOM.menu.getDetailLevel());
-
-        System.out.print("\nR_InitPlanes");
-        MyPlanes.InitPlanes();
-
-        System.out.print("\nR_InitLightTables");
-        InitLightTables();
-
-        System.out.print("\nR_InitSkyMap: " + TexMan.InitSkyMap());
-
-        System.out.print("\nR_InitTranslationsTables");
-        InitTranslationTables();
-
-        System.out.print("\nR_InitTranMap: ");
-        R_InitTranMap(0);
-
-        System.out.print("\nR_InitDrawingFunctions: ");
-        R_InitDrawingFunctions();
-
-        framecount = 0;
+        print("\nR_InitTables")
+        InitTables()
+        SetViewSize(DOOM.menu.screenBlocks, DOOM.menu.detailLevel)
+        print("\nR_InitPlanes")
+        MyPlanes.InitPlanes()
+        print("\nR_InitLightTables")
+        InitLightTables()
+        print(
+            """
+    
+    R_InitSkyMap: ${TexMan.InitSkyMap()}
+    """.trimIndent()
+        )
+        print("\nR_InitTranslationsTables")
+        InitTranslationTables()
+        print("\nR_InitTranMap: ")
+        R_InitTranMap(0)
+        print("\nR_InitDrawingFunctions: ")
+        R_InitDrawingFunctions()
+        framecount = 0
     }
 
     /**
@@ -2468,29 +2229,33 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * this is "pinned" to screen[0] of a Video Renderer. We will handle this
      * differently elsewhere...
      */
-    protected void InitBuffer(int width, int height) {
-        int i;
+    protected fun InitBuffer(width: Int, height: Int) {
+        var i: Int
 
         // Handle resize,
         // e.g. smaller view windows
         // with border and/or status bar.
-        view.windowx = (DOOM.vs.getScreenWidth() - width) >> 1;
+        _view.windowx = DOOM.vs.getScreenWidth() - width shr 1
 
         // Column offset. For windows.
-        for (i = 0; i < width; i++) {
-            columnofs[i] = view.windowx + i;
+        i = 0
+        while (i < width) {
+            columnofs[i] = _view.windowx + i
+            i++
         }
 
         // SamE with base row offset.
         if (width == DOOM.vs.getScreenWidth()) {
-            view.windowy = 0;
+            _view.windowy = 0
         } else {
-            view.windowy = (DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight() - height) >> 1;
+            _view.windowy = DOOM.vs.getScreenHeight() - DOOM.statusBar.getHeight() - height shr 1
         }
 
         // Preclaculate all row offsets.
-        for (i = 0; i < height; i++) {
-            ylookup[i] = /* screens[0] + */ (i + view.windowy) * DOOM.vs.getScreenWidth();
+        i = 0
+        while (i < height) {
+            ylookup[i] =  /* screens[0] + */(i + _view.windowy) * DOOM.vs.getScreenWidth()
+            i++
         }
     }
 
@@ -2499,10 +2264,12 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * tighly coupled to the visuals, rather than textures. Perhaps the name is
      * not the most appropriate.
      */
-    protected void InitTextureMapping() {
-        int i, x, t;
-        int focallength; // fixed_t
-        int fov = FIELDOFVIEW;
+    protected fun InitTextureMapping() {
+        var i: Int
+        var x: Int
+        var t: Int
+        val focallength: Int // fixed_t
+        val fov: Int = SceneRenderer.FIELDOFVIEW
 
         // For widescreen displays, increase the FOV so that the middle part of
         // the
@@ -2520,101 +2287,101 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
         //
         // Calc focallength
         // so FIELDOFVIEW angles covers vs.getScreenWidth().
-        focallength
-            = FixedDiv(view.centerxfrac, finetangent[QUARTERMARK + FIELDOFVIEW
-                / 2]);
-
-        for (i = 0; i < FINEANGLES / 2; i++) {
-            if (finetangent[i] > FRACUNIT * 2) {
-                t = -1;
-            } else if (finetangent[i] < -FRACUNIT * 2) {
-                t = view.width + 1;
+        focallength = FixedDiv(
+            _view.centerxfrac, Tables.finetangent[Tables.QUARTERMARK + SceneRenderer.FIELDOFVIEW
+                    / 2]
+        )
+        i = 0
+        while (i < Tables.FINEANGLES / 2) {
+            if (Tables.finetangent[i] > FRACUNIT * 2) {
+                t = -1
+            } else if (Tables.finetangent[i] < -FRACUNIT * 2) {
+                t = _view.width + 1
             } else {
-                t = FixedMul(finetangent[i], focallength);
-                t = (view.centerxfrac - t + FRACUNIT - 1) >> FRACBITS;
-
+                t = FixedMul(Tables.finetangent[i], focallength)
+                t = _view.centerxfrac - t + FRACUNIT - 1 shr FRACBITS
                 if (t < -1) {
-                    t = -1;
-                } else if (t > view.width + 1) {
-                    t = view.width + 1;
+                    t = -1
+                } else if (t > _view.width + 1) {
+                    t = _view.width + 1
                 }
             }
-            viewangletox[i] = t;
+            viewangletox[i] = t
+            i++
         }
 
         // Scan viewangletox[] to generate xtoviewangle[]:
         // xtoviewangle will give the smallest view angle
         // that maps to x.
-        for (x = 0; x <= view.width; x++) {
-            i = 0;
+        x = 0
+        while (x <= _view.width) {
+            i = 0
             while (viewangletox[i] > x) {
-                i++;
+                i++
             }
-            view.xtoviewangle[x] = addAngles((i << ANGLETOFINESHIFT), -ANG90);
+            _view.xtoviewangle[x] = Tables.addAngles((i shl Tables.ANGLETOFINESHIFT).toLong(), -Tables.ANG90)
+            x++
         }
 
         // Take out the fencepost cases from viewangletox.
-        for (i = 0; i < FINEANGLES / 2; i++) {
-            t = FixedMul(finetangent[i], focallength);
-            t = view.centerx - t;
-
+        i = 0
+        while (i < Tables.FINEANGLES / 2) {
+            t = FixedMul(Tables.finetangent[i], focallength)
+            t = _view.centerx - t
             if (viewangletox[i] == -1) {
-                viewangletox[i] = 0;
-            } else if (viewangletox[i] == view.width + 1) {
-                viewangletox[i] = view.width;
+                viewangletox[i] = 0
+            } else if (viewangletox[i] == _view.width + 1) {
+                viewangletox[i] = _view.width
             }
+            i++
         }
-
-        clipangle = view.xtoviewangle[0];
+        clipangle = _view.xtoviewangle[0]
         // OPTIMIZE: assign constant for optimization.
-        CLIPANGLE2 = (2 * clipangle) & BITS32;
+        CLIPANGLE2 = 2 * clipangle and Tables.BITS32
     }
 
-    //
-    // R_InitLightTables
-    // Only inits the zlight table,
-    // because the scalelight table changes with view size.
-    //
-    protected final static int DISTMAP = 2;
-
-    protected void InitLightTables() {
-        int i;
-        int j;
-        int startmap;
-        int scale;
+    protected fun InitLightTables() {
+        var i: Int
+        var j: Int
+        var startmap: Int
+        var scale: Int
 
         // Calculate the light levels to use
         // for each level / distance combination.
-        for (i = 0; i < colormaps.lightLevels(); i++) {
-            startmap = ((colormaps.lightLevels() - colormaps.lightBright() - i) * 2) * colormaps.numColorMaps() / colormaps.lightLevels();
-            for (j = 0; j < colormaps.maxLightZ(); j++) {
+        i = 0
+        while (i < colormaps.lightLevels()) {
+            startmap =
+                (colormaps.lightLevels() - colormaps.lightBright() - i) * 2 * colormaps.numColorMaps() / colormaps.lightLevels()
+            j = 0
+            while (j < colormaps.maxLightZ()) {
+
                 // CPhipps - use 320 here instead of vs.getScreenWidth(), otherwise hires is
                 //           brighter than normal res
-
-                scale = FixedDiv((320 / 2 * FRACUNIT), (j + 1) << colormaps.lightZShift());
-                int t, level = startmap - (scale >>= colormaps.lightScaleShift()) / DISTMAP;
-
+                scale =
+                    FixedDiv(320 / 2 * FRACUNIT, j + 1 shl colormaps.lightZShift())
+                var t: Int
+                var level: Int = startmap - colormaps.lightScaleShift()
+                    .let { scale = scale shr it; scale } / RendererState.DISTMAP
                 if (level < 0) {
-                    level = 0;
+                    level = 0
                 }
-
                 if (level >= colormaps.numColorMaps()) {
-                    level = colormaps.numColorMaps() - 1;
+                    level = colormaps.numColorMaps() - 1
                 }
 
                 // zlight[i][j] = colormaps + level*256;
-                colormaps.zlight[i][j] = colormaps.colormaps[level];
+                colormaps.zlight[i][j] = colormaps.colormaps[level]
+                j++
             }
+            i++
         }
     }
 
-    protected static final int TSC = 12;
-    
     /**
      * number of fixed point digits in
      * filter percent
      */
-    byte[] main_tranmap;
+    lateinit var main_tranmap: ByteArray
 
     /**
      * A faster implementation of the tranmap calculations. Almost 10x faster
@@ -2622,72 +2389,75 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      *
      * @param progress
      */
-    protected void R_InitTranMap(int progress) {
-        int lump = DOOM.wadLoader.CheckNumForName("TRANMAP");
-
-        long ta = System.nanoTime();
+    protected fun R_InitTranMap(progress: Int) {
+        val lump = DOOM.wadLoader.CheckNumForName("TRANMAP")
+        val ta = System.nanoTime()
 
         // PRIORITY: a map file has been specified from commandline. Try to read
         // it. If OK, this trumps even those specified in lumps.
-        DOOM.cVarManager.with(CommandVariable.TRANMAP, 0, (String tranmap) -> {
+        DOOM.cVarManager.with(CommandVariable.TRANMAP, 0) { tranmap: String? ->
             if (C2JUtils.testReadAccess(tranmap)) {
-                System.out.printf("Translucency map file %s specified in -tranmap arg. Attempting to use...\n", tranmap);
-                main_tranmap = new byte[256 * 256]; // killough 4/11/98
-                int result = MenuMisc.ReadFile(tranmap, main_tranmap);
+                System.out.printf("Translucency map file %s specified in -tranmap arg. Attempting to use...\n", tranmap)
+                main_tranmap = ByteArray(256 * 256) // killough 4/11/98
+                val result: Int = MenuMisc.ReadFile(tranmap, main_tranmap)
                 if (result > 0) {
-                    return;
+                    return@with
                 }
-                System.out.print("...failure.\n");
+                print("...failure.\n")
             }
-        });
+        }
 
         // Next, if a tranlucency filter map lump is present, use it
         if (lump != -1) { // Set a pointer to the translucency filter maps.
-            System.out.print("Translucency map found in lump. Attempting to use...");
+            print("Translucency map found in lump. Attempting to use...")
             // main_tranmap=new byte[256*256]; // killough 4/11/98
-            main_tranmap = DOOM.wadLoader.CacheLumpNumAsRawBytes(lump, Defines.PU_STATIC); // killough
+            main_tranmap = DOOM.wadLoader.CacheLumpNumAsRawBytes(lump, Defines.PU_STATIC) // killough
             // 4/11/98
             // Tolerate 64K or more.
-            if (main_tranmap.length >= 0x10000) {
-                return;
+            if (main_tranmap.size >= 0x10000) {
+                return
             }
-            System.out.print("...failure.\n"); // Not good, try something else.
+            print("...failure.\n") // Not good, try something else.
         }
 
         // A default map file already exists. Try to read it.
         if (C2JUtils.testReadAccess("tranmap.dat")) {
-            System.out.print("Translucency map found in default tranmap.dat file. Attempting to use...");
-            main_tranmap = new byte[256 * 256]; // killough 4/11/98
-            int result = MenuMisc.ReadFile("tranmap.dat", main_tranmap);
+            print("Translucency map found in default tranmap.dat file. Attempting to use...")
+            main_tranmap = ByteArray(256 * 256) // killough 4/11/98
+            val result: Int = MenuMisc.ReadFile("tranmap.dat", main_tranmap)
             if (result > 0) {
-                return; // Something went wrong, so fuck that.
+                return  // Something went wrong, so fuck that.
             }
         }
 
         // Nothing to do, so we must synthesize it from scratch. And, boy, is it
         // slooow.
-        { // Compose a default transparent filter map based on PLAYPAL.
-            System.out.print("Computing translucency map from scratch...that's gonna be SLOW...");
-            byte[] playpal = DOOM.wadLoader.CacheLumpNameAsRawBytes("PLAYPAL", Defines.PU_STATIC);
-            main_tranmap = new byte[256 * 256]; // killough 4/11/98
-            int[] basepal = new int[3 * 256];
-            int[] mixedpal = new int[3 * 256 * 256];
-
-            main_tranmap = new byte[256 * 256];
+        run {
+            // Compose a default transparent filter map based on PLAYPAL.
+            print("Computing translucency map from scratch...that's gonna be SLOW...")
+            val playpal = DOOM.wadLoader.CacheLumpNameAsRawBytes("PLAYPAL", Defines.PU_STATIC)
+            main_tranmap = ByteArray(256 * 256) // killough 4/11/98
+            val basepal = IntArray(3 * 256)
+            val mixedpal = IntArray(3 * 256 * 256)
+            main_tranmap = ByteArray(256 * 256)
 
             // Init array of base colors.
-            for (int i = 0; i < 256; i++) {
-                basepal[3 * i] = 0Xff & playpal[i * 3];
-                basepal[1 + 3 * i] = 0Xff & playpal[1 + i * 3];
-                basepal[2 + 3 * i] = 0Xff & playpal[2 + i * 3];
+            for (i in 0..255) {
+                basepal[3 * i] = 0Xff and playpal[i * 3].toInt()
+                basepal[1 + 3 * i] = 0Xff and playpal[1 + i * 3].toInt()
+                basepal[2 + 3 * i] = 0Xff and playpal[2 + i * 3].toInt()
             }
 
             // Init array of mixed colors. These are true RGB.
             // The diagonal of this array will be the original colors.
-            for (int i = 0; i < 256 * 3; i += 3) {
-                for (int j = 0; j < 256 * 3; j += 3) {
-                    mixColors(basepal, basepal, mixedpal, i, j, j * 256 + i);
+            var i = 0
+            while (i < 256 * 3) {
+                var j = 0
+                while (j < 256 * 3) {
+                    mixColors(basepal, basepal, mixedpal, i, j, j * 256 + i)
+                    j += 3
                 }
+                i += 3
             }
 
             // Init distance map. Every original palette colour has a
@@ -2696,72 +2466,69 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
             // have a RGB value, which is closest to euclidean distance to
             // e.g. original color 9. Therefore we should put "9" in the (2,8)
             // and (8,2) cells of the tranmap.
-            final float[] tmpdist = new float[256];
-
-            for (int a = 0; a < 256; a++) {
-                for (int b = a; b < 256; b++) {
+            val tmpdist = FloatArray(256)
+            for (a in 0..255) {
+                for (b in a..255) {
                     // We evaluate the mixture of a and b
                     // Construct distance table vs all of the ORIGINAL colors.
-                    for (int k = 0; k < 256; k++) {
-                        tmpdist[k] = colorDistance(mixedpal, basepal, 3 * (a + b * 256), k * 3);
+                    for (k in 0..255) {
+                        tmpdist[k] = colorDistance(mixedpal, basepal, 3 * (a + b * 256), k * 3)
                     }
-
-                    main_tranmap[(a << 8) | b] = (byte) findMin(tmpdist);
-                    main_tranmap[(b << 8) | a] = main_tranmap[(a << 8) | b];
+                    main_tranmap[a shl 8 or b] = findMin(tmpdist).toByte()
+                    main_tranmap[b shl 8 or a] = main_tranmap[a shl 8 or b]
                 }
             }
-            System.out.print("...done\n");
-            if (MenuMisc.WriteFile("tranmap.dat", main_tranmap,
-                main_tranmap.length)) {
-                System.out.print("TRANMAP.DAT saved to disk for your convenience! Next time will be faster.\n");
+            print("...done\n")
+            if (MenuMisc.WriteFile(
+                    "tranmap.dat", main_tranmap,
+                    main_tranmap.size
+                )
+            ) {
+                print("TRANMAP.DAT saved to disk for your convenience! Next time will be faster.\n")
             }
         }
-
-        long b = System.nanoTime();
-        System.out.printf("Tranmap %d\n", (b - ta) / 1000000);
+        val b = System.nanoTime()
+        System.out.printf("Tranmap %d\n", (b - ta) / 1000000)
     }
 
     /**
      * Mixes two RGB colors. Nuff said
      */
-    protected void mixColors(int[] a, int[] b, int[] c, int pa, int pb,
-        int pc) {
-        c[pc] = (a[pa] + b[pb]) / 2;
-        c[pc + 1] = (a[pa + 1] + b[pb + 1]) / 2;
-        c[pc + 2] = (a[pa + 2] + b[pb + 2]) / 2;
-
+    protected fun mixColors(
+        a: IntArray, b: IntArray, c: IntArray, pa: Int, pb: Int,
+        pc: Int
+    ) {
+        c[pc] = (a[pa] + b[pb]) / 2
+        c[pc + 1] = (a[pa + 1] + b[pb + 1]) / 2
+        c[pc + 2] = (a[pa + 2] + b[pb + 2]) / 2
     }
 
     /**
      * Returns the euclidean distance of two RGB colors. Nuff said
      */
-    protected float colorDistance(int[] a, int[] b, int pa, int pb) {
-        return (float) Math.sqrt((a[pa] - b[pb]) * (a[pa] - b[pb])
-            + (a[pa + 1] - b[pb + 1]) * (a[pa + 1] - b[pb + 1])
-            + (a[pa + 2] - b[pb + 2]) * (a[pa + 2] - b[pb + 2]));
+    protected fun colorDistance(a: IntArray, b: IntArray, pa: Int, pb: Int): Float {
+        return Math.sqrt(((a[pa] - b[pb]) * (a[pa] - b[pb]) + (a[pa + 1] - b[pb + 1]) * (a[pa + 1] - b[pb + 1]) + (a[pa + 2] - b[pb + 2]) * (a[pa + 2] - b[pb + 2])).toDouble())
+            .toFloat()
     }
 
     /**
      * Stuff that is trivially initializable, even with generics,
      * but is only safe to do after all constructors have completed.
      */
-    protected void completeInit() {
-        this.detailaware.add(MyThings);
+    protected open fun completeInit() {
+        detailaware.add(MyThings)
     }
 
-    protected int findMin(float[] a) {
-        int minindex = 0;
-        float min = Float.POSITIVE_INFINITY;
-
-        for (int i = 0; i < a.length; i++) {
+    protected fun findMin(a: FloatArray): Int {
+        var minindex = 0
+        var min = Float.POSITIVE_INFINITY
+        for (i in a.indices) {
             if (a[i] < min) {
-                min = a[i];
-                minindex = i;
+                min = a[i]
+                minindex = i
             }
         }
-
-        return minindex;
-
+        return minindex
     }
 
     /**
@@ -2769,7 +2536,6 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * cached columns get used as "masked" middle textures. Will be treated as a
      * single-run post of capped length.
      */
-
     /*
      * protected final void DrawCompositeColumnPost(byte[] column) { int
      * topscreen; int bottomscreen; int basetexturemid; // fixed_t int
@@ -2792,37 +2558,36 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * System.err.printf("Error rendering %d %d %d\n", dc_yl,dc_yh,dc_yh-dc_yl);
      * } } topdelta--; } dc_texturemid = basetexturemid; }
      */
-    protected abstract void InitColormaps() throws IOException;
+    @Throws(IOException::class)
+    protected abstract fun InitColormaps()
 
     // Only used by Fuzz effect
-    protected BlurryTable BLURRY_MAP;
+    protected var BLURRY_MAP: BlurryTable? = null
 
     /**
      * R_InitData Locates all the lumps that will be used by all views Must be
      * called after W_Init.
      */
-    public void InitData() {
+    fun InitData() {
         try {
-            System.out.print("\nInit Texture and Flat Manager");
-            TexMan = this.DOOM.textureManager;
-            System.out.print("\nInitTextures");
-            TexMan.InitTextures();
-            System.out.print("\nInitFlats");
-            TexMan.InitFlats();
-            System.out.print("\nInitSprites");
-            DOOM.spriteManager.InitSpriteLumps();
-            MyThings.cacheSpriteManager(DOOM.spriteManager);
-            VIS.cacheSpriteManager(DOOM.spriteManager);
-            System.out.print("\nInitColormaps\t\t");
-            InitColormaps();
-
-        } catch (IOException e) {
-            e.printStackTrace();
+            print("\nInit Texture and Flat Manager")
+            TexMan = DOOM.textureManager
+            print("\nInitTextures")
+            TexMan.InitTextures()
+            print("\nInitFlats")
+            TexMan.InitFlats()
+            print("\nInitSprites")
+            DOOM.spriteManager.InitSpriteLumps()
+            MyThings.cacheSpriteManager(DOOM.spriteManager)
+            VIS.cacheSpriteManager(DOOM.spriteManager)
+            print("\nInitColormaps\t\t")
+            InitColormaps()
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
-
     }
 
-    protected int spritememory;
+    protected var spritememory = 0
 
     /**
      * To be called right after PrecacheLevel from SetupLevel in LevelLoader.
@@ -2833,37 +2598,32 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      *
      * @return
      */
-    @Override
-    public void PreCacheThinkers() {
-
-        boolean[] spritepresent;
-        thinker_t th;
-        spriteframe_t sf;
-        int lump;
-
-        final spritedef_t[] sprites = DOOM.spriteManager.getSprites();
-        final int numsprites = DOOM.spriteManager.getNumSprites();
-
-        spritepresent = new boolean[numsprites];
-
-        for (th = DOOM.actions.getThinkerCap().next; th != DOOM.actions.getThinkerCap(); th = th.next) {
-            if (th.thinkerFunction == P_MobjThinker) {
-                spritepresent[((mobj_t) th).mobj_sprite.ordinal()] = true;
+    override fun PreCacheThinkers() {
+        val spritepresent: BooleanArray
+        var th: thinker_t
+        var sf: spriteframe_t
+        var lump: Int
+        val sprites = DOOM.spriteManager.getSprites()
+        val numsprites = DOOM.spriteManager.getNumSprites()
+        spritepresent = BooleanArray(numsprites)
+        th = DOOM.actions.getThinkerCap().next!!
+        while (th !== DOOM.actions.getThinkerCap()) {
+            if (th.thinkerFunction == ActiveStates.P_MobjThinker) {
+                spritepresent[(th as mobj_t).mobj_sprite!!.ordinal] = true
             }
+            th = th.next!!
         }
-
-        spritememory = 0;
-        for (int i = 0; i < numsprites; i++) {
+        spritememory = 0
+        for (i in 0 until numsprites) {
             if (!spritepresent[i]) {
-                continue;
+                continue
             }
-
-            for (int j = 0; j < sprites[i].numframes; j++) {
-                sf = sprites[i].spriteframes[j];
-                for (int k = 0; k < 8; k++) {
-                    lump = DOOM.spriteManager.getFirstSpriteLump() + sf.lump[k];
-                    spritememory += DOOM.wadLoader.GetLumpInfo(lump).size;
-                    DOOM.wadLoader.CacheLumpNum(lump, PU_CACHE, patch_t.class);
+            for (j in 0 until sprites[i].numframes) {
+                sf = sprites[i].spriteframes[j]!!
+                for (k in 0..7) {
+                    lump = DOOM.spriteManager.getFirstSpriteLump() + sf.lump[k]
+                    spritememory += DOOM.wadLoader.GetLumpInfo(lump)!!.size.toInt()
+                    DOOM.wadLoader.CacheLumpNum(lump, Defines.PU_CACHE, patch_t::class.java)
                 }
             }
         }
@@ -2874,153 +2634,165 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * color ramp to gray, brown, red. Assumes a given structure of the PLAYPAL.
      * Could be read from a lump instead.
      */
-    protected void InitTranslationTables() {
-        int i;
-
-        final int TR_COLORS = 28;
+    protected fun InitTranslationTables() {
+        var i: Int
+        val TR_COLORS = 28
 
         // translationtables = Z_Malloc (256*3+255, PU_STATIC, 0);
         // translationtables = (byte *)(( (int)translationtables + 255 )& ~255);
-        byte[][] translationtables
-            = colormaps.translationtables = new byte[TR_COLORS][256];
+        colormaps.translationtables = Array(TR_COLORS) { ByteArray(256) }
+        val translationtables = colormaps.translationtables
 
         // translate just the 16 green colors
-        for (i = 0; i < 256; i++) {
-            translationtables[0][i] = (byte) i;
-
+        i = 0
+        while (i < 256) {
+            translationtables[0][i] = i.toByte()
             if (i >= 0x70 && i <= 0x7f) {
                 // Remap green range to other ranges.
-                translationtables[1][i] = (byte) (0x60 + (i & 0xf)); // gray
-                translationtables[2][i] = (byte) (0x40 + (i & 0xf)); // brown
-                translationtables[3][i] = (byte) (0x20 + (i & 0xf)); // red
-                translationtables[4][i] = (byte) (0x10 + (i & 0xf)); // pink
-                translationtables[5][i] = (byte) (0x30 + (i & 0xf)); // skin
-                translationtables[6][i] = (byte) (0x50 + (i & 0xf)); // metal
-                translationtables[7][i] = (byte) (0x80 + (i & 0xf)); // copper
-                translationtables[8][i] = (byte) (0xB0 + (i & 0xf)); // b.red
-                translationtables[9][i] = (byte) (0xC0 + (i & 0xf)); // electric
+                translationtables[1][i] = (0x60 + (i and 0xf)).toByte() // gray
+                translationtables[2][i] = (0x40 + (i and 0xf)).toByte() // brown
+                translationtables[3][i] = (0x20 + (i and 0xf)).toByte() // red
+                translationtables[4][i] = (0x10 + (i and 0xf)).toByte() // pink
+                translationtables[5][i] = (0x30 + (i and 0xf)).toByte() // skin
+                translationtables[6][i] = (0x50 + (i and 0xf)).toByte() // metal
+                translationtables[7][i] = (0x80 + (i and 0xf)).toByte() // copper
+                translationtables[8][i] = (0xB0 + (i and 0xf)).toByte() // b.red
+                translationtables[9][i] = (0xC0 + (i and 0xf)).toByte() // electric
                 // blue
-                translationtables[10][i] = (byte) (0xD0 + (i & 0xf)); // guantanamo
+                translationtables[10][i] = (0xD0 + (i and 0xf)).toByte() // guantanamo
                 // "Halfhue" colors for which there are only 8 distinct hues
-                translationtables[11][i] = (byte) (0x90 + (i & 0xf) / 2); // brown2
-                translationtables[12][i] = (byte) (0x98 + (i & 0xf) / 2); // gray2
-                translationtables[13][i] = (byte) (0xA0 + (i & 0xf) / 2); // piss
-                translationtables[14][i] = (byte) (0xA8 + (i & 0xf) / 2); // gay
-                translationtables[15][i] = (byte) (0xE0 + (i & 0xf) / 2); // yellow
-                translationtables[16][i] = (byte) (0xE8 + (i & 0xf) / 2); // turd
-                translationtables[17][i] = (byte) (0xF0 + (i & 0xf) / 2); // compblue
-                translationtables[18][i] = (byte) (0xF8 + (i & 0xf) / 2); // whore
-                translationtables[19][i] = (byte) (0x05 + (i & 0xf) / 2); // nigga
+                translationtables[11][i] = (0x90 + (i and 0xf) / 2).toByte() // brown2
+                translationtables[12][i] = (0x98 + (i and 0xf) / 2).toByte() // gray2
+                translationtables[13][i] = (0xA0 + (i and 0xf) / 2).toByte() // piss
+                translationtables[14][i] = (0xA8 + (i and 0xf) / 2).toByte() // gay
+                translationtables[15][i] = (0xE0 + (i and 0xf) / 2).toByte() // yellow
+                translationtables[16][i] = (0xE8 + (i and 0xf) / 2).toByte() // turd
+                translationtables[17][i] = (0xF0 + (i and 0xf) / 2).toByte() // compblue
+                translationtables[18][i] = (0xF8 + (i and 0xf) / 2).toByte() // whore
+                translationtables[19][i] = (0x05 + (i and 0xf) / 2).toByte() // nigga
                 // "Pimped up" colors, using mixed hues.
-                translationtables[20][i] = (byte) (0x90 + (i & 0xf)); // soldier
-                translationtables[21][i] = (byte) (0xA0 + (i & 0xf)); // drag
+                translationtables[20][i] = (0x90 + (i and 0xf)).toByte() // soldier
+                translationtables[21][i] = (0xA0 + (i and 0xf)).toByte() // drag
                 // queen
-                translationtables[22][i] = (byte) (0xE0 + (i & 0xf)); // shit &
+                translationtables[22][i] = (0xE0 + (i and 0xf)).toByte() // shit &
                 // piss
-                translationtables[23][i] = (byte) (0xF0 + (i & 0xf)); // raver
-                translationtables[24][i] = (byte) (0x70 + (0xf - i & 0xf)); // inv.marine
-                translationtables[25][i] = (byte) (0xF0 + (0xf - i & 0xf)); // inv.raver
-                translationtables[26][i] = (byte) (0xE0 + (0xf - i & 0xf)); // piss
+                translationtables[23][i] = (0xF0 + (i and 0xf)).toByte() // raver
+                translationtables[24][i] = (0x70 + (0xf - i and 0xf)).toByte() // inv.marine
+                translationtables[25][i] = (0xF0 + (0xf - i and 0xf)).toByte() // inv.raver
+                translationtables[26][i] = (0xE0 + (0xf - i and 0xf)).toByte() // piss
                 // &
                 // shit
-                translationtables[27][i] = (byte) (0xA0 + (i & 0xf)); // shitty
+                translationtables[27][i] = (0xA0 + (i and 0xf)).toByte() // shitty
                 // gay
             } else {
-                for (int j = 1; j < TR_COLORS; j++) {
+                for (j in 1 until TR_COLORS) {
                     // Keep all other colors as is.
-                    translationtables[j][i] = (byte) i;
+                    translationtables[j][i] = i.toByte()
                 }
             }
+            i++
         }
     }
 
     // ///////////////// Generic rendering methods /////////////////////
-    public IMaskedDrawer<T, V> getThings() {
-        return this.MyThings;
+    fun getThings(): IMaskedDrawer<T, V> {
+        return MyThings
     }
 
     /**
      * e6y: this is a precalculated value for more precise flats drawing (see
      * R_MapPlane) "Borrowed" from PrBoom+
      */
-    protected float viewfocratio;
+    protected var viewfocratio = 0f
+    protected var projectiony = 0
 
-    protected int projectiony;
+    init {
+
+        // These don't change between implementations, yet.
+        MyBSP = BSP()
+        _view = ViewVars(DOOM.vs)
+        seg_vars = SegVars()
+        dcvars = ColVars()
+        dsvars = SpanVars()
+        maskedcvars = ColVars()
+        skydcvars = ColVars()
+        colfunclow = ColFuncs()
+        colfunchi = ColFuncs()
+        detailaware = ArrayList()
+        colormaps = LightsAndColors(DOOM)
+        // It's better to construct this here
+        val tm = SimpleTextureManager(DOOM) as TextureManager<T>
+        TexMan = tm
+
+        // Visplane variables
+        vp_vars = Visplanes(DOOM.vs, _view, TexMan)
+
+        // Set rendering functions only after screen sizes
+        // and stuff have been set.
+        MyPlanes = Planes(DOOM, this)
+        VIS = VisSprites(this)
+        MyThings = SimpleThings(DOOM.vs, this)
+    }
 
     // Some more isolation methods....
-    @Override
-    public int getValidCount() {
-        return validcount;
+    override fun getValidCount(): Int {
+        return validcount
     }
 
-    @Override
-    public void increaseValidCount(int amount) {
-        validcount += amount;
+    override fun increaseValidCount(amount: Int) {
+        validcount += amount
     }
 
-    @Override
-    public boolean getSetSizeNeeded() {
-        return setsizeneeded;
+    override fun getSetSizeNeeded(): Boolean {
+        return setsizeneeded
     }
 
-    @Override
-    public TextureManager<T> getTextureManager() {
-        return TexMan;
+    override fun getTextureManager(): TextureManager<T> {
+        return TexMan
     }
 
-    @Override
-    public PlaneDrawer<T, V> getPlaneDrawer() {
-        return this.MyPlanes;
+    override fun getPlaneDrawer(): PlaneDrawer<T, V> {
+        return MyPlanes
     }
 
-    @Override
-    public ViewVars getView() {
-        return this.view;
+    override fun getView(): ViewVars {
+        return _view
     }
 
-    @Override
-    public SpanVars<T, V> getDSVars() {
-        return this.dsvars;
+    override fun getDSVars(): SpanVars<T, V> {
+        return dsvars
     }
 
-    @Override
-    public LightsAndColors<V> getColorMap() {
-        return this.colormaps;
+    override fun getColorMap(): LightsAndColors<V> {
+        return colormaps
     }
 
-    @Override
-    public IDoomSystem getDoomSystem() {
-        return this.DOOM.doomSystem;
+    override fun getDoomSystem(): IDoomSystem {
+        return DOOM.doomSystem
     }
 
-    @Override
-    public Visplanes getVPVars() {
-        return this.vp_vars;
+    override fun getVPVars(): Visplanes {
+        return vp_vars
     }
 
-    @Override
-    public SegVars getSegVars() {
-        return this.seg_vars;
+    override fun getSegVars(): SegVars {
+        return seg_vars
     }
 
-    @Override
-    public IWadLoader getWadLoader() {
-        return this.DOOM.wadLoader;
+    override fun getWadLoader(): IWadLoader? {
+        return DOOM.wadLoader
     }
 
-    @Override
-    public ISpriteManager getSpriteManager() {
-        return this.DOOM.spriteManager;
+    override fun getSpriteManager(): ISpriteManager? {
+        return DOOM.spriteManager
     }
 
-    @Override
-    public BSPVars getBSPVars() {
-        return this.MyBSP;
+    override fun getBSPVars(): BSPVars {
+        return MyBSP
     }
 
-    @Override
-    public IVisSpriteManagement<V> getVisSpriteManager() {
-        return this.VIS;
+    override fun getVisSpriteManager(): IVisSpriteManagement<V> {
+        return VIS
     }
 
     /**
@@ -3028,17 +2800,16 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * same dcvars/dsvars object. Any initializations of e.g. parallel renderers
      * and their supporting subsystems should occur here.
      */
-    protected void R_InitDrawingFunctions() {
-        this.setHiColFuns();
-        this.setLowColFuns();
+    protected open fun R_InitDrawingFunctions() {
+        setHiColFuns()
+        setLowColFuns()
     }
 
     // //////////////////////////// LIMIT RESETTING //////////////////
-    @Override
-    public void resetLimits() {
+    override fun resetLimits() {
         // Call it only at the beginning of new levels.
-        VIS.resetLimits();
-        MySegs.resetLimits();
+        VIS.resetLimits()
+        MySegs!!.resetLimits()
     }
 
     /**
@@ -3048,42 +2819,128 @@ public abstract class RendererState<T, V> implements SceneRenderer<T, V>, ILimit
      * variables are set). This is the "vanilla" implementation which just works
      * for most cases.
      */
-    @Override
-    public void RenderPlayerView(player_t player) {
+    override fun RenderPlayerView(player: player_t) {
 
         // Viewing variables are set according to the player's mobj. Interesting
         // hacks like
         // free cameras or monster views can be done.
-        SetupFrame(player);
+        SetupFrame(player)
 
         // Clear buffers.
-        MyBSP.ClearClipSegs();
-        seg_vars.ClearDrawSegs();
-        vp_vars.ClearPlanes();
-        MySegs.ClearClips();
-        VIS.ClearSprites();
+        MyBSP.ClearClipSegs()
+        seg_vars.ClearDrawSegs()
+        vp_vars.ClearPlanes()
+        MySegs!!.ClearClips()
+        VIS.ClearSprites()
 
         // Check for new console commands.
-        DOOM.gameNetworking.NetUpdate();
+        DOOM.gameNetworking.NetUpdate()
 
         // The head node is the last node output.
-        MyBSP.RenderBSPNode(DOOM.levelLoader.numnodes - 1);
+        MyBSP.RenderBSPNode(DOOM.levelLoader.numnodes - 1)
 
         // Check for new console commands.
-        DOOM.gameNetworking.NetUpdate();
+        DOOM.gameNetworking.NetUpdate()
 
         // FIXME: "Warped floor" fixed, now to fix same-height visplane
         // bleeding.
-        MyPlanes.DrawPlanes();
+        MyPlanes.DrawPlanes()
 
         // Check for new console commands.
-        DOOM.gameNetworking.NetUpdate();
-
-        MyThings.DrawMasked();
-
-        colfunc.main = colfunc.base;
+        DOOM.gameNetworking.NetUpdate()
+        MyThings.DrawMasked()
+        colfunc!!.main = colfunc!!.base
 
         // Check for new console commands.
-        DOOM.gameNetworking.NetUpdate();
+        DOOM.gameNetworking.NetUpdate()
+    }
+
+    companion object {
+        protected const val DEBUG = false
+        protected const val DEBUG2 = false
+        protected const val RANGECHECK = false
+        //
+        // R_InitPointToAngle
+        //
+        /*
+     * protected final void InitPointToAngle () { // UNUSED - now getting from
+     * tables.c if (false){ int i; long t; float f; // // slope (tangent) to
+     * angle lookup // for (i=0 ; i<=SLOPERANGE ; i++) { f = (float) Math.atan(
+     * (double)(i/SLOPERANGE )/(3.141592657*2)); t = (long) (0xffffffffL*f);
+     * tantoangle[i] = (int) t; } } }
+     */
+        /**
+         * Public, static, stateless version of PointToAngle2. Call this one when
+         * "renderless" use of PointToAngle2 is required.
+         */
+        fun PointToAngle(viewx: Int, viewy: Int, x: Int, y: Int): Long {
+            // MAES: note how we don't use &BITS32 here. That is because
+            // we know that the maximum possible value of tantoangle is angle
+            // This way, we are actually working with vectors emanating
+            // from our current position.
+            var x = x
+            var y = y
+            x -= viewx
+            y -= viewy
+            if (x == 0 && y == 0) {
+                return 0
+            }
+            return if (x >= 0) {
+                // x >=0
+                if (y >= 0) {
+                    // y>= 0
+                    if (x > y) {
+                        // octant 0
+                        Tables.tantoangle[Tables.SlopeDiv(y.toLong(), x.toLong())].toLong()
+                    } else {
+                        // octant 1
+                        Tables.ANG90 - 1 - Tables.tantoangle[Tables.SlopeDiv(x.toLong(), y.toLong())]
+                    }
+                } else {
+                    // y<0
+                    y = -y
+                    if (x > y) {
+                        // octant 8
+                        (-Tables.tantoangle[Tables.SlopeDiv(y.toLong(), x.toLong())]).toLong()
+                    } else {
+                        // octant 7
+                        Tables.ANG270 + Tables.tantoangle[Tables.SlopeDiv(x.toLong(), y.toLong())]
+                    }
+                }
+            } else {
+                // x<0
+                x = -x
+                if (y >= 0) {
+                    // y>= 0
+                    if (x > y) {
+                        // octant 3
+                        Tables.ANG180 - 1 - Tables.tantoangle[Tables.SlopeDiv(y.toLong(), x.toLong())]
+                    } else {
+                        // octant 2
+                        Tables.ANG90 + Tables.tantoangle[Tables.SlopeDiv(x.toLong(), y.toLong())]
+                    }
+                } else {
+                    // y<0
+                    y = -y
+                    if (x > y) {
+                        // octant 4
+                        Tables.ANG180 + Tables.tantoangle[Tables.SlopeDiv(y.toLong(), x.toLong())]
+                    } else {
+                        // octant 5
+                        Tables.ANG270 - 1 - Tables.tantoangle[Tables.SlopeDiv(x.toLong(), y.toLong())]
+                    }
+                }
+            }
+            // This is actually unreachable.
+            // return 0;
+        }
+
+        //
+        // R_InitLightTables
+        // Only inits the zlight table,
+        // because the scalelight table changes with view size.
+        //
+        protected const val DISTMAP = 2
+        protected const val TSC = 12
     }
 }

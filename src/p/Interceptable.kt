@@ -1,5 +1,4 @@
-package p;
+package p
 
-public interface Interceptable {
 
-}
+interface Interceptable

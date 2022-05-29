@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,32 +15,32 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.graphics;
+package v.graphics
 
-import v.tables.ColorTint;
+import v.tables.ColorTint
 
 /**
  * Package containing individual color modification and transformation methods
  */
-public interface Colors {
+interface Colors {
     /**
      * Get alpha from packed argb long word.
      *
      * @param argb8888
      * @return
      */
-    default int getAlpha(int argb8888) {
-        return (argb8888 >>> 24) & 0xFF;
+    fun getAlpha(argb8888: Int): Int {
+        return argb8888 ushr 24 and 0xFF
     }
-    
+
     /**
      * Get red from packed argb long word.
      *
      * @param rgb888
      * @return
      */
-    default int getRed(int rgb888) {
-        return (0xFF0000 & rgb888) >> 16;
+    fun getRed(rgb888: Int): Int {
+        return 0xFF0000 and rgb888 shr 16
     }
 
     /**
@@ -48,8 +49,8 @@ public interface Colors {
      * @param rgb555
      * @return
      */
-    default int getRed5(int rgb555) {
-        return (rgb555 >> 10) & 0x1F;
+    fun getRed5(rgb555: Int): Int {
+        return rgb555 shr 10 and 0x1F
     }
 
     /**
@@ -58,8 +59,8 @@ public interface Colors {
      * @param rgb888
      * @return
      */
-    default int getGreen(int rgb888) {
-        return (0xFF00 & rgb888) >> 8;
+    fun getGreen(rgb888: Int): Int {
+        return 0xFF00 and rgb888 shr 8
     }
 
     /**
@@ -68,8 +69,8 @@ public interface Colors {
      * @param rgb555
      * @return
      */
-    default int getGreen5(int rgb555) {
-        return (rgb555 >> 5) & 0x1F;
+    fun getGreen5(rgb555: Int): Int {
+        return rgb555 shr 5 and 0x1F
     }
 
     /**
@@ -78,203 +79,207 @@ public interface Colors {
      * @param rgb888
      * @return
      */
-    default int getBlue(int rgb888) {
-        return 0xFF & rgb888;
+    fun getBlue(rgb888: Int): Int {
+        return 0xFF and rgb888
     }
-    
+
     /**
      * Get blue from packed rgb555
      *
      * @param rgb555
      * @return
      */
-    default int getBlue5(int rgb555) {
-        return rgb555 & 0x1F;
+    fun getBlue5(rgb555: Int): Int {
+        return rgb555 and 0x1F
     }
 
     /**
      * Get all four color channels into an array
      */
-    default int[] getARGB8888(int argb8888, int[] container) {
-        container[0] = getAlpha(argb8888);
-        container[1] = getRed(argb8888);
-        container[2] = getGreen(argb8888);
-        container[3] = getBlue(argb8888);
-        return container;
+    fun getARGB8888(argb8888: Int, container: IntArray): IntArray {
+        container[0] = getAlpha(argb8888)
+        container[1] = getRed(argb8888)
+        container[2] = getGreen(argb8888)
+        container[3] = getBlue(argb8888)
+        return container
     }
-    
+
     /**
      * Get all four color channels into an array
      */
-    default int[] getRGB888(int rgb888, int[] container) {
-        container[0] = getRed(rgb888);
-        container[1] = getGreen(rgb888);
-        container[2] = getBlue(rgb888);
-        return container;
+    fun getRGB888(rgb888: Int, container: IntArray): IntArray {
+        container[0] = getRed(rgb888)
+        container[1] = getGreen(rgb888)
+        container[2] = getBlue(rgb888)
+        return container
     }
-    
+
     /**
      * Get all three colors into an array
      */
-    default int[] getRGB555(int rgb555, int[] container) {
-        container[0] = getRed5(rgb555);
-        container[1] = getGreen5(rgb555);
-        container[2] = getBlue5(rgb555);
-        return container;
+    fun getRGB555(rgb555: Int, container: IntArray): IntArray {
+        container[0] = getRed5(rgb555)
+        container[1] = getGreen5(rgb555)
+        container[2] = getBlue5(rgb555)
+        return container
     }
-    
+
     /**
      * Compose rgb888 color (opaque)
      */
-    default int toRGB888(int r, int g, int b) {
-        return 0xFF000000 + ((r & 0xFF) << 16) + ((g & 0xFF) << 8) + (b & 0xFF);
+    fun toRGB888(r: Int, g: Int, b: Int): Int {
+        return -0x1000000 + (r and 0xFF shl 16) + (g and 0xFF shl 8) + (b and 0xFF)
     }
-    
+
     /**
      * Compose argb8888 color
      */
-    default int toARGB8888(int a, int r, int g, int b) {
-        return ((a & 0xFF) << 24) + ((r & 0xFF) << 16) + ((g & 0xFF) << 8) + (b & 0xFF);
+    fun toARGB8888(a: Int, r: Int, g: Int, b: Int): Int {
+        return (a and 0xFF shl 24) + (r and 0xFF shl 16) + (g and 0xFF shl 8) + (b and 0xFF)
     }
-    
+
     /**
      * Compose rgb888 color
      */
-    default short toRGB555(int r, int g, int b) {
-        return (short) (((r & 0x1F) << 10) + ((g & 0x1F) << 5) + (b & 0x1F));
+    fun toRGB555(r: Int, g: Int, b: Int): Short {
+        return ((r and 0x1F shl 10) + (g and 0x1F shl 5) + (b and 0x1F)).toShort()
     }
-    
+
     /**
      * Alter rgb888 color by applying a tint to it
      * @param int[] rgbInput an array containing rgb888 color components
      */
-    default int[] tintRGB888(final ColorTint tint, final int[] rgbInput, int[] rgbOutput) {
-        rgbOutput[0] = tint.tintRed8(rgbInput[0]);
-        rgbOutput[1] = tint.tintGreen8(rgbInput[1]);
-        rgbOutput[2] = tint.tintBlue8(rgbInput[2]);
-        return rgbOutput;
+    fun tintRGB888(tint: ColorTint, rgbInput: IntArray, rgbOutput: IntArray): IntArray? {
+        rgbOutput[0] = tint.tintRed8(rgbInput[0])
+        rgbOutput[1] = tint.tintGreen8(rgbInput[1])
+        rgbOutput[2] = tint.tintBlue8(rgbInput[2])
+        return rgbOutput
     }
 
     /**
      * Alter rgb555 color by applying a tint to it
      * @param int[] rgbInput an array containing rgb555 color components
      */
-    default int[] tintRGB555(final ColorTint tint, final int[] rgbInput, int[] rgbOutput) {
-        rgbOutput[0] = tint.tintRed5(rgbInput[0]);
-        rgbOutput[1] = tint.tintGreen5(rgbInput[1]);
-        rgbOutput[2] = tint.tintBlue5(rgbInput[2]);
-        return rgbOutput;
+    fun tintRGB555(tint: ColorTint, rgbInput: IntArray, rgbOutput: IntArray): IntArray? {
+        rgbOutput[0] = tint.tintRed5(rgbInput[0])
+        rgbOutput[1] = tint.tintGreen5(rgbInput[1])
+        rgbOutput[2] = tint.tintBlue5(rgbInput[2])
+        return rgbOutput
     }
-    
-    default double sigmoid(double r) {
-        return (1 / (1 + Math.pow(Math.E, (-1 * r))));
+
+    fun sigmoid(r: Double): Double {
+        return 1 / (1 + Math.pow(Math.E, -1 * r))
     }
-    
-    default int sigmoidGradient(int component1, int component2, float ratio) {
-        return (int) ((ratio * component1) + ((1 - ratio) * component2));
+
+    fun sigmoidGradient(component1: Int, component2: Int, ratio: Float): Int {
+        return (ratio * component1 + (1 - ratio) * component2).toInt()
     }
 
     /**
      * Tells which color is further by comparing distance between two packed rgb888 ints
      */
-    default int CompareColors888(int rgb888_1, int rgb888_2) {
-        final long distance = ColorDistance888(rgb888_1, rgb888_2);
-        return distance > 0 ? 1 : distance < 0 ? -1 : 0;
+    fun CompareColors888(rgb888_1: Int, rgb888_2: Int): Int {
+        val distance = ColorDistance888(rgb888_1, rgb888_2)
+        return if (distance > 0) 1 else if (distance < 0) -1 else 0
     }
-    
+
     /**
      * Computes simplified Euclidean color distance (without extracting square root) between two packed rbg888 ints
      */
-    default long ColorDistance888(int rgb888_1, int rgb888_2) {
-        final int r1 = getRed(rgb888_1),
-                g1 = getGreen(rgb888_1),
-                b1 = getBlue(rgb888_1),
-                r2 = getRed(rgb888_2),
-                g2 = getGreen(rgb888_2),
-                b2 = getBlue(rgb888_2);
-        
-        final long dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-        return dr * dr + dg * dg + db * db;
+    fun ColorDistance888(rgb888_1: Int, rgb888_2: Int): Long {
+        val r1 = getRed(rgb888_1)
+        val g1 = getGreen(rgb888_1)
+        val b1 = getBlue(rgb888_1)
+        val r2 = getRed(rgb888_2)
+        val g2 = getGreen(rgb888_2)
+        val b2 = getBlue(rgb888_2)
+        val dr = (r1 - r2).toLong()
+        val dg = (g1 - g2).toLong()
+        val db = (b1 - b2).toLong()
+        return dr * dr + dg * dg + db * db
     }
 
     /**
      * Tells which color is further by comparing hue, saturation, value distance between two packed rgb888 ints
      */
-    default int CompareColorsHSV888(int rgb888_1, int rgb888_2) {
-        final long distance = ColorDistanceHSV888(rgb888_1, rgb888_2);
-        return distance > 0 ? 1 : distance < 0 ? -1 : 0;
+    fun CompareColorsHSV888(rgb888_1: Int, rgb888_2: Int): Int {
+        val distance = ColorDistanceHSV888(rgb888_1, rgb888_2)
+        return if (distance > 0) 1 else if (distance < 0) -1 else 0
     }
-    
+
     /**
      * Computes simplified Euclidean color distance (without extracting square root) between two packed rbg888 ints
      * based on hue, saturation and value
      */
-    default long ColorDistanceHSV888(int rgb888_1, int rgb888_2) {
-        final int r1 = (int) (0.21 * getRed(rgb888_1)),
-                  g1 = (int) (0.72 * getGreen(rgb888_1)),
-                  b1 = (int) (0.07 * getBlue(rgb888_1)),
-                  r2 = (int) (0.21 * getRed(rgb888_2)),
-                  g2 = (int) (0.72 * getGreen(rgb888_2)),
-                  b2 = (int) (0.07 * getBlue(rgb888_2));
-        
-        final long dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-        return dr * dr + dg * dg + db * db;
+    fun ColorDistanceHSV888(rgb888_1: Int, rgb888_2: Int): Long {
+        val r1 = (0.21 * getRed(rgb888_1)).toInt()
+        val g1 = (0.72 * getGreen(rgb888_1)).toInt()
+        val b1 = (0.07 * getBlue(rgb888_1)).toInt()
+        val r2 = (0.21 * getRed(rgb888_2)).toInt()
+        val g2 = (0.72 * getGreen(rgb888_2)).toInt()
+        val b2 = (0.07 * getBlue(rgb888_2)).toInt()
+        val dr = (r1 - r2).toLong()
+        val dg = (g1 - g2).toLong()
+        val db = (b1 - b2).toLong()
+        return dr * dr + dg * dg + db * db
     }
 
     /**
      * Tells which color is further by comparing distance between two packed rgb555 shorts
      */
-    default int CompareColors555(short rgb555_1, short rgb555_2) {
-        final long distance = ColorDistance555(rgb555_1, rgb555_2);
-        return distance > 0 ? 1 : distance < 0 ? -1 : 0;
+    fun CompareColors555(rgb555_1: Short, rgb555_2: Short): Int {
+        val distance = ColorDistance555(rgb555_1, rgb555_2)
+        return if (distance > 0) 1 else if (distance < 0) -1 else 0
     }
-    
+
     /**
      * Computes simplified Euclidean color distance (without extracting square root) between two packed rbg555 shorts
      */
-    default long ColorDistance555(short rgb1, short rgb2) {
-        final int r1 = getRed5(rgb1),
-                  g1 = getGreen5(rgb1),
-                  b1 = getBlue5(rgb1),
-                  r2 = getRed5(rgb2),
-                  g2 = getGreen5(rgb2),
-                  b2 = getBlue5(rgb2);
-        
-        final long dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-        return dr * dr + dg * dg + db * db;
+    fun ColorDistance555(rgb1: Short, rgb2: Short): Long {
+        val r1 = getRed5(rgb1.toInt())
+        val g1 = getGreen5(rgb1.toInt())
+        val b1 = getBlue5(rgb1.toInt())
+        val r2 = getRed5(rgb2.toInt())
+        val g2 = getGreen5(rgb2.toInt())
+        val b2 = getBlue5(rgb2.toInt())
+        val dr = (r1 - r2).toLong()
+        val dg = (g1 - g2).toLong()
+        val db = (b1 - b2).toLong()
+        return dr * dr + dg * dg + db * db
     }
 
     /**
      * Tells which color is further by comparing hue, saturation, value distance between two packed rgb555 shorts
      */
-    default int CompareColorsHSV555(short rgb555_1, short rgb555_2) {
-        final long distance = ColorDistanceHSV555(rgb555_1, rgb555_2);
-        return distance > 0 ? 1 : distance < 0 ? -1 : 0;
+    fun CompareColorsHSV555(rgb555_1: Short, rgb555_2: Short): Int {
+        val distance = ColorDistanceHSV555(rgb555_1, rgb555_2.toInt())
+        return if (distance > 0) 1 else if (distance < 0) -1 else 0
     }
-    
+
     /**
      * Computes simplified Euclidean color distance (without extracting square root) between two packed rbg888 ints
      * based on hue, saturation and value
      */
-    default long ColorDistanceHSV555(short rgb555_1, int rgb555_2) {
-        final int r1 = (int) (0.21 * getRed5(rgb555_1)),
-                  g1 = (int) (0.72 * getGreen5(rgb555_1)),
-                  b1 = (int) (0.07 * getBlue5(rgb555_1)),
-                  r2 = (int) (0.21 * getRed5(rgb555_2)),
-                  g2 = (int) (0.72 * getGreen5(rgb555_2)),
-                  b2 = (int) (0.07 * getBlue5(rgb555_2));
-        
-        final long dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-        return dr * dr + dg * dg + db * db;
+    fun ColorDistanceHSV555(rgb555_1: Short, rgb555_2: Int): Long {
+        val r1 = (0.21 * getRed5(rgb555_1.toInt())).toInt()
+        val g1 = (0.72 * getGreen5(rgb555_1.toInt())).toInt()
+        val b1 = (0.07 * getBlue5(rgb555_1.toInt())).toInt()
+        val r2 = (0.21 * getRed5(rgb555_2)).toInt()
+        val g2 = (0.72 * getGreen5(rgb555_2)).toInt()
+        val b2 = (0.07 * getBlue5(rgb555_2)).toInt()
+        val dr = (r1 - r2).toLong()
+        val dg = (g1 - g2).toLong()
+        val db = (b1 - b2).toLong()
+        return dr * dr + dg * dg + db * db
     }
 
-    default float[] ColorRatio(int[] rgb1, int[] rgb2, float[] out) {
-        for (int i = 0; i < 3; ++i) {
-            out[i] = rgb2[i] > 0 ? rgb1[i] / (float) rgb2[i] : 1.0f;
+    fun ColorRatio(rgb1: IntArray, rgb2: IntArray, out: FloatArray): FloatArray? {
+        for (i in 0..2) {
+            out[i] = if (rgb2[i] > 0) rgb1[i] / rgb2[i].toFloat() else 1.0f
         }
-        return out;
+        return out
     }
-    
+
     /**
      * Get ARGB_8888 from RGB_555, with proper higher-bit
      * replication.
@@ -283,23 +288,23 @@ public interface Colors {
      * @return rgb888 packed int
      * @author velktron
      */
-    default int rgb555to888(short rgb555) {
+    fun rgb555to888(rgb555: Short): Int {
         // .... .... .... ....
         // 111 11 = 7C00
         // 11 111 = 03E0
         // 1F= 1 1111
-        int ri = (0x7C00 & rgb555) >> 7;
-        int gi = (0x3E0 & rgb555) >> 2;
-        int bi = (0x1F & rgb555) << 3;
+        var ri = 0x7C00 and rgb555.toInt() shr 7
+        var gi = 0x3E0 and rgb555.toInt() shr 2
+        var bi = 0x1F and rgb555.toInt() shl 3
         // replicate 3 higher bits
-        int bits = (ri & 224) >> 5;
-        ri += bits;
-        bits = (gi & 224) >> 5;
-        gi += bits;
-        bits = (bi & 224) >> 5;
-        bi += bits;
+        var bits = ri and 224 shr 5
+        ri += bits
+        bits = gi and 224 shr 5
+        gi += bits
+        bits = bi and 224 shr 5
+        bi += bits
         // ARGB 8888 packed
-        return toRGB888(ri, gi, bi);
+        return toRGB888(ri, gi, bi)
     }
 
     /**
@@ -309,17 +314,17 @@ public interface Colors {
      * @return rgb555 packed short
      * @authoor velktron
      */
-    default short argb8888to555(int argb8888) {
-        int ri = (0xFF010000 & argb8888) >> 19;
-        int gi = (0xFF00 & argb8888) >> 11;
-        int bi = (0xFF & argb8888) >> 3;
-        return toRGB555(ri, gi, bi);
+    fun argb8888to555(argb8888: Int): Short {
+        val ri = -0xff0000 and argb8888 shr 19
+        val gi = 0xFF00 and argb8888 shr 11
+        val bi = 0xFF and argb8888 shr 3
+        return toRGB555(ri, gi, bi)
     }
 
     /**
      * Get packed RGB_555 word from individual 8-bit RGB components.
      *
-     *  WARNING: there's no sanity/overflow check for performance reasons.
+     * WARNING: there's no sanity/overflow check for performance reasons.
      *
      * @param r
      * @param g
@@ -327,33 +332,33 @@ public interface Colors {
      * @return rgb888 packed int
      * @author velktron
      */
-    default short rgb888to555(int r, int g, int b) {
-        return toRGB555(r >> 3, g >> 3, b >> 3);
+    fun rgb888to555(r: Int, g: Int, b: Int): Short {
+        return toRGB555(r shr 3, g shr 3, b shr 3)
     }
-    
+
     /**
      * Finds a color in the palette's range from rangel to rangeh closest to specified r, g, b
      * by distortion, the lesst distorted color is the result. Used for rgb555 invulnerability colormap
      */
-    default int BestColor(int r, int g, int b, int[] palette, int rangel, int rangeh) {
+    fun BestColor(r: Int, g: Int, b: Int, palette: IntArray, rangel: Int, rangeh: Int): Int {
         /**
          * let any color go to 0 as a last resort
          */
-        long bestdistortion = ((long) r * r + (long) g * g + (long) b * b) * 2;
-        int bestcolor = 0;
-        for (int i = rangel; i <= rangeh; i++) {
-            final long dr = r - getRed(palette[i]);
-            final long dg = g - getGreen(palette[i]);
-            final long db = b - getBlue(palette[i]);
-            final long distortion = dr * dr + dg * dg + db * db;
+        var bestdistortion = r.toLong() * r + g.toLong() * g + b.toLong() * b * 2
+        var bestcolor = 0
+        for (i in rangel..rangeh) {
+            val dr = (r - getRed(palette[i])).toLong()
+            val dg = (g - getGreen(palette[i])).toLong()
+            val db = (b - getBlue(palette[i])).toLong()
+            val distortion = dr * dr + dg * dg + db * db
             if (distortion < bestdistortion) {
-                if (distortion == 0) {
-                    return i; // perfect match
+                if (distortion == 0L) {
+                    return i // perfect match
                 }
-                bestdistortion = distortion;
-                bestcolor = i;
+                bestdistortion = distortion
+                bestcolor = i
             }
         }
-        return bestcolor;
+        return bestcolor
     }
 }

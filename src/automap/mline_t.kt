@@ -1,30 +1,27 @@
-package automap;
+package automap
 
-/** used only in automap */
 
-public class mline_t
-{
-    public mline_t(){
-        this(0,0,0,0);
-    }
-    
-    public int ax,ay,bx,by;
+/** used only in automap  */
+class mline_t {
+    var ax: Int
+    var ay: Int
+    var bx: Int
+    var by: Int
 
-    public mline_t(int ax, int ay, int bx, int by) {
-        this.ax = ax;
-        this.ay = ay;
-        this.bx = bx;
-        this.by = by;
+    @JvmOverloads
+    constructor(ax: Int = 0, ay: Int = 0, bx: Int = 0, by: Int = 0) {
+        this.ax = ax
+        this.ay = ay
+        this.bx = bx
+        this.by = by
     }
-    
-    public mline_t(double ax, double ay, double bx, double by) {
-        this.ax = (int) ax;
-        this.ay = (int) ay;
-        this.bx = (int) bx;
-        this.by = (int) by;
-    }
-    
-    /*
+
+    constructor(ax: Double, ay: Double, bx: Double, by: Double) {
+        this.ax = ax.toInt()
+        this.ay = ay.toInt()
+        this.bx = bx.toInt()
+        this.by = by.toInt()
+    } /*
     public mline_t(mpoint_t a, mpoint_t b) {
         this.a = a;
         this.b = b;

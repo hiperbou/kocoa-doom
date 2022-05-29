@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,95 +16,86 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates.MonsterStates;
+package p.Actions.ActiveStates.MonsterStatesimportimport
 
-import data.mobjtype_t;
-import data.sounds;
-import p.Actions.ActionTrait;
-import p.mobj_t;
 
-public interface Demonspawns extends ActionTrait {
-    void A_FaceTarget(mobj_t actor);
+import data.mobjtype_t
+import data.sounds.sfxenum_t
+import p.Actions.ActionTrait
+import p.mobj_t
+
+interface Demonspawns : ActionTrait {
+    fun A_FaceTarget(actor: mobj_t?)
 
     //
     // A_TroopAttack
     //
-    default void A_TroopAttack(mobj_t actor) {
-        int damage;
-
+    fun A_TroopAttack(actor: mobj_t) {
+        val damage: Int
         if (actor.target == null) {
-            return;
+            return
         }
-
-        A_FaceTarget(actor);
-        if (getEnemies().CheckMeleeRange(actor)) {
-            StartSound(actor, sounds.sfxenum_t.sfx_claw);
-            damage = (P_Random() % 8 + 1) * 3;
-            getAttacks().DamageMobj(actor.target, actor, actor, damage);
-            return;
+        A_FaceTarget(actor)
+        if (enemies.CheckMeleeRange(actor)) {
+            StartSound(actor, sfxenum_t.sfx_claw)
+            damage = (P_Random() % 8 + 1) * 3
+            attacks.DamageMobj(actor.target!!, actor, actor, damage)
+            return
         }
 
         // launch a missile
-        getAttacks().SpawnMissile(actor, actor.target, mobjtype_t.MT_TROOPSHOT);
+        attacks.SpawnMissile(actor, actor.target!!, mobjtype_t.MT_TROOPSHOT)
     }
 
-    default void A_SargAttack(mobj_t actor) {
-        int damage;
-
+    fun A_SargAttack(actor: mobj_t) {
+        val damage: Int
         if (actor.target == null) {
-            return;
+            return
         }
-
-        A_FaceTarget(actor);
-        if (getEnemies().CheckMeleeRange(actor)) {
-            damage = ((P_Random() % 10) + 1) * 4;
-            getAttacks().DamageMobj(actor.target, actor, actor, damage);
+        A_FaceTarget(actor)
+        if (enemies.CheckMeleeRange(actor)) {
+            damage = (P_Random() % 10 + 1) * 4
+            attacks.DamageMobj(actor.target!!, actor, actor, damage)
         }
     }
 
-    default void A_HeadAttack(mobj_t actor) {
-        int damage;
-
+    fun A_HeadAttack(actor: mobj_t) {
+        val damage: Int
         if (actor.target == null) {
-            return;
+            return
         }
-
-        A_FaceTarget(actor);
-        if (getEnemies().CheckMeleeRange(actor)) {
-            damage = (P_Random() % 6 + 1) * 10;
-            getAttacks().DamageMobj(actor.target, actor, actor, damage);
-            return;
+        A_FaceTarget(actor)
+        if (enemies.CheckMeleeRange(actor)) {
+            damage = (P_Random() % 6 + 1) * 10
+            attacks.DamageMobj(actor.target!!, actor, actor, damage)
+            return
         }
 
         // launch a missile
-        getAttacks().SpawnMissile(actor, actor.target, mobjtype_t.MT_HEADSHOT);
+        attacks.SpawnMissile(actor, actor.target!!, mobjtype_t.MT_HEADSHOT)
     }
 
-    default void A_CyberAttack(mobj_t actor) {
+    fun A_CyberAttack(actor: mobj_t) {
         if (actor.target == null) {
-            return;
+            return
         }
-
-        A_FaceTarget(actor);
-        getAttacks().SpawnMissile(actor, actor.target, mobjtype_t.MT_ROCKET);
+        A_FaceTarget(actor)
+        attacks.SpawnMissile(actor, actor.target!!, mobjtype_t.MT_ROCKET)
     }
 
-    default void A_BruisAttack(mobj_t actor) {
-        int damage;
-
+    fun A_BruisAttack(actor: mobj_t) {
+        val damage: Int
         if (actor.target == null) {
-            return;
+            return
         }
-
-        if (getEnemies().CheckMeleeRange(actor)) {
-            StartSound(actor, sounds.sfxenum_t.sfx_claw);
-            damage = (P_Random() % 8 + 1) * 10;
-            getAttacks().DamageMobj(actor.target, actor, actor, damage);
-            return;
+        if (enemies.CheckMeleeRange(actor)) {
+            StartSound(actor, sfxenum_t.sfx_claw)
+            damage = (P_Random() % 8 + 1) * 10
+            attacks.DamageMobj(actor.target!!, actor, actor, damage)
+            return
         }
 
         // launch a missile
-        getAttacks().SpawnMissile(actor, actor.target, mobjtype_t.MT_BRUISERSHOT);
+        attacks.SpawnMissile(actor, actor.target!!, mobjtype_t.MT_BRUISERSHOT)
     }
-
 }

@@ -1,19 +1,19 @@
-package w;
+package w
 
-import java.io.DataInputStream;
-import java.io.IOException;
+import java.io.DataInputStream
+import java.io.IOException
 
-public class wadinfo_t implements IReadableDoomObject{
-        // Should be "IWAD" or "PWAD".
-        String       identification;      
-        long         numlumps;
-        long         infotableofs;
-             
-        /** Reads the wadinfo_t from the file.*/
-        public void read(DataInputStream f) throws IOException {
-            identification = DoomIO.readString(f,4);
-            numlumps=DoomIO.readUnsignedLEInt(f);
-            infotableofs=DoomIO.readUnsignedLEInt(f);
-        }
-        
+class wadinfo_t : IReadableDoomObject {
+    // Should be "IWAD" or "PWAD".
+    var identification: String? = null
+    var numlumps: Long = 0
+    var infotableofs: Long = 0
+
+    /** Reads the wadinfo_t from the file. */
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
+        identification = DoomIO.readString(f, 4)
+        numlumps = DoomIO.readUnsignedLEInt(f)
+        infotableofs = DoomIO.readUnsignedLEInt(f)
     }
+}

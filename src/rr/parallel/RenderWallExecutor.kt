@@ -1,84 +1,58 @@
-package rr.parallel;
+package rr.parallel
 
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
 
-import rr.IDetailAware;
-import rr.drawfuns.ColVars;
-import rr.drawfuns.DoomColumnFunction;
-
-import rr.drawfuns.R_DrawColumnBoomOpt;
-import rr.drawfuns.R_DrawColumnBoomOptLow;
+import rr.IDetailAware
+import rr.drawfuns.ColVars
+import rr.drawfuns.DoomColumnFunction
+import rr.drawfuns.R_DrawColumnBoomOpt
+import rr.drawfuns.R_DrawColumnBoomOptLow
+import java.util.concurrent.BrokenBarrierException
+import java.util.concurrent.CyclicBarrier
 
 /**
  * This is what actual executes the RenderWallInstruction. Essentially it's a
  * self-contained column rendering function.
- * 
+ *
  * @author admin
  */
-
-public class RenderWallExecutor<T,V>
-        implements Runnable,IDetailAware {
-
-    protected CyclicBarrier barrier;
-
-    protected ColVars<T,V>[] RWI;
-
-    protected int start, end;
-
-    protected DoomColumnFunction<T,V> colfunchi, colfunclow;
-
-    protected DoomColumnFunction<T,V> colfunc;
-
-    public RenderWallExecutor(int SCREENWIDTH, int SCREENHEIGHT,
-            int[] columnofs, int[] ylookup, V screen,
-            ColVars<T,V>[] RWI, CyclicBarrier barrier) {
-        this.RWI = RWI;
-        this.barrier = barrier;
-        this.SCREENWIDTH = SCREENWIDTH;
-        this.SCREENHEIGHT = SCREENHEIGHT;
-
+open class RenderWallExecutor<T, V>(/////////////// VIDEO SCALE STUFF//////////////////////
+    protected val SCREENWIDTH: Int, protected val SCREENHEIGHT: Int,
+    columnofs: IntArray, ylookup: IntArray, screen: V,
+    protected var RWI: Array<ColVars<T, V>>, protected var barrier: CyclicBarrier?
+) : Runnable, IDetailAware {
+    protected var start = 0
+    protected var end = 0
+    protected var colfunchi: DoomColumnFunction<T, V>? = null
+    protected var colfunclow: DoomColumnFunction<T, V>? = null
+    protected var colfunc: DoomColumnFunction<T, V>? = null
+    fun setRange(start: Int, end: Int) {
+        this.end = end
+        this.start = start
     }
 
-    public void setRange(int start, int end) {
-        this.end = end;
-        this.start = start;
+    override fun setDetail(detailshift: Int) {
+        colfunc = if (detailshift == 0) colfunchi else colfunclow
     }
 
-    public void setDetail(int detailshift) {
-        if (detailshift == 0)
-            colfunc = colfunchi;
-        else
-            colfunc = colfunclow;
-    }
-
-    public void run() {
+    override fun run() {
 
         // System.out.println("Wall executor from "+start +" to "+ end);
-
-        for (int i = start; i < end; i++) {
-            colfunc.invoke(RWI[i]);
+        for (i in start until end) {
+            colfunc!!.invoke(RWI[i])
         }
-
         try {
-            barrier.await();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (BrokenBarrierException e) {
-            e.printStackTrace();
+            barrier!!.await()
+        } catch (e: InterruptedException) {
+            e.printStackTrace()
+        } catch (e: BrokenBarrierException) {
+            e.printStackTrace()
         }
     }
 
-    public void updateRWI(ColVars<T,V>[] RWI) {
-        this.RWI = RWI;
-
+    fun updateRWI(RWI: Array<ColVars<T, V>>) {
+        this.RWI = RWI
     }
 
-    /////////////// VIDEO SCALE STUFF//////////////////////
-
-    protected final int SCREENWIDTH;
-
-    protected final int SCREENHEIGHT;
     /*
      * protected IVideoScale vs;
      * @Override public void setVideoScale(IVideoScale vs) { this.vs=vs; }
@@ -86,56 +60,73 @@ public class RenderWallExecutor<T,V>
      * this.SCREENHEIGHT=vs.getScreenHeight();
      * this.SCREENWIDTH=vs.getScreenWidth(); }
      */
-
-    public static final class HiColor extends RenderWallExecutor<byte[],short[]> {
-
-        public HiColor(int SCREENWIDTH, int SCREENHEIGHT, int[] columnofs,
-                int[] ylookup, short[] screen,
-                ColVars<byte[], short[]>[] RWI, CyclicBarrier barrier) {
-            super(SCREENWIDTH, SCREENHEIGHT, columnofs, ylookup, screen, RWI, barrier);
-            colfunc =
-                colfunchi =
-                    new R_DrawColumnBoomOpt.HiColor(SCREENWIDTH, SCREENHEIGHT, ylookup,
-                            columnofs, null, screen, null);
-            colfunclow =
-                new R_DrawColumnBoomOptLow.HiColor(SCREENWIDTH, SCREENHEIGHT, ylookup,
-                        columnofs, null, screen, null);
+    class HiColor(
+        SCREENWIDTH: Int, SCREENHEIGHT: Int, columnofs: IntArray,
+        ylookup: IntArray, screen: ShortArray?,
+        RWI: Array<ColVars<ByteArray?, ShortArray?>>, barrier: CyclicBarrier?
+    ) : RenderWallExecutor<ByteArray?, ShortArray?>(
+        SCREENWIDTH,
+        SCREENHEIGHT,
+        columnofs,
+        ylookup,
+        screen,
+        RWI,
+        barrier
+    ) {
+        init {
+            colfunchi = R_DrawColumnBoomOpt.HiColor(
+                SCREENWIDTH, SCREENHEIGHT, ylookup,
+                columnofs, null, screen, null
+            )
+            colfunc = colfunchi
+            colfunclow = R_DrawColumnBoomOptLow.HiColor(
+                SCREENWIDTH, SCREENHEIGHT, ylookup,
+                columnofs, null, screen, null
+            )
         }
-        
     }
-    
-    public static final class Indexed extends RenderWallExecutor<byte[],byte[]> {
 
-        public Indexed(int SCREENWIDTH, int SCREENHEIGHT, int[] columnofs,
-                int[] ylookup, byte[] screen,
-                ColVars<byte[], byte[]>[] RWI, CyclicBarrier barrier) {
-            super(SCREENWIDTH, SCREENHEIGHT, columnofs, ylookup, screen, RWI, barrier);
-            colfunc =
-                colfunchi =
-                    new R_DrawColumnBoomOpt.Indexed(SCREENWIDTH, SCREENHEIGHT, ylookup,
-                            columnofs, null, screen, null);
-            colfunclow =
-                new R_DrawColumnBoomOptLow.Indexed(SCREENWIDTH, SCREENHEIGHT, ylookup,
-                        columnofs, null, screen, null);
+    class Indexed(
+        SCREENWIDTH: Int, SCREENHEIGHT: Int, columnofs: IntArray,
+        ylookup: IntArray, screen: ByteArray?,
+        RWI: Array<ColVars<ByteArray?, ByteArray?>>, barrier: CyclicBarrier?
+    ) : RenderWallExecutor<ByteArray?, ByteArray?>(
+        SCREENWIDTH,
+        SCREENHEIGHT,
+        columnofs,
+        ylookup,
+        screen,
+        RWI,
+        barrier
+    ) {
+        init {
+            colfunchi = R_DrawColumnBoomOpt.Indexed(
+                SCREENWIDTH, SCREENHEIGHT, ylookup,
+                columnofs, null, screen, null
+            )
+            colfunc = colfunchi
+            colfunclow = R_DrawColumnBoomOptLow.Indexed(
+                SCREENWIDTH, SCREENHEIGHT, ylookup,
+                columnofs, null, screen, null
+            )
         }
-        
     }
-    
-    public static final class TrueColor extends RenderWallExecutor<byte[],int[]> {
 
-        public TrueColor(int SCREENWIDTH, int SCREENHEIGHT, int[] columnofs,
-                int[] ylookup, int[] screen,
-                ColVars<byte[], int[]>[] RWI, CyclicBarrier barrier) {
-            super(SCREENWIDTH, SCREENHEIGHT, columnofs, ylookup, screen, RWI, barrier);
-            colfunc =
-                colfunchi =
-                    new R_DrawColumnBoomOpt.TrueColor(SCREENWIDTH, SCREENHEIGHT, ylookup,
-                            columnofs, null, screen, null);
-            colfunclow =
-                new R_DrawColumnBoomOptLow.TrueColor(SCREENWIDTH, SCREENHEIGHT, ylookup,
-                        columnofs, null, screen, null);
+    class TrueColor(
+        SCREENWIDTH: Int, SCREENHEIGHT: Int, columnofs: IntArray,
+        ylookup: IntArray, screen: IntArray?,
+        RWI: Array<ColVars<ByteArray?, IntArray?>>, barrier: CyclicBarrier?
+    ) : RenderWallExecutor<ByteArray?, IntArray?>(SCREENWIDTH, SCREENHEIGHT, columnofs, ylookup, screen, RWI, barrier) {
+        init {
+            colfunchi = R_DrawColumnBoomOpt.TrueColor(
+                SCREENWIDTH, SCREENHEIGHT, ylookup,
+                columnofs, null, screen, null
+            )
+            colfunc = colfunchi
+            colfunclow = R_DrawColumnBoomOptLow.TrueColor(
+                SCREENWIDTH, SCREENHEIGHT, ylookup,
+                columnofs, null, screen, null
+            )
         }
-        
     }
-    
 }

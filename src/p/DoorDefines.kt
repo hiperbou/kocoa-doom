@@ -1,22 +1,16 @@
-package p;
+package p
 
-import static m.fixed_t.MAPFRACUNIT;
 
-public final class DoorDefines {
-    
+import m.fixed_t
+
+object DoorDefines {
     // Doors
-    public static final int VDOORSPEED = MAPFRACUNIT * 2;
-    public static final int VDOORWAIT = 150;
-    
-    
+    val VDOORSPEED: Int = fixed_t.MAPFRACUNIT * 2
+    const val VDOORWAIT = 150
+
     // Lights
-    public static final int GLOWSPEED = 5;
-
-    public static final int STROBEBRIGHT = 5;
-
-    public static final int FASTDARK = 15;
-
-    public static final int SLOWDARK = 35;
-    
-    
+    const val GLOWSPEED = 5
+    const val STROBEBRIGHT = 5
+    const val FASTDARK = 15
+    const val SLOWDARK = 35
 }

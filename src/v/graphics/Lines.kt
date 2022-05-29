@@ -1,8 +1,9 @@
 /**
  * Copyright (C) 1993-1996 Id Software, Inc.
  * from am_map.c
- * 
+ *
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,59 +16,62 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http:></http:>//www.gnu.org/licenses/>.
  */
-package v.graphics;
+package v.graphics
 
-public interface Lines {
+
+import v.graphics.*
+
+interface Lines {
     /**
      * Bresenham's line algorithm modified to use custom Plotter
-     * 
+     *
      * @param plotter
      * @param x2
-     * @param y2 
+     * @param y2
      */
-    default void drawLine(Plotter<?> plotter, int x1, int x2) { drawLine(plotter, x1, x2, 1, 1); }
-    default void drawLine(Plotter<?> plotter, int x2, int y2, int dupX, int dupY) {
+    fun drawLine(plotter: Plotter<*>, x1: Int, x2: Int) {
+        drawLine(plotter, x1, x2, 1, 1)
+    }
+
+    fun drawLine(plotter: Plotter<*>, x2: Int, y2: Int, dupX: Int, dupY: Int) {
         // delta of exact value and rounded value of the dependant variable
-        int d = 0, dy, dx, ix, iy;
-        
-        {
-            final int x = plotter.getX(), y = plotter.getY();
-
-            dy = Math.abs(y2 - y);
-            dx = Math.abs(x2 - x);
-
-            ix = x < x2 ? 1 : -1; // increment direction
-            iy = y < y2 ? 1 : -1;
+        var d = 0
+        var dy: Int
+        var dx: Int
+        var ix: Int
+        var iy: Int
+        run {
+            val x = plotter.getX()
+            val y = plotter.getY()
+            dy = Math.abs(y2 - y)
+            dx = Math.abs(x2 - x)
+            ix = if (x < x2) 1 else -1 // increment direction
+            iy = if (y < y2) 1 else -1
         }
-        
-        int dy2 = (dy << 1); // slope scaling factors to avoid floating
-        int dx2 = (dx << 1); // point
- 
+        val dy2 = dy shl 1 // slope scaling factors to avoid floating
+        val dx2 = dx shl 1 // point
         if (dy <= dx) {
-            for (;;) {
-                plotter.plot();
-                if (plotter.getX() == x2)
-                    break;
-                d += dy2;
+            while (true) {
+                plotter.plot()
+                if (plotter.getX() == x2) break
+                d += dy2
                 if (d > dx) {
-                    plotter.shift(ix, iy);
-                    d -= dx2;
-                } else plotter.shiftX(ix);
+                    plotter.shift(ix, iy)
+                    d -= dx2
+                } else plotter.shiftX(ix)
             }
         } else {
-            for (;;) {
-                plotter.plot();
-                if (plotter.getY() == y2)
-                    break;
-                d += dx2;
+            while (true) {
+                plotter.plot()
+                if (plotter.getY() == y2) break
+                d += dx2
                 if (d > dy) {
-                    plotter.shift(ix, iy);
-                    d -= dy2;
-                } else plotter.shiftY(iy);
+                    plotter.shift(ix, iy)
+                    d -= dy2
+                } else plotter.shiftY(iy)
             }
         }
     }
-    
 }

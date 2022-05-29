@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,36 +16,34 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates.MonsterStates;
+package p.Actions.ActiveStates.MonsterStatesimportimport
 
-import data.mobjtype_t;
-import p.Actions.ActionTrait;
-import p.mobj_t;
 
-public interface Spiders extends ActionTrait {
-    void A_FaceTarget(mobj_t actor);
-    
-    default void A_SpidRefire(mobj_t actor) {
+import data.info
+import data.mobjtype_t
+import p.Actions.ActionTrait
+import p.mobj_t
+
+interface Spiders : ActionTrait {
+    fun A_FaceTarget(actor: mobj_t?)
+    fun A_SpidRefire(actor: mobj_t) {
         // keep firing unless target got out of sight
-        A_FaceTarget(actor);
-
+        A_FaceTarget(actor)
         if (P_Random() < 10) {
-            return;
+            return
         }
-
-        if (actor.target == null || actor.target.health <= 0 || !getEnemies().CheckSight(actor, actor.target)) {
-            actor.SetMobjState(actor.info.seestate);
+        if (actor.target == null || actor.target!!.health <= 0 || !enemies.CheckSight(actor, actor.target!!)) {
+            actor.SetMobjState(actor.info!!.seestate)
         }
     }
 
-    default void A_BspiAttack(mobj_t actor) {
+    fun A_BspiAttack(actor: mobj_t) {
         if (actor.target == null) {
-            return;
+            return
         }
-
-        A_FaceTarget(actor);
+        A_FaceTarget(actor)
 
         // launch a missile
-        getAttacks().SpawnMissile(actor, actor.target, mobjtype_t.MT_ARACHPLAZ);
+        attacks.SpawnMissile(actor, actor.target!!, mobjtype_t.MT_ARACHPLAZ)
     }
 }

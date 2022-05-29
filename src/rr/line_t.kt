@@ -1,130 +1,130 @@
-package rr;
+package rr
 
-import defines.slopetype_t;
-import doom.SourceCode;
-import doom.SourceCode.P_Spec;
-import static doom.SourceCode.P_Spec.getNextSector;
-import doom.thinker_t;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import static m.BBox.BOXBOTTOM;
-import static m.BBox.BOXLEFT;
-import static m.BBox.BOXRIGHT;
-import static m.BBox.BOXTOP;
-import static m.fixed_t.*;
-import p.Interceptable;
-import p.Resettable;
-import s.degenmobj_t;
-import static utils.C2JUtils.eval;
-import static utils.C2JUtils.memset;
-import w.DoomIO;
-import w.IPackableDoomObject;
-import w.IReadableDoomObject;
+import defines.slopetype_t
+import doom.SourceCode.Compatible
+import doom.SourceCode.P_Spec
+import p.Interceptable
+import p.Resettable
+import s.degenmobj_t
+import utils.C2JUtils
+import w.IReadableDoomObject
+import java.io.DataInputStream
+import java.io.IOException
+import java.util.*
+import data.Tables.BITS32;
+import data.Tables.finecosine;
+import data.Tables.finesine;
+import data.info.mobjinfo;
+import data.mobjtype_t;
+import doom.SourceCode.angle_t;
+import m.fixed_t.Companion.FRACBITS;
+import m.fixed_t.Companion.FRACUNIT;
+import m.fixed_t.Companion.FixedMul;
+import m.fixed_t.Companion.FixedDiv
+import p.MapUtils.AproxDistance;
+import p.mobj_t;
+import utils.C2JUtils.eval;
+import doom.player_t;
+import doom.weapontype_t;
+import m.fixed_t.Companion.MAPFRACUNIT;
+import doom.SourceCode
+import doom.thinker_t
+import m.BBox
+import w.DoomIO
+import w.IPackableDoomObject
+import java.nio.ByteBuffer
 
-/** This is the actual linedef */
-
-public class line_t
-        implements Interceptable, IReadableDoomObject, IPackableDoomObject,
-        Resettable {
-
-    public static final char NO_INDEX=0xFFFF;
-    
-    public line_t() {
-        sidenum = new char[2];
-        bbox = new int[4];
-        slopetype = slopetype_t.ST_HORIZONTAL;
-    }
-
+/** This is the actual linedef  */
+class line_t : Interceptable, IReadableDoomObject, IPackableDoomObject, Resettable {
     /**
      * Vertices, from v1 to v2. NOTE: these are almost never passed as-such, nor
      * linked to Maybe we can get rid of them and only use the value semantics?
      */
-    public vertex_t v1, v2;
+    var v1: vertex_t? = null
+    var v2: vertex_t? = null
 
-    /** remapped vertex coords, for quick lookup with value semantics */
-    public int v1x, v1y, v2x, v2y;
+    /** remapped vertex coords, for quick lookup with value semantics  */
+    var v1x = 0
+    var v1y = 0
+    var v2x = 0
+    var v2y = 0
 
-    /** (fixed_t) Precalculated v2 - v1 for side checking. */
-    public int dx, dy;
+    /** (fixed_t) Precalculated v2 - v1 for side checking.  */
+    var dx = 0
+    var dy = 0
 
-    /** Animation related. */
-    public short flags, special, tag;
+    /** Animation related.  */
+    var flags: Short = 0
+    var special: Short = 0
+    var tag: Short = 0
 
     /**
      * Visual appearance: SideDefs. sidenum[1] will be 0xFFFF if one sided
      */
-    public char[] sidenum;
+    var sidenum: CharArray
 
     /**
      * Neat. Another bounding box, for the extent of the LineDef. MAES: make
      * this a proper bbox? fixed_t bbox[4];
      */
-    public int[] bbox;
+    var bbox: IntArray
 
-    /** To aid move clipping. */
-    public slopetype_t slopetype;
+    /** To aid move clipping.  */
+    var slopetype: slopetype_t
 
     /**
      * Front and back sector. Note: redundant? Can be retrieved from SideDefs.
      * MAES: pointers
      */
-    public sector_t frontsector, backsector;
+    var frontsector: sector_t? = null
+    var backsector: sector_t? = null
+    var frontsectorid = 0
+    var backsectorid = 0
 
-    public int frontsectorid, backsectorid;
+    /** if == validcount, already checked  */
+    var validcount = 0
 
-    /** if == validcount, already checked */
-    public int validcount;
-
-    /** thinker_t for reversable actions MAES: (void*) */
-    public thinker_t specialdata;
-
-    public int specialdataid;
-
-    public degenmobj_t soundorg;
+    /** thinker_t for reversable actions MAES: (void*)  */
+    var specialdata: thinker_t? = null
+    var specialdataid = 0
+    var soundorg: degenmobj_t? = null
 
     // From Boom
-    public int tranlump;
-    
-    public int id;
-    
-    /** killough 4/17/98: improves searches for tags. */
-    public int firsttag,nexttag;    
+    var tranlump = 0
+    var id = 0
 
-    /** For Boom stuff, interprets sidenum specially */
-    public int getSpecialSidenum() {
-        return (sidenum[0] << 16) & (0x0000ffff & sidenum[1]);
+    /** killough 4/17/98: improves searches for tags.  */
+    var firsttag = 0
+    var nexttag = 0
+
+    /** For Boom stuff, interprets sidenum specially  */
+    fun getSpecialSidenum(): Int {
+        return sidenum[0].code shl 16 and (0x0000ffff and sidenum[1].code)
     }
 
-    public void assignVertexValues() {
-        this.v1x = v1.x;
-        this.v1y = v1.y;
-        this.v2x = v2.x;
-        this.v2y = v2.y;
-
+    fun assignVertexValues() {
+        v1x = v1!!.x
+        v1y = v1!!.y
+        v2x = v2!!.x
+        v2y = v2!!.y
     }
 
     /**
      * P_PointOnLineSide
-     * 
+     *
      * @param x
-     *        fixed_t
+     * fixed_t
      * @param y
-     *        fixed_t
+     * fixed_t
      * @return 0 or 1 (false, true) - (front, back)
      */
-    public boolean PointOnLineSide(int x, int y)
-
-    {
-    	
-
-    	  return
-    			    (dx==0) ? x <= this.v1x ? this.dy > 0 : this.dy < 0 :
-    			    (dy==0) ? y <= this.v1y ? this.dx < 0 : this.dx > 0 :
-    			    FixedMul(y-this.v1y, this.dx>>FRACBITS) >=
-    			    FixedMul(this.dy>>FRACBITS, x-this.v1x);
-    	/*
+    fun PointOnLineSide(x: Int, y: Int): Boolean {
+        return if (dx == 0) if (x <= v1x) dy > 0 else dy < 0 else if (dy == 0) if (y <= v1y) dx < 0 else dx > 0 else FixedMul(
+            y - v1y,
+            dx shr FRACBITS
+        ) >=
+                FixedMul(dy shr FRACBITS, x - v1x)
+        /*
         int dx, dy, left, right;
         if (this.dx == 0) {
             if (x <= this.v1x)
@@ -154,207 +154,199 @@ public class line_t
      * P_BoxOnLineSide Considers the line to be infinite Returns side 0 or 1, -1
      * if box crosses the line. Doubles as a convenient check for whether a
      * bounding box crosses a line at all
-     * 
+     *
      * @param tmbox
-     *        fixed_t[]
+     * fixed_t[]
      */
-    public int BoxOnLineSide(int[] tmbox) {
-        boolean p1 = false;
-        boolean p2 = false;
-
-        switch (this.slopetype) {
-        // Line perfectly horizontal, box floating "north" of line
-        case ST_HORIZONTAL:
-            p1 = tmbox[BOXTOP] > v1y;
-            p2 = tmbox[BOXBOTTOM] > v1y;
-            if (dx < 0) {
-                p1 ^= true;
-                p2 ^= true;
+    fun BoxOnLineSide(tmbox: IntArray): Int {
+        var p1 = false
+        var p2 = false
+        when (slopetype) {
+            slopetype_t.ST_HORIZONTAL -> {
+                p1 = tmbox[BBox.BOXTOP] > v1y
+                p2 = tmbox[BBox.BOXBOTTOM] > v1y
+                if (dx < 0) {
+                    p1 = p1 xor true
+                    p2 = p2 xor true
+                }
             }
-            break;
-
-        // Line perfectly vertical, box floating "west" of line
-        case ST_VERTICAL:
-
-            p1 = tmbox[BOXRIGHT] < v1x;
-            p2 = tmbox[BOXLEFT] < v1x;
-            if (dy < 0) {
-                p1 ^= true;
-                p2 ^= true;
+            slopetype_t.ST_VERTICAL -> {
+                p1 = tmbox[BBox.BOXRIGHT] < v1x
+                p2 = tmbox[BBox.BOXLEFT] < v1x
+                if (dy < 0) {
+                    p1 = p1 xor true
+                    p2 = p2 xor true
+                }
             }
-            break;
-
-        case ST_POSITIVE:
-            // Positive slope, both points on one side.
-            p1 = PointOnLineSide(tmbox[BOXLEFT], tmbox[BOXTOP]);
-            p2 = PointOnLineSide(tmbox[BOXRIGHT], tmbox[BOXBOTTOM]);
-            break;
-
-        case ST_NEGATIVE:
-            // Negative slope, both points (mirrored horizontally) on one side.
-            p1 = PointOnLineSide(tmbox[BOXRIGHT], tmbox[BOXTOP]);
-            p2 = PointOnLineSide(tmbox[BOXLEFT], tmbox[BOXBOTTOM]);
-            break;
+            slopetype_t.ST_POSITIVE -> {
+                // Positive slope, both points on one side.
+                p1 = PointOnLineSide(tmbox[BBox.BOXLEFT], tmbox[BBox.BOXTOP])
+                p2 = PointOnLineSide(tmbox[BBox.BOXRIGHT], tmbox[BBox.BOXBOTTOM])
+            }
+            slopetype_t.ST_NEGATIVE -> {
+                // Negative slope, both points (mirrored horizontally) on one side.
+                p1 = PointOnLineSide(tmbox[BBox.BOXRIGHT], tmbox[BBox.BOXTOP])
+                p2 = PointOnLineSide(tmbox[BBox.BOXLEFT], tmbox[BBox.BOXBOTTOM])
+            }
         }
-
-        if (p1 == p2)
-            return p1 ? 1 : 0;
+        return if (p1 == p2) if (p1) 1 else 0 else -1
         // Any other result means non-inclusive crossing.
-        return -1;
     }
 
     /**
      * Variant of P_BoxOnLineSide. Uses inclusive checks, so that even lines on
      * the border of a box will be considered crossing. This is more useful for
      * building blockmaps.
-     * 
+     *
      * @param tmbox
-     *        fixed_t[]
+     * fixed_t[]
      */
-    public int BoxOnLineSideInclusive(int[] tmbox) {
-        boolean p1 = false;
-        boolean p2 = false;
-
-        switch (this.slopetype) {
-        // Line perfectly horizontal, box floating "north" of line
-        case ST_HORIZONTAL:
-            p1 = tmbox[BOXTOP] >= v1y;
-            p2 = tmbox[BOXBOTTOM] >= v1y;
-            if (dx < 0) {
-                p1 ^= true;
-                p2 ^= true;
+    fun BoxOnLineSideInclusive(tmbox: IntArray): Int {
+        var p1 = false
+        var p2 = false
+        when (slopetype) {
+            slopetype_t.ST_HORIZONTAL -> {
+                p1 = tmbox[BBox.BOXTOP] >= v1y
+                p2 = tmbox[BBox.BOXBOTTOM] >= v1y
+                if (dx < 0) {
+                    p1 = p1 xor true
+                    p2 = p2 xor true
+                }
             }
-            break;
-
-        // Line perfectly vertical, box floating "west" of line
-        case ST_VERTICAL:
-
-            p1 = tmbox[BOXRIGHT] <= v1x;
-            p2 = tmbox[BOXLEFT] <= v1x;
-            if (dy < 0) {
-                p1 ^= true;
-                p2 ^= true;
+            slopetype_t.ST_VERTICAL -> {
+                p1 = tmbox[BBox.BOXRIGHT] <= v1x
+                p2 = tmbox[BBox.BOXLEFT] <= v1x
+                if (dy < 0) {
+                    p1 = p1 xor true
+                    p2 = p2 xor true
+                }
             }
-            break;
-
-        case ST_POSITIVE:
-            // Positive slope, both points on one side.
-            p1 = PointOnLineSide(tmbox[BOXLEFT], tmbox[BOXTOP]);
-            p2 = PointOnLineSide(tmbox[BOXRIGHT], tmbox[BOXBOTTOM]);
-            break;
-
-        case ST_NEGATIVE:
-            // Negative slope, both points (mirrored horizontally) on one side.
-            p1 = PointOnLineSide(tmbox[BOXRIGHT], tmbox[BOXTOP]);
-            p2 = PointOnLineSide(tmbox[BOXLEFT], tmbox[BOXBOTTOM]);
-            break;
+            slopetype_t.ST_POSITIVE -> {
+                // Positive slope, both points on one side.
+                p1 = PointOnLineSide(tmbox[BBox.BOXLEFT], tmbox[BBox.BOXTOP])
+                p2 = PointOnLineSide(tmbox[BBox.BOXRIGHT], tmbox[BBox.BOXBOTTOM])
+            }
+            slopetype_t.ST_NEGATIVE -> {
+                // Negative slope, both points (mirrored horizontally) on one side.
+                p1 = PointOnLineSide(tmbox[BBox.BOXRIGHT], tmbox[BBox.BOXTOP])
+                p2 = PointOnLineSide(tmbox[BBox.BOXLEFT], tmbox[BBox.BOXBOTTOM])
+            }
         }
-
-        if (p1 == p2)
-            return p1 ? 1 : 0;
+        return if (p1 == p2) if (p1) 1 else 0 else -1
         // Any other result means non-inclusive crossing.
-        return -1;
     }
 
     /**
      * getNextSector() Return sector_t * of sector next to current. NULL if not
      * two-sided line
      */
-    @SourceCode.Compatible("getNextSector(line_t line, sector_t sec)")
-    @P_Spec.C(getNextSector)
-    public sector_t getNextSector(sector_t sec) {
-        if (!eval(flags & ML_TWOSIDED)) {
-            return null;
+    @Compatible("getNextSector(line_t line, sector_t sec)")
+    @P_Spec.C(P_Spec.getNextSector)
+    fun getNextSector(sec: sector_t): sector_t? {
+        if (!C2JUtils.eval(flags.toInt() and line_t.ML_TWOSIDED)) {
+            return null
         }
-
-        if (frontsector == sec) {
-            return backsector;
-        }
-
-        return frontsector;
+        return if (frontsector === sec) {
+            backsector
+        } else frontsector
     }
 
-    public String toString() {
-        return (String.format("Line %d Flags: %x Special %d Tag: %d ", this.id,this.flags,
-            this.special, this.tag));
+    override fun toString(): String {
+        return String.format(
+            "Line %d Flags: %x Special %d Tag: %d ", id, flags,
+            special, tag
+        )
     }
 
-    @Override
-    public void read(DataInputStream f)
-            throws IOException {
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
 
         // For histerical reasons, these are the only parts of line_t that
         // are archived in vanilla savegames. Go figure.
-        this.flags = DoomIO.readLEShort(f);
-        this.special = DoomIO.readLEShort(f);
-        this.tag = DoomIO.readLEShort(f);
+        flags = DoomIO.readLEShort(f)
+        special = DoomIO.readLEShort(f)
+        tag = DoomIO.readLEShort(f)
     }
 
-    @Override
-    public void pack(ByteBuffer buffer) {
-        buffer.putShort(flags);
-        buffer.putShort(special);
-        buffer.putShort(tag);
+    override fun pack(buffer: ByteBuffer) {
+        buffer.putShort(flags)
+        buffer.putShort(special)
+        buffer.putShort(tag)
         // buffer.putShort((short) 0XDEAD);
         // buffer.putShort((short) 0XBABE);
         // buffer.putShort((short) 0XBEEF);
     }
 
-    @Override
-    public void reset() {
-        v1 = v2 = null;
-        v1x = v1y = v2x = v2y = 0;
-        dx = dy = 0;
-        flags = special = tag = 0;
-        memset(sidenum, (char) 0, sidenum.length);
-        Arrays.fill(bbox, 0);
-        slopetype = slopetype_t.ST_HORIZONTAL;
-        frontsector = backsector = null;
-        frontsectorid = backsectorid = 0;
-        validcount = 0;
-        specialdata = null;
-        specialdataid = 0;
-        soundorg = null;
-        tranlump = 0;
+    override fun reset() {
+        v2 = null
+        v1 = v2
+        v2y = 0
+        v2x = v2y
+        v1y = v2x
+        v1x = v1y
+        dy = 0
+        dx = dy
+        tag = 0
+        special = tag
+        flags = special
+        C2JUtils.memset(sidenum, 0.toChar(), sidenum.size)
+        Arrays.fill(bbox, 0)
+        slopetype = slopetype_t.ST_HORIZONTAL
+        backsector = null
+        frontsector = backsector
+        backsectorid = 0
+        frontsectorid = backsectorid
+        validcount = 0
+        specialdata = null
+        specialdataid = 0
+        soundorg = null
+        tranlump = 0
     }
-    
-    /**
-     * LUT, motion clipping, walls/grid element // // LineDef attributes. // /**
-     * Solid, is an obstacle.
-     */
-    public static final int ML_BLOCKING = 1;
 
-    /** Blocks monsters only. */
-    public static final int ML_BLOCKMONSTERS = 2;
+    init {
+        sidenum = CharArray(2)
+        bbox = IntArray(4)
+        slopetype = slopetype_t.ST_HORIZONTAL
+    }
 
-    /** Backside will not be present at all if not two sided. */
-    public static final int ML_TWOSIDED = 4;
+    companion object {
+        const val NO_INDEX = 0xFFFF.toChar()
 
-    // If a texture is pegged, the texture will have
-    // the end exposed to air held constant at the
-    // top or bottom of the texture (stairs or pulled
-    // down things) and will move with a height change
-    // of one of the neighbor sectors.
-    // Unpegged textures allways have the first row of
-    // the texture at the top pixel of the line for both
-    // top and bottom textures (use next to windows).
+        /**
+         * LUT, motion clipping, walls/grid element // // LineDef attributes. // / **
+         * Solid, is an obstacle.
+         */
+        const val ML_BLOCKING = 1
 
-    /** upper texture unpegged */
-    public static final int ML_DONTPEGTOP = 8;
+        /** Blocks monsters only.  */
+        const val ML_BLOCKMONSTERS = 2
 
-    /** lower texture unpegged */
-    public static final int ML_DONTPEGBOTTOM = 16;
+        /** Backside will not be present at all if not two sided.  */
+        const val ML_TWOSIDED = 4
+        // If a texture is pegged, the texture will have
+        // the end exposed to air held constant at the
+        // top or bottom of the texture (stairs or pulled
+        // down things) and will move with a height change
+        // of one of the neighbor sectors.
+        // Unpegged textures allways have the first row of
+        // the texture at the top pixel of the line for both
+        // top and bottom textures (use next to windows).
+        /** upper texture unpegged  */
+        const val ML_DONTPEGTOP = 8
 
-    /** In AutoMap: don't map as two sided: IT'S A SECRET! */
-    public static final int ML_SECRET = 32;
+        /** lower texture unpegged  */
+        const val ML_DONTPEGBOTTOM = 16
 
-    /** Sound rendering: don't let sound cross two of these. */
-    public static final int ML_SOUNDBLOCK = 64;
+        /** In AutoMap: don't map as two sided: IT'S A SECRET!  */
+        const val ML_SECRET = 32
 
-    /** Don't draw on the automap at all. */
-    public static final int ML_DONTDRAW = 128;
+        /** Sound rendering: don't let sound cross two of these.  */
+        const val ML_SOUNDBLOCK = 64
 
-    /** Set if already seen, thus drawn in automap. */
-    public static final int ML_MAPPED = 256;
+        /** Don't draw on the automap at all.  */
+        const val ML_DONTDRAW = 128
 
+        /** Set if already seen, thus drawn in automap.  */
+        const val ML_MAPPED = 256
+    }
 }

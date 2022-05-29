@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,71 +16,39 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import static data.Defines.FLOATSPEED;
-import static data.Defines.PT_ADDLINES;
-import static data.Limits.MAXMOVE;
-import static data.Tables.ANG180;
-import static data.Tables.BITS32;
-import static data.Tables.finecosine;
-import static data.Tables.finesine;
-import defines.slopetype_t;
-import defines.statenum_t;
-import doom.SourceCode;
-import static doom.SourceCode.P_Map.PTR_SlideTraverse;
-import doom.SourceCode.fixed_t;
-import doom.player_t;
-import static m.fixed_t.FRACUNIT;
-import static m.fixed_t.FixedMul;
-import static p.ChaseDirections.DI_EAST;
-import static p.ChaseDirections.DI_NODIR;
-import static p.ChaseDirections.DI_NORTH;
-import static p.ChaseDirections.DI_SOUTH;
-import static p.ChaseDirections.DI_SOUTHEAST;
-import static p.ChaseDirections.DI_WEST;
-import static p.ChaseDirections.diags;
-import static p.ChaseDirections.opposite;
-import static p.ChaseDirections.xspeed;
-import static p.ChaseDirections.yspeed;
-import static p.MapUtils.AproxDistance;
-import p.intercept_t;
-import p.mobj_t;
-import static p.mobj_t.MF_CORPSE;
-import static p.mobj_t.MF_DROPOFF;
-import static p.mobj_t.MF_FLOAT;
-import static p.mobj_t.MF_INFLOAT;
-import static p.mobj_t.MF_MISSILE;
-import static p.mobj_t.MF_NOCLIP;
-import static p.mobj_t.MF_SKULLFLY;
-import static p.mobj_t.MF_TELEPORT;
-import rr.SceneRenderer;
-import rr.line_t;
-import static rr.line_t.ML_TWOSIDED;
-import static utils.C2JUtils.eval;
-import utils.TraitFactory.ContextKey;
+import data.Defines
+import data.Limits
+import data.Tables
+import defines.slopetype_t
+import defines.statenum_t
+import doom.SourceCode
+import doom.SourceCode.P_Map
+import doom.player_t
+import m.fixed_t.Companion.FRACUNIT
+import m.fixed_t.Companion.FixedMul
+import p.Actions.ActionTrait.*
+import p.ChaseDirections
+import p.MapUtils
+import p.intercept_t
+import p.mobj_t
+import p.mobj_t.Companion.MF_DROPOFF
+import p.mobj_t.Companion.MF_NOCLIP
+import p.mobj_t.Companion.MF_TELEPORT
+import rr.line_t
+import utils.C2JUtils
+import utils.TraitFactory.ContextKey
+import java.util.function.Supplier
 
-public interface ActionsMovement extends ActionsPathTraverse {
-
-    ContextKey<DirType> KEY_DIRTYPE = ACTION_KEY_CHAIN.newKey(ActionsMovement.class, DirType::new);
-
-    //
-    // P_XYMovement
-    //
-    int STOPSPEED = 4096;
-    int FRICTION = 59392;
-    int FUDGE = 2048; ///(FRACUNIT/MAPFRACUNIT);
-
-    void UnsetThingPosition(mobj_t thing);
-    void ExplodeMissile(mobj_t mo);
-
-    final class DirType {
-
+interface ActionsMovement : ActionsPathTraverse {
+    fun UnsetThingPosition(thing: mobj_t)
+    fun ExplodeMissile(mo: mobj_t)
+    class DirType {
         //dirtype
-        int d1;
-        int d2;
+        var d1 = 0
+        var d2 = 0
     }
-
     ///////////////// MOVEMENT'S ACTIONS ////////////////////////
     /**
      * If "floatok" true, move would be ok if within "tmfloorz - tmceilingz".
@@ -89,70 +58,63 @@ public interface ActionsMovement extends ActionsPathTraverse {
     // Move in the current direction,
     // returns false if the move is blocked.
     //
-    default boolean Move(mobj_t actor) {
-        final Movement mov = contextRequire(KEY_MOVEMENT);
-        final Spechits sp = contextRequire(KEY_SPECHITS);
-
-        @fixed_t
-        int tryx, tryy;
-        line_t ld;
+    fun Move(actor: mobj_t): Boolean {
+        val mov = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        val sp = contextRequire<Spechits>(ActionTrait.KEY_SPECHITS)
+        @SourceCode.fixed_t val tryx: Int
+        @SourceCode.fixed_t val tryy: Int
+        var ld: line_t?
 
         // warning: 'catch', 'throw', and 'try'
         // are all C++ reserved words
-        boolean try_ok;
-        boolean good;
-
-        if (actor.movedir == DI_NODIR) {
-            return false;
+        val try_ok: Boolean
+        var good: Boolean
+        if (actor.movedir == ChaseDirections.DI_NODIR) {
+            return false
         }
-
         if (actor.movedir >= 8) {
-            doomSystem().Error("Weird actor.movedir!");
+            doomSystem().Error("Weird actor.movedir!")
         }
 
-        tryx = actor.x + actor.info.speed * xspeed[actor.movedir];
-        tryy = actor.y + actor.info.speed * yspeed[actor.movedir];
+        val info = actor.info!!
 
-        try_ok = this.TryMove(actor, tryx, tryy);
-
+        tryx = actor._x + info.speed * ChaseDirections.xspeed[actor.movedir]
+        tryy = actor._y + info.speed * ChaseDirections.yspeed[actor.movedir]
+        try_ok = TryMove(actor, tryx, tryy)
         if (!try_ok) {
             // open any specials
-            if (eval(actor.flags & MF_FLOAT) && mov.floatok) {
+            if (C2JUtils.eval(actor.flags and mobj_t.MF_FLOAT) && mov.floatok) {
                 // must adjust height
-                if (actor.z < mov.tmfloorz) {
-                    actor.z += FLOATSPEED;
+                if (actor._z < mov.tmfloorz) {
+                    actor._z += Defines.FLOATSPEED
                 } else {
-                    actor.z -= FLOATSPEED;
+                    actor._z -= Defines.FLOATSPEED
                 }
-
-                actor.flags |= MF_INFLOAT;
-                return true;
+                actor.flags = actor.flags or mobj_t.MF_INFLOAT
+                return true
             }
-
             if (sp.numspechit == 0) {
-                return false;
+                return false
             }
-
-            actor.movedir = DI_NODIR;
-            good = false;
-            while ((sp.numspechit--) > 0) {
-                ld = sp.spechit[sp.numspechit];
+            actor.movedir = ChaseDirections.DI_NODIR
+            good = false
+            while (sp.numspechit-- > 0) {
+                ld = sp.spechit[sp.numspechit]
                 // if the special is not a door
                 // that can be opened,
                 // return false
-                if (UseSpecialLine(actor, ld, false)) {
-                    good = true;
+                if (UseSpecialLine(actor, ld!!, false)) {
+                    good = true
                 }
             }
-            return good;
+            return good
         } else {
-            actor.flags &= ~MF_INFLOAT;
+            actor.flags = actor.flags and mobj_t.MF_INFLOAT.inv()
         }
-
-        if (!eval(actor.flags & MF_FLOAT)) {
-            actor.z = actor.floorz;
+        if (!C2JUtils.eval(actor.flags and mobj_t.MF_FLOAT)) {
+            actor._z = actor.floorz
         }
-        return true;
+        return true
     }
 
     /**
@@ -160,186 +122,167 @@ public interface ActionsMovement extends ActionsPathTraverse {
      *
      * @param x fixed_t
      * @param y fixed_t
-     *
      */
-    default boolean TryMove(mobj_t thing, @fixed_t int x, @fixed_t int y) {
-        final Movement mov = contextRequire(KEY_MOVEMENT);
-        final Spechits sp = contextRequire(KEY_SPECHITS);
-
-        @fixed_t
-        int oldx, oldy;
-        boolean side, oldside; // both were int
-        line_t ld;
-
-        mov.floatok = false;
-        if (!this.CheckPosition(thing, x, y)) {
-            return false;       // solid wall or thing
+    fun TryMove(thing: mobj_t, @SourceCode.fixed_t x: Int, @SourceCode.fixed_t y: Int): Boolean {
+        val mov = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        val sp = contextRequire<Spechits>(ActionTrait.KEY_SPECHITS)
+        @SourceCode.fixed_t val oldx: Int
+        @SourceCode.fixed_t val oldy: Int
+        var side: Boolean
+        var oldside: Boolean // both were int
+        var ld: line_t
+        mov.floatok = false
+        if (!CheckPosition(thing, x, y)) {
+            return false // solid wall or thing
         }
-        if (!eval(thing.flags & MF_NOCLIP)) {
+        if (!C2JUtils.eval(thing.flags and MF_NOCLIP)) {
             if (mov.tmceilingz - mov.tmfloorz < thing.height) {
-                return false;   // doesn't fit
+                return false // doesn't fit
             }
-            mov.floatok = true;
-
-            if (!eval(thing.flags & MF_TELEPORT) && mov.tmceilingz - thing.z < thing.height) {
-                return false;   // mobj must lower itself to fit
+            mov.floatok = true
+            if (!C2JUtils.eval(thing.flags and MF_TELEPORT) && mov.tmceilingz - thing._z < thing.height) {
+                return false // mobj must lower itself to fit
             }
-            if (!eval(thing.flags & MF_TELEPORT) && mov.tmfloorz - thing.z > 24 * FRACUNIT) {
-                return false;   // too big a step up
+            if (!C2JUtils.eval(thing.flags and MF_TELEPORT) && mov.tmfloorz - thing._z > 24 * FRACUNIT) {
+                return false // too big a step up
             }
-            if (!eval(thing.flags & (MF_DROPOFF | MF_FLOAT)) && mov.tmfloorz - mov.tmdropoffz > 24 * FRACUNIT) {
-                return false;   // don't stand over a dropoff
+            if (!C2JUtils.eval(thing.flags and (MF_DROPOFF or mobj_t.MF_FLOAT)) && mov.tmfloorz - mov.tmdropoffz > 24 * FRACUNIT) {
+                return false // don't stand over a dropoff
             }
         }
 
         // the move is ok,
         // so link the thing into its new position
-        UnsetThingPosition(thing);
-
-        oldx = thing.x;
-        oldy = thing.y;
-        thing.floorz = mov.tmfloorz;
-        thing.ceilingz = mov.tmceilingz;
-        thing.x = x;
-        thing.y = y;
-
-        levelLoader().SetThingPosition(thing);
+        UnsetThingPosition(thing)
+        oldx = thing._x
+        oldy = thing._y
+        thing.floorz = mov.tmfloorz
+        thing.ceilingz = mov.tmceilingz
+        thing._x = x
+        thing._y = y
+        levelLoader().SetThingPosition(thing)
 
         // if any special lines were hit, do the effect
-        if (!eval(thing.flags & (MF_TELEPORT | MF_NOCLIP))) {
+        if (!C2JUtils.eval(thing.flags and (MF_TELEPORT or MF_NOCLIP))) {
             while (sp.numspechit-- > 0) {
                 // see if the line was crossed
-                ld = sp.spechit[sp.numspechit];
-                side = ld.PointOnLineSide(thing.x, thing.y);
-                oldside = ld.PointOnLineSide(oldx, oldy);
+                ld = sp.spechit[sp.numspechit]!!
+                side = ld.PointOnLineSide(thing._x, thing._y)
+                oldside = ld.PointOnLineSide(oldx, oldy)
                 if (side != oldside) {
-                    if (ld.special != 0) {
-                        CrossSpecialLine(ld, oldside ? 1 : 0, thing);
+                    if (ld.special.toInt() != 0) {
+                        CrossSpecialLine(ld, if (oldside) 1 else 0, thing)
                     }
                 }
             }
         }
-
-        return true;
+        return true
     }
 
-    default void NewChaseDir(mobj_t actor) {
-        final DirType dirtype = contextRequire(KEY_DIRTYPE);
-
-        @fixed_t
-        int deltax, deltay;
-
-        int tdir;
-        int olddir;
+    fun NewChaseDir(actor: mobj_t) {
+        val dirtype = contextRequire<DirType>(ActionsMovement.KEY_DIRTYPE)
+        @SourceCode.fixed_t val deltax: Int
+        @SourceCode.fixed_t val deltay: Int
+        var tdir: Int
+        val olddir: Int
         // dirtypes
-        int turnaround;
-
+        val turnaround: Int
         if (actor.target == null) {
-            doomSystem().Error("P_NewChaseDir: called with no target");
+            doomSystem().Error("P_NewChaseDir: called with no target")
         }
-
-        olddir = actor.movedir;
-        turnaround = opposite[olddir];
-
-        deltax = actor.target.x - actor.x;
-        deltay = actor.target.y - actor.y;
-
+        olddir = actor.movedir
+        turnaround = ChaseDirections.opposite[olddir]
+        deltax = actor.target!!._x - actor._x
+        deltay = actor.target!!._y - actor._y
         if (deltax > 10 * FRACUNIT) {
-            dirtype.d1 = DI_EAST;
+            dirtype.d1 = ChaseDirections.DI_EAST
         } else if (deltax < -10 * FRACUNIT) {
-            dirtype.d1 = DI_WEST;
+            dirtype.d1 = ChaseDirections.DI_WEST
         } else {
-            dirtype.d1 = DI_NODIR;
+            dirtype.d1 = ChaseDirections.DI_NODIR
         }
-
         if (deltay < -10 * FRACUNIT) {
-            dirtype.d2 = DI_SOUTH;
+            dirtype.d2 = ChaseDirections.DI_SOUTH
         } else if (deltay > 10 * FRACUNIT) {
-            dirtype.d2 = DI_NORTH;
+            dirtype.d2 = ChaseDirections.DI_NORTH
         } else {
-            dirtype.d2 = DI_NODIR;
+            dirtype.d2 = ChaseDirections.DI_NODIR
         }
 
         // try direct route
-        if (dirtype.d1 != DI_NODIR && dirtype.d2 != DI_NODIR) {
-            actor.movedir = diags[(eval(deltay < 0) << 1) + eval(deltax > 0)];
-            if (actor.movedir != turnaround && this.TryWalk(actor)) {
-                return;
+        if (dirtype.d1 != ChaseDirections.DI_NODIR && dirtype.d2 != ChaseDirections.DI_NODIR) {
+            actor.movedir = ChaseDirections.diags[(C2JUtils.eval(deltay < 0) shl 1) + C2JUtils.eval(deltax > 0)]
+            if (actor.movedir != turnaround && TryWalk(actor)) {
+                return
             }
         }
 
         // try other directions
         if (P_Random() > 200 || Math.abs(deltay) > Math.abs(deltax)) {
-            tdir = dirtype.d1;
-            dirtype.d1 = dirtype.d2;
-            dirtype.d2 = tdir;
+            tdir = dirtype.d1
+            dirtype.d1 = dirtype.d2
+            dirtype.d2 = tdir
         }
-
         if (dirtype.d1 == turnaround) {
-            dirtype.d1 = DI_NODIR;
+            dirtype.d1 = ChaseDirections.DI_NODIR
         }
-
         if (dirtype.d2 == turnaround) {
-            dirtype.d2 = DI_NODIR;
+            dirtype.d2 = ChaseDirections.DI_NODIR
         }
-
-        if (dirtype.d1 != DI_NODIR) {
-            actor.movedir = dirtype.d1;
-            if (this.TryWalk(actor)) {
+        if (dirtype.d1 != ChaseDirections.DI_NODIR) {
+            actor.movedir = dirtype.d1
+            if (TryWalk(actor)) {
                 // either moved forward or attacked
-                return;
+                return
             }
         }
-
-        if (dirtype.d2 != DI_NODIR) {
-            actor.movedir = dirtype.d2;
-
-            if (this.TryWalk(actor)) {
-                return;
+        if (dirtype.d2 != ChaseDirections.DI_NODIR) {
+            actor.movedir = dirtype.d2
+            if (TryWalk(actor)) {
+                return
             }
         }
 
         // there is no direct path to the player,
         // so pick another direction.
-        if (olddir != DI_NODIR) {
-            actor.movedir = olddir;
-
-            if (this.TryWalk(actor)) {
-                return;
+        if (olddir != ChaseDirections.DI_NODIR) {
+            actor.movedir = olddir
+            if (TryWalk(actor)) {
+                return
             }
         }
 
         // randomly determine direction of search
-        if (eval(P_Random() & 1)) {
-            for (tdir = DI_EAST; tdir <= DI_SOUTHEAST; tdir++) {
+        if (C2JUtils.eval(P_Random() and 1)) {
+            tdir = ChaseDirections.DI_EAST
+            while (tdir <= ChaseDirections.DI_SOUTHEAST) {
                 if (tdir != turnaround) {
-                    actor.movedir = tdir;
-
+                    actor.movedir = tdir
                     if (TryWalk(actor)) {
-                        return;
+                        return
                     }
                 }
+                tdir++
             }
         } else {
-            for (tdir = DI_SOUTHEAST; tdir != (DI_EAST - 1); tdir--) {
+            tdir = ChaseDirections.DI_SOUTHEAST
+            while (tdir != ChaseDirections.DI_EAST - 1) {
                 if (tdir != turnaround) {
-                    actor.movedir = tdir;
-
+                    actor.movedir = tdir
                     if (TryWalk(actor)) {
-                        return;
+                        return
                     }
                 }
+                tdir--
             }
         }
-
-        if (turnaround != DI_NODIR) {
-            actor.movedir = turnaround;
+        if (turnaround != ChaseDirections.DI_NODIR) {
+            actor.movedir = turnaround
             if (TryWalk(actor)) {
-                return;
+                return
             }
         }
-
-        actor.movedir = DI_NODIR;  // can not move
+        actor.movedir = ChaseDirections.DI_NODIR // can not move
     }
 
     /**
@@ -347,13 +290,12 @@ public interface ActionsMovement extends ActionsPathTraverse {
      * actor returns FALSE If move is either clear or blocked only by a door, returns TRUE and sets... If a door is in
      * the way, an OpenDoor call is made to start it opening.
      */
-    default boolean TryWalk(mobj_t actor) {
+    fun TryWalk(actor: mobj_t): Boolean {
         if (!Move(actor)) {
-            return false;
+            return false
         }
-
-        actor.movecount = P_Random() & 15;
-        return true;
+        actor.movecount = P_Random() and 15
+        return true
     }
 
     //
@@ -361,50 +303,43 @@ public interface ActionsMovement extends ActionsPathTraverse {
     // Adjusts the xmove / ymove
     // so that the next move will slide along the wall.
     //
-    default void HitSlideLine(line_t ld) {
-        final SceneRenderer<?, ?> sr = sceneRenderer();
-        final SlideMove slideMove = contextRequire(KEY_SLIDEMOVE);
-        boolean side;
+    fun HitSlideLine(ld: line_t) {
+        val sr = sceneRenderer()
+        val slideMove = contextRequire<SlideMove>(ActionTrait.KEY_SLIDEMOVE)
+        val side: Boolean
 
         // all angles
-        long lineangle, moveangle, deltaangle;
-
-        @fixed_t
-        int movelen, newlen;
-
+        var lineangle: Long
+        val moveangle: Long
+        var deltaangle: Long
+        @SourceCode.fixed_t val movelen: Int
+        @SourceCode.fixed_t val newlen: Int
         if (ld.slopetype == slopetype_t.ST_HORIZONTAL) {
-            slideMove.tmymove = 0;
-            return;
+            slideMove.tmymove = 0
+            return
         }
-
         if (ld.slopetype == slopetype_t.ST_VERTICAL) {
-            slideMove.tmxmove = 0;
-            return;
+            slideMove.tmxmove = 0
+            return
         }
-
-        side = ld.PointOnLineSide(slideMove.slidemo.x, slideMove.slidemo.y);
-
-        lineangle = sr.PointToAngle2(0, 0, ld.dx, ld.dy);
-
+        side = ld.PointOnLineSide(slideMove.slidemo!!._x, slideMove.slidemo!!._y)
+        lineangle = sr.PointToAngle2(0, 0, ld.dx, ld.dy)
         if (side == true) {
-            lineangle += ANG180;
+            lineangle += Tables.ANG180
         }
-
-        moveangle = sr.PointToAngle2(0, 0, slideMove.tmxmove, slideMove.tmymove);
-        deltaangle = (moveangle - lineangle) & BITS32;
-
-        if (deltaangle > ANG180) {
-            deltaangle += ANG180;
+        moveangle = sr.PointToAngle2(0, 0, slideMove.tmxmove, slideMove.tmymove)
+        deltaangle = moveangle - lineangle and Tables.BITS32
+        if (deltaangle > Tables.ANG180) {
+            deltaangle += Tables.ANG180
         }
         //  system.Error ("SlideLine: ang>ANG180");
 
         //lineangle >>>= ANGLETOFINESHIFT;
         //deltaangle >>>= ANGLETOFINESHIFT;
-        movelen = AproxDistance(slideMove.tmxmove, slideMove.tmymove);
-        newlen = FixedMul(movelen, finecosine(deltaangle));
-
-        slideMove.tmxmove = FixedMul(newlen, finecosine(lineangle));
-        slideMove.tmymove = FixedMul(newlen, finesine(lineangle));
+        movelen = MapUtils.AproxDistance(slideMove.tmxmove, slideMove.tmymove)
+        newlen = FixedMul(movelen, Tables.finecosine(deltaangle))
+        slideMove.tmxmove = FixedMul(newlen, Tables.finecosine(lineangle))
+        slideMove.tmymove = FixedMul(newlen, Tables.finesine(lineangle))
     }
 
     ///(FRACUNIT/MAPFRACUNIT);
@@ -417,87 +352,98 @@ public interface ActionsMovement extends ActionsPathTraverse {
     //
     // This is a kludgy mess.
     //
-    default void SlideMove(mobj_t mo) {
-        final SlideMove slideMove = contextRequire(KEY_SLIDEMOVE);
-        @fixed_t
-        int leadx, leady, trailx, traily, newx, newy;
-        int hitcount;
-
-        slideMove.slidemo = mo;
-        hitcount = 0;
-
+    fun SlideMove(mo: mobj_t) {
+        val slideMove = contextRequire<SlideMove>(ActionTrait.KEY_SLIDEMOVE)
+        @SourceCode.fixed_t var leadx: Int
+        @SourceCode.fixed_t var leady: Int
+        @SourceCode.fixed_t var trailx: Int
+        @SourceCode.fixed_t var traily: Int
+        @SourceCode.fixed_t var newx: Int
+        @SourceCode.fixed_t var newy: Int
+        var hitcount: Int
+        slideMove.slidemo = mo
+        hitcount = 0
         do {
             if (++hitcount == 3) {
                 // goto stairstep
-                this.stairstep(mo);
-                return;
-            }     // don't loop forever
+                stairstep(mo)
+                return
+            } // don't loop forever
 
             // trace along the three leading corners
             if (mo.momx > 0) {
-                leadx = mo.x + mo.radius;
-                trailx = mo.x - mo.radius;
+                leadx = mo._x + mo.radius
+                trailx = mo._x - mo.radius
             } else {
-                leadx = mo.x - mo.radius;
-                trailx = mo.x + mo.radius;
+                leadx = mo._x - mo.radius
+                trailx = mo._x + mo.radius
             }
-
             if (mo.momy > 0) {
-                leady = mo.y + mo.radius;
-                traily = mo.y - mo.radius;
+                leady = mo._y + mo.radius
+                traily = mo._y - mo.radius
             } else {
-                leady = mo.y - mo.radius;
-                traily = mo.y + mo.radius;
+                leady = mo._y - mo.radius
+                traily = mo._y + mo.radius
             }
-
-            slideMove.bestslidefrac = FRACUNIT + 1;
-
-            PathTraverse(leadx, leady, leadx + mo.momx, leady + mo.momy, PT_ADDLINES, this::SlideTraverse);
-            PathTraverse(trailx, leady, trailx + mo.momx, leady + mo.momy, PT_ADDLINES, this::SlideTraverse);
-            PathTraverse(leadx, traily, leadx + mo.momx, traily + mo.momy, PT_ADDLINES, this::SlideTraverse);
+            slideMove.bestslidefrac = FRACUNIT + 1
+            PathTraverse(
+                leadx,
+                leady,
+                leadx + mo.momx,
+                leady + mo.momy,
+                Defines.PT_ADDLINES
+            ) { SlideTraverse(it!!) }
+            PathTraverse(
+                trailx,
+                leady,
+                trailx + mo.momx,
+                leady + mo.momy,
+                Defines.PT_ADDLINES
+            ) { SlideTraverse(it!!) }
+            PathTraverse(
+                leadx,
+                traily,
+                leadx + mo.momx,
+                traily + mo.momy,
+                Defines.PT_ADDLINES
+            ) { SlideTraverse(it!!) }
 
             // move up to the wall
             if (slideMove.bestslidefrac == FRACUNIT + 1) {
                 // the move most have hit the middle, so stairstep
-                this.stairstep(mo);
-                return;
-            }     // don't loop forever
+                stairstep(mo)
+                return
+            } // don't loop forever
 
             // fudge a bit to make sure it doesn't hit
-            slideMove.bestslidefrac -= FUDGE;
+            slideMove.bestslidefrac -= ActionsMovement.FUDGE
             if (slideMove.bestslidefrac > 0) {
-                newx = FixedMul(mo.momx, slideMove.bestslidefrac);
-                newy = FixedMul(mo.momy, slideMove.bestslidefrac);
-
-                if (!this.TryMove(mo, mo.x + newx, mo.y + newy)) {
+                newx = FixedMul(mo.momx, slideMove.bestslidefrac)
+                newy = FixedMul(mo.momy, slideMove.bestslidefrac)
+                if (!TryMove(mo, mo._x + newx, mo._y + newy)) {
                     // goto stairstep
-                    this.stairstep(mo);
-                    return;
-                }     // don't loop forever
+                    stairstep(mo)
+                    return
+                } // don't loop forever
             }
 
             // Now continue along the wall.
             // First calculate remainder.
-            slideMove.bestslidefrac = FRACUNIT - (slideMove.bestslidefrac + FUDGE);
-
+            slideMove.bestslidefrac =
+                FRACUNIT - (slideMove.bestslidefrac + ActionsMovement.FUDGE)
             if (slideMove.bestslidefrac > FRACUNIT) {
-                slideMove.bestslidefrac = FRACUNIT;
+                slideMove.bestslidefrac = FRACUNIT
             }
-
             if (slideMove.bestslidefrac <= 0) {
-                return;
+                return
             }
-
-            slideMove.tmxmove = FixedMul(mo.momx, slideMove.bestslidefrac);
-            slideMove.tmymove = FixedMul(mo.momy, slideMove.bestslidefrac);
-
-            HitSlideLine(slideMove.bestslideline); // clip the moves
-
-            mo.momx = slideMove.tmxmove;
-            mo.momy = slideMove.tmymove;
-
+            slideMove.tmxmove = FixedMul(mo.momx, slideMove.bestslidefrac)
+            slideMove.tmymove = FixedMul(mo.momy, slideMove.bestslidefrac)
+            HitSlideLine(slideMove.bestslideline!!) // clip the moves
+            mo.momx = slideMove.tmxmove
+            mo.momy = slideMove.tmymove
         } // goto retry
-        while (!TryMove(mo, mo.x + slideMove.tmxmove, mo.y + slideMove.tmymove));
+        while (!TryMove(mo, mo._x + slideMove.tmxmove, mo._y + slideMove.tmymove))
     }
 
     /**
@@ -505,125 +451,113 @@ public interface ActionsMovement extends ActionsPathTraverse {
      *
      * @param mo
      */
-    default void stairstep(mobj_t mo) {
-        if (!TryMove(mo, mo.x, mo.y + mo.momy)) {
-            TryMove(mo, mo.x + mo.momx, mo.y);
+    fun stairstep(mo: mobj_t) {
+        if (!TryMove(mo, mo._x, mo._y + mo.momy)) {
+            TryMove(mo, mo._x + mo.momx, mo._y)
         }
     }
 
     //
     // P_XYMovement  
     //
-    default void XYMovement(mobj_t mo) {
-        final Movement mv = contextRequire(KEY_MOVEMENT);
-
-        @fixed_t
-        int ptryx, ptryy; // pointers to fixed_t ???
-        @fixed_t
-        int xmove, ymove;
-        player_t player;
-
-        if ((mo.momx == 0) && (mo.momy == 0)) {
-            if ((mo.flags & MF_SKULLFLY) != 0) {
+    fun XYMovement(mo: mobj_t) {
+        val mv = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        @SourceCode.fixed_t var ptryx: Int
+        @SourceCode.fixed_t var ptryy: Int // pointers to fixed_t ???
+        @SourceCode.fixed_t var xmove: Int
+        @SourceCode.fixed_t var ymove: Int
+        val player: player_t?
+        if (mo.momx == 0 && mo.momy == 0) {
+            if (mo.flags and mobj_t.MF_SKULLFLY != 0) {
                 // the skull slammed into something
-                mo.flags &= ~MF_SKULLFLY;
-                mo.momx = mo.momy = mo.momz = 0;
-
-                mo.SetMobjState(mo.info.spawnstate);
+                mo.flags = mo.flags and mobj_t.MF_SKULLFLY.inv()
+                mo.momz = 0
+                mo.momy = mo.momz
+                mo.momx = mo.momy
+                mo.SetMobjState(mo.info!!.spawnstate)
             }
-            return;
+            return
         }
-
-        player = mo.player;
-
-        if (mo.momx > MAXMOVE) {
-            mo.momx = MAXMOVE;
-        } else if (mo.momx < -MAXMOVE) {
-            mo.momx = -MAXMOVE;
+        player = mo.player
+        if (mo.momx > Limits.MAXMOVE) {
+            mo.momx = Limits.MAXMOVE
+        } else if (mo.momx < -Limits.MAXMOVE) {
+            mo.momx = -Limits.MAXMOVE
         }
-
-        if (mo.momy > MAXMOVE) {
-            mo.momy = MAXMOVE;
-        } else if (mo.momy < -MAXMOVE) {
-            mo.momy = -MAXMOVE;
+        if (mo.momy > Limits.MAXMOVE) {
+            mo.momy = Limits.MAXMOVE
+        } else if (mo.momy < -Limits.MAXMOVE) {
+            mo.momy = -Limits.MAXMOVE
         }
-
-        xmove = mo.momx;
-        ymove = mo.momy;
-
+        xmove = mo.momx
+        ymove = mo.momy
         do {
-            if (xmove > MAXMOVE / 2 || ymove > MAXMOVE / 2) {
-                ptryx = mo.x + xmove / 2;
-                ptryy = mo.y + ymove / 2;
-                xmove >>= 1;
-                ymove >>= 1;
+            if (xmove > Limits.MAXMOVE / 2 || ymove > Limits.MAXMOVE / 2) {
+                ptryx = mo._x + xmove / 2
+                ptryy = mo._y + ymove / 2
+                xmove = xmove shr 1
+                ymove = ymove shr 1
             } else {
-                ptryx = mo.x + xmove;
-                ptryy = mo.y + ymove;
-                xmove = ymove = 0;
+                ptryx = mo._x + xmove
+                ptryy = mo._y + ymove
+                ymove = 0
+                xmove = ymove
             }
-
             if (!TryMove(mo, ptryx, ptryy)) {
                 // blocked move
                 if (mo.player != null) {   // try to slide along it
-                    SlideMove(mo);
-                } else if (eval(mo.flags & MF_MISSILE)) {
+                    SlideMove(mo)
+                } else if (C2JUtils.eval(mo.flags and mobj_t.MF_MISSILE)) {
                     // explode a missile
-                    if (mv.ceilingline != null && mv.ceilingline.backsector != null
-                        && mv.ceilingline.backsector.ceilingpic == DOOM().textureManager.getSkyFlatNum()) {
+                    if (mv.ceilingline != null && mv.ceilingline!!.backsector != null && mv.ceilingline!!.backsector!!.ceilingpic.toInt() == DOOM().textureManager.getSkyFlatNum()) {
                         // Hack to prevent missiles exploding
                         // against the sky.
                         // Does not handle sky floors.
-                        RemoveMobj(mo);
-                        return;
+                        RemoveMobj(mo)
+                        return
                     }
-                    ExplodeMissile(mo);
+                    ExplodeMissile(mo)
                 } else {
-                    mo.momx = mo.momy = 0;
+                    mo.momy = 0
+                    mo.momx = mo.momy
                 }
             }
-        } while ((xmove | ymove) != 0);
+        } while (xmove or ymove != 0)
 
         // slow down
-        if (player != null && eval(player.cheats & player_t.CF_NOMOMENTUM)) {
+        if (player != null && C2JUtils.eval(player.cheats and player_t.CF_NOMOMENTUM)) {
             // debug option for no sliding at all
-            mo.momx = mo.momy = 0;
-            return;
+            mo.momy = 0
+            mo.momx = mo.momy
+            return
         }
-
-        if (eval(mo.flags & (MF_MISSILE | MF_SKULLFLY))) {
-            return;     // no friction for missiles ever
+        if (C2JUtils.eval(mo.flags and (mobj_t.MF_MISSILE or mobj_t.MF_SKULLFLY))) {
+            return  // no friction for missiles ever
         }
-        if (mo.z > mo.floorz) {
-            return;     // no friction when airborne
+        if (mo._z > mo.floorz) {
+            return  // no friction when airborne
         }
-        if (eval(mo.flags & MF_CORPSE)) {
+        if (C2JUtils.eval(mo.flags and mobj_t.MF_CORPSE)) {
             // do not stop sliding
             //  if halfway off a step with some momentum
-            if (mo.momx > FRACUNIT / 4
-                || mo.momx < -FRACUNIT / 4
-                || mo.momy > FRACUNIT / 4
-                || mo.momy < -FRACUNIT / 4) {
-                if (mo.floorz != mo.subsector.sector.floorheight) {
-                    return;
+            if (mo.momx > FRACUNIT / 4 || mo.momx < -FRACUNIT / 4 || mo.momy > FRACUNIT / 4 || mo.momy < -FRACUNIT / 4) {
+                if (mo.floorz != mo.subsector!!.sector!!.floorheight) {
+                    return
                 }
             }
         }
-
-        if (mo.momx > -STOPSPEED && mo.momx < STOPSPEED && mo.momy > -STOPSPEED && mo.momy < STOPSPEED
-            && (player == null || (player.cmd.forwardmove == 0 && player.cmd.sidemove == 0))) {
+        if (mo.momx > -STOPSPEED && mo.momx < STOPSPEED && mo.momy > -STOPSPEED && mo.momy < STOPSPEED && (player == null || player.cmd.forwardmove.toInt() == 0 && player.cmd.sidemove.toInt() == 0)) {
             // if in a walking frame, stop moving
             // TODO: we need a way to get state indexed inside of states[], to sim pointer arithmetic.
             // FIX: added an "id" field.
-            if (player != null && player.mo.mobj_state.id - statenum_t.S_PLAY_RUN1.ordinal() < 4) {
-                player.mo.SetMobjState(statenum_t.S_PLAY);
+            if (player != null && player.mo!!.mobj_state!!.id - statenum_t.S_PLAY_RUN1.ordinal < 4) {
+                player.mo!!.SetMobjState(statenum_t.S_PLAY)
             }
-
-            mo.momx = 0;
-            mo.momy = 0;
+            mo.momx = 0
+            mo.momy = 0
         } else {
-            mo.momx = FixedMul(mo.momx, FRICTION);
-            mo.momy = FixedMul(mo.momy, FRICTION);
+            mo.momx = FixedMul(mo.momx, ActionsMovement.FRICTION)
+            mo.momy = FixedMul(mo.momy, ActionsMovement.FRICTION)
         }
     }
 
@@ -635,46 +569,48 @@ public interface ActionsMovement extends ActionsPathTraverse {
     //
     // PTR_SlideTraverse
     //   
-    @SourceCode.P_Map.C(PTR_SlideTraverse)
-    default boolean SlideTraverse(intercept_t in) {
-        final SlideMove slideMove = contextRequire(KEY_SLIDEMOVE);
-        final Movement ma = contextRequire(KEY_MOVEMENT);
-        line_t li;
-
-        if (!in.isaline) {
-            doomSystem().Error("PTR_SlideTraverse: not a line?");
+    @P_Map.C(P_Map.PTR_SlideTraverse)
+    fun SlideTraverse(`in`: intercept_t): Boolean {
+        val slideMove = contextRequire<SlideMove>(ActionTrait.KEY_SLIDEMOVE)
+        val slidemo = slideMove.slidemo!!
+        val ma = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        val li: line_t
+        if (!`in`.isaline) {
+            doomSystem().Error("PTR_SlideTraverse: not a line?")
         }
-
-        li = (line_t) in.d();
-
-        if (!eval(li.flags & ML_TWOSIDED)) {
-            if (li.PointOnLineSide(slideMove.slidemo.x, slideMove.slidemo.y)) {
+        li = `in`.d() as line_t
+        if (!C2JUtils.eval(li.flags.toInt() and line_t.ML_TWOSIDED)) {
+            return if (li.PointOnLineSide(slidemo._x, slidemo._y)) {
                 // don't hit the back side
-                return true;
-            }
-            return this.isblocking(in, li);
+                true
+            } else isblocking(`in`, li)
         }
 
         // set openrange, opentop, openbottom
-        LineOpening(li);
-
-        if ((ma.openrange < slideMove.slidemo.height)
-            || // doesn't fit
-            (ma.opentop - slideMove.slidemo.z < slideMove.slidemo.height)
-            || // mobj is too high
-            (ma.openbottom - slideMove.slidemo.z > 24 * FRACUNIT)) // too big a step up
+        LineOpening(li)
+        return if (ma.openrange < slidemo.height || ma.opentop - slidemo._z < slidemo.height || ma.openbottom - slidemo._z > 24 * FRACUNIT) // too big a step up
         {
-            if (in.frac < slideMove.bestslidefrac) {
-                slideMove.secondslidefrac = slideMove.bestslidefrac;
-                slideMove.secondslideline = slideMove.bestslideline;
-                slideMove.bestslidefrac = in.frac;
-                slideMove.bestslideline = li;
+            if (`in`.frac < slideMove.bestslidefrac) {
+                slideMove.secondslidefrac = slideMove.bestslidefrac
+                slideMove.secondslideline = slideMove.bestslideline
+                slideMove.bestslidefrac = `in`.frac
+                slideMove.bestslideline = li
             }
-
-            return false;   // stop
+            false // stop
         } else { // this line doesn't block movement
-            return true;
+            true
         }
     }
-;
+
+    companion object {
+        val KEY_DIRTYPE: ContextKey<DirType> =
+            ActionTrait.ACTION_KEY_CHAIN.newKey<DirType>(ActionsMovement::class.java, Supplier { DirType() })
+
+        //
+        // P_XYMovement
+        //
+        const val STOPSPEED = 4096
+        const val FRICTION = 59392
+        const val FUDGE = 2048 ///(FRACUNIT/MAPFRACUNIT);
+    }
 }

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,22 +16,22 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates.MonsterStates;
+package p.Actions.ActiveStates.MonsterStatesimport
 
-import static data.Limits.MAXPLAYERS;
-import data.mobjtype_t;
-import doom.DoomMain;
-import doom.thinker_t;
-import p.Actions.ActionTrait;
-import p.ActiveStates;
-import p.floor_e;
-import p.mobj_t;
-import p.vldoor_e;
-import rr.line_t;
 
-public interface Bosses extends ActionTrait {
-    void A_Fall(mobj_t mo);
-    
+import data.Limits
+import data.mobjtype_t
+import doom.thinker_t
+import p.Actions.ActionTrait
+import p.ActiveStates
+import p.floor_e
+import p.mobj_t
+import p.vldoor_e
+import rr.line_t
+
+interface Bosses : ActionTrait {
+    fun A_Fall(mo: mobj_t)
+
     /**
      * A_BossDeath
      * Possibly trigger special effects
@@ -40,174 +41,147 @@ public interface Bosses extends ActionTrait {
      * Special clauses?
      *
      */
-    default void A_BossDeath(mobj_t mo) {
-        final DoomMain<?, ?> D = DOOM();
-        thinker_t th;
-        mobj_t mo2;
-        line_t junk = new line_t();
-        int i;
-
+    fun A_BossDeath(mo: mobj_t) {
+        val D = DOOM()
+        var th: thinker_t
+        var mo2: mobj_t
+        val junk = line_t()
+        var i: Int
         if (D.isCommercial()) {
             if (D.gamemap != 7) {
-                return;
+                return
             }
-
-            if ((mo.type != mobjtype_t.MT_FATSO)
-                && (mo.type != mobjtype_t.MT_BABY)) {
-                return;
+            if (mo.type != mobjtype_t.MT_FATSO && mo.type != mobjtype_t.MT_BABY) {
+                return
             }
         } else {
-            switch (D.gameepisode) {
-                case 1:
+            when (D.gameepisode) {
+                1 -> {
                     if (D.gamemap != 8) {
-                        return;
+                        return
                     }
-
                     if (mo.type != mobjtype_t.MT_BRUISER) {
-                        return;
+                        return
                     }
-                    break;
-
-                case 2:
+                }
+                2 -> {
                     if (D.gamemap != 8) {
-                        return;
+                        return
                     }
-
                     if (mo.type != mobjtype_t.MT_CYBORG) {
-                        return;
+                        return
                     }
-                    break;
-
-                case 3:
+                }
+                3 -> {
                     if (D.gamemap != 8) {
-                        return;
+                        return
                     }
-
                     if (mo.type != mobjtype_t.MT_SPIDER) {
-                        return;
+                        return
                     }
-
-                    break;
-
-                case 4:
-                    switch (D.gamemap) {
-                        case 6:
-                            if (mo.type != mobjtype_t.MT_CYBORG) {
-                                return;
-                            }
-                            break;
-
-                        case 8:
-                            if (mo.type != mobjtype_t.MT_SPIDER) {
-                                return;
-                            }
-                            break;
-
-                        default:
-                            return;
+                }
+                4 -> when (D.gamemap) {
+                    6 -> if (mo.type != mobjtype_t.MT_CYBORG) {
+                        return
                     }
-                    break;
-
-                default:
-                    if (D.gamemap != 8) {
-                        return;
+                    8 -> if (mo.type != mobjtype_t.MT_SPIDER) {
+                        return
                     }
-                    break;
+                    else -> return
+                }
+                else -> if (D.gamemap != 8) {
+                    return
+                }
             }
-
         }
 
         // make sure there is a player alive for victory
-        for (i = 0; i < MAXPLAYERS; i++) {
+        i = 0
+        while (i < Limits.MAXPLAYERS) {
             if (D.playeringame[i] && D.players[i].health[0] > 0) {
-                break;
+                break
             }
+            i++
         }
-
-        if (i == MAXPLAYERS) {
-            return; // no one left alive, so do not end game
+        if (i == Limits.MAXPLAYERS) {
+            return  // no one left alive, so do not end game
         }
         // scan the remaining thinkers to see
         // if all bosses are dead
-        for (th = getThinkerCap().next; th != getThinkerCap(); th = th.next) {
+        th = getThinkerCap().next!!
+        while (th !== getThinkerCap()) {
             if (th.thinkerFunction != ActiveStates.P_MobjThinker) {
-                continue;
+                th = th.next!!
+                continue
             }
-
-            mo2 = (mobj_t) th;
-            if (mo2 != mo
-                && mo2.type == mo.type
-                && mo2.health > 0) {
+            mo2 = th as mobj_t
+            if (mo2 !== mo && mo2.type == mo.type && mo2.health > 0) {
                 // other boss not dead
-                return;
+                return
             }
+            th = th.next!!
         }
 
         // victory!
         if (D.isCommercial()) {
             if (D.gamemap == 7) {
                 if (mo.type == mobjtype_t.MT_FATSO) {
-                    junk.tag = 666;
-                    getThinkers().DoFloor(junk, floor_e.lowerFloorToLowest);
-                    return;
+                    junk.tag = 666
+                    thinkers.DoFloor(junk, floor_e.lowerFloorToLowest)
+                    return
                 }
-
                 if (mo.type == mobjtype_t.MT_BABY) {
-                    junk.tag = 667;
-                    getThinkers().DoFloor(junk, floor_e.raiseToTexture);
-                    return;
+                    junk.tag = 667
+                    thinkers.DoFloor(junk, floor_e.raiseToTexture)
+                    return
                 }
             }
         } else {
-            switch (D.gameepisode) {
-                case 1:
-                    junk.tag = 666;
-                    getThinkers().DoFloor(junk, floor_e.lowerFloorToLowest);
-                    return;
-
-                case 4:
-                    switch (D.gamemap) {
-                        case 6:
-                            junk.tag = 666;
-                            getThinkers().DoDoor(junk, vldoor_e.blazeOpen);
-                            return;
-
-                        case 8:
-                            junk.tag = 666;
-                            getThinkers().DoFloor(junk, floor_e.lowerFloorToLowest);
-                            return;
+            when (D.gameepisode) {
+                1 -> {
+                    junk.tag = 666
+                    thinkers.DoFloor(junk, floor_e.lowerFloorToLowest)
+                    return
+                }
+                4 -> when (D.gamemap) {
+                    6 -> {
+                        junk.tag = 666
+                        thinkers.DoDoor(junk, vldoor_e.blazeOpen)
+                        return
                     }
+                    8 -> {
+                        junk.tag = 666
+                        thinkers.DoFloor(junk, floor_e.lowerFloorToLowest)
+                        return
+                    }
+                }
             }
         }
-
-        D.ExitLevel();
+        D.ExitLevel()
     }
-    
-    default void A_KeenDie(mobj_t mo) {
-        thinker_t th;
-        mobj_t mo2;
-        line_t junk = new line_t(); // MAES: fixed null 21/5/2011
 
-        A_Fall(mo);
+    fun A_KeenDie(mo: mobj_t) {
+        var th: thinker_t
+        var mo2: mobj_t
+        val junk = line_t() // MAES: fixed null 21/5/2011
+        A_Fall(mo)
 
         // scan the remaining thinkers
         // to see if all Keens are dead
-        for (th = getThinkerCap().next; th != getThinkerCap(); th = th.next) {
+        th = getThinkerCap().next!!
+        while (th !== getThinkerCap()) {
             if (th.thinkerFunction != ActiveStates.P_MobjThinker) {
-                continue;
+                th = th.next!!
+                continue
             }
-
-            mo2 = (mobj_t) th;
-            if (mo2 != mo
-                && mo2.type == mo.type
-                && mo2.health > 0) {
+            mo2 = th as mobj_t
+            if (mo2 !== mo && mo2.type == mo.type && mo2.health > 0) {
                 // other Keen not dead
-                return;
+                return
             }
+            th = th.next!!
         }
-
-        junk.tag = 666;
-        getThinkers().DoDoor(junk, vldoor_e.open);
+        junk.tag = 666
+        thinkers.DoDoor(junk, vldoor_e.open)
     }
-
 }

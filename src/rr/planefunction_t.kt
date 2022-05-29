@@ -1,5 +1,4 @@
-package rr;
+package rr
 
-public interface planefunction_t {
 
-}
+interface planefunction_t

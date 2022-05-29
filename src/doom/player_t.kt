@@ -1,39 +1,37 @@
-package doom;
+package doom
 
-import static data.Defines.*;
-import static data.Limits.*;
-import data.Tables;
-import static data.Tables.*;
-import static data.info.*;
-import data.sounds.sfxenum_t;
-import data.state_t;
-import defines.*;
-import doom.SourceCode.G_Game;
-import static doom.SourceCode.G_Game.*;
-import doom.SourceCode.P_Pspr;
-import static doom.SourceCode.P_Pspr.P_BringUpWeapon;
-import static doom.SourceCode.P_Pspr.P_SetPsprite;
-import static doom.SourceCode.P_Pspr.P_SetupPsprites;
-import static doom.items.weaponinfo;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import static m.fixed_t.*;
-import p.ActiveStates.PlayerSpriteConsumer;
-import p.mobj_t;
-import static p.mobj_t.*;
-import p.pspdef_t;
-import rr.sector_t;
-import utils.C2JUtils;
-import static utils.C2JUtils.*;
-import static utils.GenericCopy.malloc;
-import v.graphics.Palettes;
-import w.DoomBuffer;
-import w.DoomIO;
-import w.IPackableDoomObject;
-import w.IReadableDoomObject;
+
+import data.*
+import data.sounds.sfxenum_t
+import defines.ammotype_t
+import defines.card_t
+import defines.skill_t
+import defines.statenum_t
+import doom.SourceCode.Compatible
+import doom.SourceCode.G_Game
+import doom.SourceCode.P_Pspr
+import m.fixed_t.Companion.FRACBITS
+import m.fixed_t.Companion.FRACUNIT
+import m.fixed_t.Companion.FixedMul
+import m.fixed_t.Companion.MAPFRACUNIT
+import p.PlayerSpriteActiveStates
+import p.PlayerSpriteConsumer
+import p.mobj_t
+import p.pspdef_t
+import rr.sector_t
+import s.*
+import utils.C2JUtils
+import utils.GenericCopy
+import v.graphics.Lights
+import w.DoomBuffer
+import w.DoomIO.readBooleanIntArray
+import w.IPackableDoomObject
+import w.IReadableDoomObject
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * Extended player object info: player_t The player data structure depends on a
@@ -55,82 +53,50 @@ import w.IReadableDoomObject;
  *
  * #include "d_ticcmd.h"
  */
-public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObject, IPackableDoomObject {
-
+class player_t /*extends mobj_t */(
     /**
      * Probably doomguy needs to know what the fuck is going on
      */
-    private final DoomMain<?, ?> DOOM;
-
-    /* Fugly hack to "reset" the player. Not worth the fugliness.
-    public static player_t nullplayer;
-    static {
-        nullplayer = new player_t();
-    }
-     */
-    public player_t(DoomMain DOOM) {
-        this.DOOM = DOOM;
-        powers = new int[NUMPOWERS];
-        frags = new int[MAXPLAYERS];
-        ammo = new int[NUMAMMO];
-        //maxammo = new int[NUMAMMO];
-        maxammo = new int[NUMAMMO];
-        cards = new boolean[card_t.NUMCARDS.ordinal()];
-        weaponowned = new boolean[NUMWEAPONS];
-        psprites = malloc(pspdef_t::new, pspdef_t[]::new, NUMPSPRITES);
-        this.mo = mobj_t.createOn(DOOM);
-        // If a player doesn't reference himself through his object, he will have an existential crisis.
-        this.mo.player = this;
-        readyweapon = weapontype_t.wp_fist;
-        this.cmd = new ticcmd_t();
-        //weaponinfo=new weaponinfo_t();
-    }
-
-    public final static int CF_NOCLIP = 1; // No damage, no health loss.
-
-    public final static int CF_GODMODE = 2;
-
-    public final static int CF_NOMOMENTUM = 4; // Not really a cheat, just a debug aid.
-
+    private val DOOM: DoomMain<*, *>
+) : Cloneable, IReadableDoomObject, IPackableDoomObject {
     /**
      * The "mobj state" of the player is stored here, even though he "inherits"
      * all mobj_t properties (except being a thinker). However, for good or bad,
      * his mobj properties are modified by accessing player.mo
      */
-    public mobj_t mo;
+    var mo: mobj_t? = null
 
     /**
      * playerstate_t
      */
-    public int playerstate;
-
-    public ticcmd_t cmd;
+    var playerstate = 0
+    var cmd: ticcmd_t
 
     /**
      * Determine POV, including viewpoint bobbing during movement. (fixed_t)
      * Focal origin above r.z
      */
-    public int viewz;
+    var viewz = 0
 
     /**
      * (fixed_t) Base height above floor for viewz.
      */
-    public int viewheight;
+    var viewheight = 0
 
     /**
      * (fixed_t) Bob/squat speed.
      */
-    public int deltaviewheight;
+    var deltaviewheight = 0
 
     /**
      * (fixed_t) bounded/scaled total momentum.
      */
-    public int bob;
+    var bob = 0
 
     // Heretic stuff
-    public int flyheight;
-    public int lookdir;
-    public boolean centering;
+    var flyheight = 0
+    var lookdir = 0
+    var centering = false
 
     /**
      * This is only used between levels, mo->health is used during levels.
@@ -138,76 +104,65 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * MAES: fugly hax, as even passing "Integers" won't work, as they are immutable.
      * Fuck that, I'm doing it the fugly MPI Java way!
      */
-    public int[] health = new int[1];
+    var health = IntArray(1)
 
     /**
      * has to be passed around :-(
      */
-    public int[] armorpoints = new int[1];
+    var armorpoints = IntArray(1)
 
     /**
      * Armor type is 0-2.
      */
-    public int armortype;
+    var armortype = 0
 
     /**
      * Power ups. invinc and invis are tic counters.
      */
-    public int[] powers;
-
-    public boolean[] cards;
-
-    public boolean backpack;
+    var powers: IntArray
+    var cards: BooleanArray
+    var backpack = false
 
     // Frags, kills of other players.
-    public int[] frags;
-
-    public weapontype_t readyweapon;
+    var frags: IntArray
+    var readyweapon: weapontype_t
 
     // Is wp_nochange if not changing.
-    public weapontype_t pendingweapon;
-
-    public boolean[] weaponowned;
-
-    public int[] ammo;
-
-    public int[] maxammo;
+    var pendingweapon: weapontype_t? = null
+    var weaponowned: BooleanArray
+    var ammo: IntArray
+    var maxammo: IntArray
 
     /**
      * True if button down last tic.
      */
-    public boolean attackdown;
-
-    public boolean usedown;
+    var attackdown = false
+    var usedown = false
 
     // Bit flags, for cheats and debug.
     // See cheat_t, above.
-    public int cheats;
+    var cheats = 0
 
     // Refired shots are less accurate.
-    public int refire;
+    var refire = 0
 
     // For intermission stats.
-    public int killcount;
-
-    public int itemcount;
-
-    public int secretcount;
+    var killcount = 0
+    var itemcount = 0
+    var secretcount = 0
 
     // Hint messages.
-    public String message;
+    var message: String? = null
 
     // For screen flashing (red or bright).
-    public int damagecount;
-
-    public int bonuscount;
+    var damagecount = 0
+    var bonuscount = 0
 
     // Who did damage (NULL for floors/ceilings).
-    public mobj_t attacker;
+    var attacker: mobj_t? = null
 
     // So gun flashes light up areas.
-    public int extralight;
-
+    var extralight = 0
     /**
      * Current PLAYPAL, ??? can be set to REDCOLORMAP for pain, etc. MAES: "int"
      * my ass. It's yet another pointer alias into colormaps. Ergo, array and
@@ -219,49 +174,43 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * It could be written when the player_t object is packed. Dont shift this value,
      * do shifts after retrieving this.
      */
-    public int fixedcolormap;
+    var fixedcolormap = 0
 
     // Player skin colorshift,
     // 0-3 for which color to draw player.
-    public int colormap;
+    var colormap = 0
 
     // TODO: Overlay view sprites (gun, etc).
-    public pspdef_t[] psprites;
+    var psprites: Array<pspdef_t>
 
     // True if secret level has been done.
-    public boolean didsecret;
+    var didsecret = false
 
     /**
      * It's probably faster to clone the null player
      */
-    public void reset() {
-        memset(ammo, 0, ammo.length);
-        memset(armorpoints, 0, armorpoints.length);
-        memset(cards, false, cards.length);
-        memset(frags, 0, frags.length);
-        memset(health, 0, health.length);
-        memset(maxammo, 0, maxammo.length);
-        memset(powers, 0, powers.length);
-        memset(weaponowned, false, weaponowned.length);
+    fun reset() {
+        C2JUtils.memset(ammo, 0, ammo.size)
+        C2JUtils.memset(armorpoints, 0, armorpoints.size)
+        C2JUtils.memset(cards, false, cards.size)
+        C2JUtils.memset(frags, 0, frags.size)
+        C2JUtils.memset(health, 0, health.size)
+        C2JUtils.memset(maxammo, 0, maxammo.size)
+        C2JUtils.memset(powers, 0, powers.size)
+        C2JUtils.memset(weaponowned, false, weaponowned.size)
         //memset(psprites, null, psprites.length);
-        this.cheats = 0; // Forgot to clear up cheats flag...
-        this.armortype = 0;
-        this.attackdown = false;
-        this.attacker = null;
-        this.backpack = false;
-        this.bob = 0;
+        cheats = 0 // Forgot to clear up cheats flag...
+        armortype = 0
+        attackdown = false
+        attacker = null
+        backpack = false
+        bob = 0
     }
 
-    @Override
-    public player_t clone()
-        throws CloneNotSupportedException {
-        return (player_t) super.clone();
+    @Throws(CloneNotSupportedException::class)
+    public override fun clone(): player_t {
+        return super.clone() as player_t
     }
-
-    /**
-     * 16 pixels of bob
-     */
-    private static int MAXBOB = 0x100000;
 
     /**
      * P_Thrust Moves the given origin along a given angle.
@@ -271,52 +220,48 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * @param move
      * (fixed_t)
      */
-    public void Thrust(long angle, int move) {
-        mo.momx += FixedMul(move, finecosine(angle));
-        mo.momy += FixedMul(move, finesine(angle));
+    fun Thrust(angle: Long, move: Int) {
+        val mo = mo!!
+        mo.momx += FixedMul(move, Tables.finecosine(angle))
+        mo.momy += FixedMul(move, Tables.finesine(angle))
     }
-
-    protected final static int PLAYERTHRUST = 2048 / TIC_MUL;
 
     /**
      * P_MovePlayer
      */
-    public void MovePlayer() {
-        ticcmd_t cmd = this.cmd;
-
-        mo.angle += (cmd.angleturn << 16);
-        mo.angle &= BITS32;
+    fun MovePlayer() {
+        val cmd = cmd
+        val mo = mo!!
+        mo.angle += (cmd.angleturn.toInt() shl 16).toLong()
+        mo.angle = mo.angle and Tables.BITS32
 
         // Do not let the player control movement
         // if not onground.
-        onground = (mo.z <= mo.floorz);
-
-        if (cmd.forwardmove != 0 && onground) {
-            Thrust(mo.angle, cmd.forwardmove * PLAYERTHRUST);
+        onground = mo._z <= mo.floorz
+        if (cmd.forwardmove.toInt() != 0 && onground) {
+            Thrust(mo.angle, cmd.forwardmove * player_t.PLAYERTHRUST)
         }
-
-        if (cmd.sidemove != 0 && onground) {
-            Thrust((mo.angle - ANG90) & BITS32, cmd.sidemove * PLAYERTHRUST);
+        if (cmd.sidemove.toInt() != 0 && onground) {
+            Thrust(mo.angle - Tables.ANG90 and Tables.BITS32, cmd.sidemove * player_t.PLAYERTHRUST)
         }
-
-        if ((cmd.forwardmove != 0 || cmd.sidemove != 0)
-            && mo.mobj_state == states[statenum_t.S_PLAY.ordinal()]) {
-            this.mo.SetMobjState(statenum_t.S_PLAY_RUN1);
+        if ((cmd.forwardmove.toInt() != 0 || cmd.sidemove.toInt() != 0)
+            && mo.mobj_state === info.states[statenum_t.S_PLAY.ordinal]
+        ) {
+            mo.SetMobjState(statenum_t.S_PLAY_RUN1)
         }
 
         // Freelook code ripped off Heretic. Sieg heil!
-        int look = cmd.lookfly & 15;
-
+        var look = cmd.lookfly.code and 15
         if (look > 7) {
-            look -= 16;
+            look -= 16
         }
         if (look != 0) {
-            if (look == TOCENTER) {
-                centering = true;
+            if (look == Defines.TOCENTER) {
+                centering = true
             } else {
-                lookdir += 5 * look;
+                lookdir += 5 * look
                 if (lookdir > 90 || lookdir < -110) {
-                    lookdir -= 5 * look;
+                    lookdir -= 5 * look
                 }
             }
         }
@@ -324,13 +269,13 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
         // Centering is done over several tics
         if (centering) {
             if (lookdir > 0) {
-                lookdir -= 8;
+                lookdir -= 8
             } else if (lookdir < 0) {
-                lookdir += 8;
+                lookdir += 8
             }
             if (Math.abs(lookdir) < 8) {
-                lookdir = 0;
-                centering = false;
+                lookdir = 0
+                centering = false
             }
         }
         /* Flight stuff from Heretic
@@ -371,13 +316,6 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
     	} */
     }
 
-    //
-    // GET STUFF
-    //
-    // a weapon is found with two clip loads,
-    // a big item has five clip loads
-    public static final int[] clipammo = {10, 4, 20, 1};
-
     /**
      * P_GiveAmmo Num is the number of clip loads, not the individual count (0=
      * 1/2 clip).
@@ -386,254 +324,220 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * @param ammo
      * intended to be ammotype_t.
      */
-    public boolean GiveAmmo(ammotype_t amm, int num) {
-        int oldammo;
-        int ammo = amm.ordinal();
-        if (ammo == ammotype_t.am_noammo.ordinal()) {
-            return false;
+    fun GiveAmmo(amm: ammotype_t, num: Int): Boolean {
+        var num = num
+        val oldammo: Int
+        val ammo = amm.ordinal
+        if (ammo == ammotype_t.am_noammo.ordinal) {
+            return false
         }
-
-        if (ammo < 0 || ammo > NUMAMMO) {
-            DOOM.doomSystem.Error("P_GiveAmmo: bad type %i", ammo);
+        if (ammo < 0 || ammo > Defines.NUMAMMO) {
+            DOOM.doomSystem.Error("P_GiveAmmo: bad type %i", ammo)
         }
-
         if (this.ammo[ammo] == maxammo[ammo]) {
-            return false;
+            return false
         }
-
         if (num != 0) {
-            num *= clipammo[ammo];
+            num *= player_t.clipammo.get(ammo)
         } else {
-            num = clipammo[ammo] / 2;
+            num = player_t.clipammo.get(ammo) / 2
         }
-
         if (DOOM.gameskill == skill_t.sk_baby
-            || DOOM.gameskill == skill_t.sk_nightmare) {
+            || DOOM.gameskill == skill_t.sk_nightmare
+        ) {
             // give double ammo in trainer mode,
             // you'll need in nightmare
-            num <<= 1;
+            num = num shl 1
         }
-
-        oldammo = this.ammo[ammo];
-        this.ammo[ammo] += num;
-
+        oldammo = this.ammo[ammo]
+        this.ammo[ammo] += num
         if (this.ammo[ammo] > maxammo[ammo]) {
-            this.ammo[ammo] = maxammo[ammo];
+            this.ammo[ammo] = maxammo[ammo]
         }
 
         // If non zero ammo,
         // don't change up weapons,
         // player was lower on purpose.
         if (oldammo != 0) {
-            return true;
+            return true
         }
-
-        // We were down to zero,
-        // so select a new weapon.
-        // Preferences are not user selectable.
-        switch (ammotype_t.values()[ammo]) {
-            case am_clip:
-                if (readyweapon == weapontype_t.wp_fist) {
-                    if (weaponowned[weapontype_t.wp_chaingun.ordinal()]) {
-                        pendingweapon = weapontype_t.wp_chaingun;
-                    } else {
-                        pendingweapon = weapontype_t.wp_pistol;
-                    }
+        when (ammotype_t.values()[ammo]) {
+            ammotype_t.am_clip -> if (readyweapon == weapontype_t.wp_fist) {
+                pendingweapon = if (weaponowned[weapontype_t.wp_chaingun.ordinal]) {
+                    weapontype_t.wp_chaingun
+                } else {
+                    weapontype_t.wp_pistol
                 }
-                break;
-
-            case am_shell:
-                if (readyweapon == weapontype_t.wp_fist
-                    || readyweapon == weapontype_t.wp_pistol) {
-                    if (weaponowned[weapontype_t.wp_shotgun.ordinal()]) {
-                        pendingweapon = weapontype_t.wp_shotgun;
-                    }
+            }
+            ammotype_t.am_shell -> if (readyweapon == weapontype_t.wp_fist
+                || readyweapon == weapontype_t.wp_pistol
+            ) {
+                if (weaponowned[weapontype_t.wp_shotgun.ordinal]) {
+                    pendingweapon = weapontype_t.wp_shotgun
                 }
-                break;
-
-            case am_cell:
-                if (readyweapon == weapontype_t.wp_fist
-                    || readyweapon == weapontype_t.wp_pistol) {
-                    if (weaponowned[weapontype_t.wp_plasma.ordinal()]) {
-                        pendingweapon = weapontype_t.wp_plasma;
-                    }
+            }
+            ammotype_t.am_cell -> if (readyweapon == weapontype_t.wp_fist
+                || readyweapon == weapontype_t.wp_pistol
+            ) {
+                if (weaponowned[weapontype_t.wp_plasma.ordinal]) {
+                    pendingweapon = weapontype_t.wp_plasma
                 }
-                break;
-
-            case am_misl:
-                if (readyweapon == weapontype_t.wp_fist) {
-                    if (weaponowned[weapontype_t.wp_missile.ordinal()]) {
-                        pendingweapon = weapontype_t.wp_missile;
-                    }
+            }
+            ammotype_t.am_misl -> if (readyweapon == weapontype_t.wp_fist) {
+                if (weaponowned[weapontype_t.wp_missile.ordinal]) {
+                    pendingweapon = weapontype_t.wp_missile
                 }
-            default:
-                break;
+            }
+            else -> {}
         }
-
-        return true;
+        return true
     }
-
-    public static final int BONUSADD = 6;
 
     /**
      * P_GiveWeapon
      * The weapon name may have a MF_DROPPED flag ored in.
      */
-    public boolean GiveWeapon(weapontype_t weapn, boolean dropped) {
-        boolean gaveammo;
-        boolean gaveweapon;
-        int weapon = weapn.ordinal();
-
-        if (DOOM.netgame && (DOOM.deathmatch != true) // ???? was "2"
-            && !dropped) {
+    fun GiveWeapon(weapn: weapontype_t, dropped: Boolean): Boolean {
+        val gaveammo: Boolean
+        val gaveweapon: Boolean
+        val weapon = weapn.ordinal
+        if (DOOM.netgame && DOOM.deathmatch != true // ???? was "2"
+            && !dropped
+        ) {
             // leave placed weapons forever on net games
             if (weaponowned[weapon]) {
-                return false;
+                return false
             }
-
-            bonuscount += BONUSADD;
-            weaponowned[weapon] = true;
-
+            bonuscount += player_t.BONUSADD
+            weaponowned[weapon] = true
             if (DOOM.deathmatch) {
-                GiveAmmo(weaponinfo[weapon].ammo, 5);
+                GiveAmmo(items.weaponinfo[weapon].ammo, 5)
             } else {
-                GiveAmmo(weaponinfo[weapon].ammo, 2);
+                GiveAmmo(items.weaponinfo[weapon].ammo, 2)
             }
-            pendingweapon = weapn;
-
-            if (this == DOOM.players[DOOM.consoleplayer]) {
-                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_wpnup);
+            pendingweapon = weapn
+            if (this === DOOM.players[DOOM.consoleplayer]) {
+                DOOM.doomSound.StartSound(null, sfxenum_t.sfx_wpnup)
             }
-            return false;
+            return false
         }
-
-        if (weaponinfo[weapon].ammo != ammotype_t.am_noammo) {
+        gaveammo = if (items.weaponinfo[weapon].ammo != ammotype_t.am_noammo) {
             // give one clip with a dropped weapon,
             // two clips with a found weapon
             if (dropped) {
-                gaveammo = GiveAmmo(weaponinfo[weapon].ammo, 1);
+                GiveAmmo(items.weaponinfo[weapon].ammo, 1)
             } else {
-                gaveammo = GiveAmmo(weaponinfo[weapon].ammo, 2);
+                GiveAmmo(items.weaponinfo[weapon].ammo, 2)
             }
         } else {
-            gaveammo = false;
+            false
         }
-
         if (weaponowned[weapon]) {
-            gaveweapon = false;
+            gaveweapon = false
         } else {
-            gaveweapon = true;
-            weaponowned[weapon] = true;
-            pendingweapon = weapn;
+            gaveweapon = true
+            weaponowned[weapon] = true
+            pendingweapon = weapn
         }
-
-        return (gaveweapon || gaveammo);
+        return gaveweapon || gaveammo
     }
 
     /**
      * P_GiveBody Returns false if the body isn't needed at all
      */
-    public boolean GiveBody(int num) {
-        if (this.health[0] >= MAXHEALTH) {
-            return false;
+    fun GiveBody(num: Int): Boolean {
+        if (health[0] >= Limits.MAXHEALTH) {
+            return false
         }
-
-        health[0] += num;
-        if (health[0] > MAXHEALTH) {
-            health[0] = MAXHEALTH;
+        health[0] += num
+        if (health[0] > Limits.MAXHEALTH) {
+            health[0] = Limits.MAXHEALTH
         }
-        mo.health = health[0];
-
-        return true;
+        mo!!.health = health[0]
+        return true
     }
 
     /**
      * P_GiveArmor Returns false if the armor is worse than the current armor.
      */
-    public boolean GiveArmor(int armortype) {
-        int hits;
-
-        hits = armortype * 100;
+    fun GiveArmor(armortype: Int): Boolean {
+        val hits: Int
+        hits = armortype * 100
         if (armorpoints[0] >= hits) {
-            return false; // don't pick up
+            return false // don't pick up
         }
-        this.armortype = armortype;
-        armorpoints[0] = hits;
-
-        return true;
+        this.armortype = armortype
+        armorpoints[0] = hits
+        return true
     }
 
     /**
      * P_GiveCard
      */
-    public void GiveCard(card_t crd) {
-        int card = crd.ordinal();
+    fun GiveCard(crd: card_t) {
+        val card = crd.ordinal
         if (cards[card]) {
-            return;
+            return
         }
-
-        bonuscount = BONUSADD;
-        cards[card] = true;
+        bonuscount = player_t.BONUSADD
+        cards[card] = true
     }
 
     //
     // P_GivePower
     //
-    public boolean GivePower(int /* powertype_t */ power) // MAES:
+    fun GivePower(   /* powertype_t */power: Int): Boolean // MAES:
     // I
     // didn't
     // change
     // this!
     {
-        if (power == pw_invulnerability) {
-            powers[power] = INVULNTICS;
-            return true;
+        if (power == Defines.pw_invulnerability) {
+            powers[power] = Defines.INVULNTICS
+            return true
         }
-
-        if (power == pw_invisibility) {
-            powers[power] = INVISTICS;
-            mo.flags |= MF_SHADOW;
-            return true;
+        if (power == Defines.pw_invisibility) {
+            powers[power] = Defines.INVISTICS
+            val mo = mo!!
+            mo.flags = mo.flags or mobj_t.MF_SHADOW
+            return true
         }
-
-        if (power == pw_infrared) {
-            powers[power] = INFRATICS;
-            return true;
+        if (power == Defines.pw_infrared) {
+            powers[power] = Defines.INFRATICS
+            return true
         }
-
-        if (power == pw_ironfeet) {
-            powers[power] = IRONTICS;
-            return true;
+        if (power == Defines.pw_ironfeet) {
+            powers[power] = Defines.IRONTICS
+            return true
         }
-
-        if (power == pw_strength) {
-            GiveBody(100);
-            powers[power] = 1;
-            return true;
+        if (power == Defines.pw_strength) {
+            GiveBody(100)
+            powers[power] = 1
+            return true
         }
-
         if (powers[power] != 0) {
-            return false; // already got it
+            return false // already got it
         }
-        powers[power] = 1;
-        return true;
+        powers[power] = 1
+        return true
     }
 
     /**
      * G_PlayerFinishLevel
      * Called when a player completes a level.
      */
-    @SourceCode.Compatible
-    @G_Game.C(G_PlayerFinishLevel)
-    public final void PlayerFinishLevel() {
-        memset(powers, 0, powers.length);
-        memset(cards, false, cards.length);
-        mo.flags &= ~mobj_t.MF_SHADOW;     // cancel invisibility 
-        extralight = 0;          // cancel gun flashes 
-        fixedcolormap = Palettes.COLORMAP_FIXED;       // cancel ir gogles 
-        damagecount = 0;         // no palette changes 
-        bonuscount = 0;
-        lookdir = 0; // From heretic
+    @Compatible
+    @G_Game.C(G_Game.G_PlayerFinishLevel)
+    fun PlayerFinishLevel() {
+        C2JUtils.memset(powers, 0, powers.size)
+        C2JUtils.memset(cards, false, cards.size)
+        val mo = mo!!
+        mo.flags = mo.flags and mobj_t.MF_SHADOW.inv() // cancel invisibility
+        extralight = 0 // cancel gun flashes 
+        fixedcolormap = Lights.COLORMAP_FIXED // cancel ir gogles 
+        damagecount = 0 // no palette changes 
+        bonuscount = 0
+        lookdir = 0 // From heretic
     }
 
     /**
@@ -641,80 +545,60 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * Called every tic frame
      * that the player origin is in a special sector
      */
-    protected void PlayerInSpecialSector() {
-        sector_t sector;
-
-        sector = mo.subsector.sector;
+    protected fun PlayerInSpecialSector() {
+        val sector: sector_t
+        val mo = mo!!
+        sector = mo.subsector!!.sector!!
 
         // Falling, not all the way down yet?
-        if (mo.z != sector.floorheight) {
-            return;
+        if (mo._z != sector.floorheight) {
+            return
         }
-
-        // Has hitten ground.
-        switch (sector.special) {
-            case 5:
-                // HELLSLIME DAMAGE
-                if (powers[pw_ironfeet] == 0) {
-                    if (!flags(DOOM.leveltime, 0x1f)) {
-                        DOOM.actions.DamageMobj(mo, null, null, 10);
+        when (sector.special.toInt()) {
+            5 ->                 // HELLSLIME DAMAGE
+                if (powers[Defines.pw_ironfeet] == 0) {
+                    if (!C2JUtils.flags(DOOM.leveltime, 0x1f)) {
+                        DOOM.actions.DamageMobj(mo, null, null, 10)
                     }
                 }
-                break;
-
-            case 7:
-                // NUKAGE DAMAGE
-                if (powers[pw_ironfeet] == 0) {
-                    if (!flags(DOOM.leveltime, 0x1f)) {
-                        DOOM.actions.DamageMobj(mo, null, null, 5);
+            7 ->                 // NUKAGE DAMAGE
+                if (powers[Defines.pw_ironfeet] == 0) {
+                    if (!C2JUtils.flags(DOOM.leveltime, 0x1f)) {
+                        DOOM.actions.DamageMobj(mo, null, null, 5)
                     }
                 }
-                break;
-
-            case 16:
-            // SUPER HELLSLIME DAMAGE
-            case 4:
-                // STROBE HURT
-                if (!eval(powers[pw_ironfeet])
-                    || (DOOM.random.P_Random() < 5)) {
-                    if (!flags(DOOM.leveltime, 0x1f)) {
-                        DOOM.actions.DamageMobj(mo, null, null, 20);
+            16, 4 ->                 // STROBE HURT
+                if (!C2JUtils.eval(powers[Defines.pw_ironfeet]) || DOOM.random.P_Random() < 5) {
+                    if (!C2JUtils.flags(DOOM.leveltime, 0x1f)) {
+                        DOOM.actions.DamageMobj(mo, null, null, 20)
                     }
                 }
-                break;
-
-            case 9:
+            9 -> {
                 // SECRET SECTOR
-                secretcount++;
-                sector.special = 0;
-                break;
-
-            case 11:
+                secretcount++
+                sector.special = 0
+            }
+            11 -> {
                 // EXIT SUPER DAMAGE! (for E1M8 finale)
-                cheats &= ~CF_GODMODE;
-
-                if (!flags(DOOM.leveltime, 0x1f)) {
-                    DOOM.actions.DamageMobj(mo, null, null, 20);
+                cheats = cheats and player_t.CF_GODMODE.inv()
+                if (!C2JUtils.flags(DOOM.leveltime, 0x1f)) {
+                    DOOM.actions.DamageMobj(mo, null, null, 20)
                 }
-
                 if (health[0] <= 10) {
-                    DOOM.ExitLevel();
+                    DOOM.ExitLevel()
                 }
-                break;
-
-            default:
-                DOOM.doomSystem.Error("P_PlayerInSpecialSector: unknown special %d", sector.special);
-                break;
-        };
+            }
+            else -> DOOM.doomSystem.Error("P_PlayerInSpecialSector: unknown special %d", sector.special)
+        }
     }
 
     //
-//P_CalcHeight
-//Calculate the walking / running height adjustment
-//
-    public void CalcHeight() {
-        int angle;
-        int bob; // fixed
+    //P_CalcHeight
+    //Calculate the walking / running height adjustment
+    //
+    fun CalcHeight() {
+        val angle: Int
+        val bob: Int // fixed
 
         // Regular movement bobbing
         // (needs to be calculated for gun swing
@@ -722,61 +606,49 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
         // OPTIMIZE: tablify angle
         // Note: a LUT allows for effects
         //  like a ramp with low health.
-        this.bob
-            = FixedMul(mo.momx, mo.momx)
-            + FixedMul(mo.momy, mo.momy);
-
-        this.bob >>= 2;
-
-        if (this.bob > MAXBOB) {
-            this.bob = MAXBOB;
+        val mo = mo!!
+        this.bob = (FixedMul(mo.momx, mo.momx)
+                + FixedMul(mo.momy, mo.momy))
+        this.bob = this.bob shr 2
+        if (this.bob > player_t.MAXBOB) {
+            this.bob = player_t.MAXBOB
         }
-
-        if (flags(cheats, CF_NOMOMENTUM) || !onground) {
-            viewz = mo.z + VIEWHEIGHT;
-
+        if (C2JUtils.flags(cheats, player_t.CF_NOMOMENTUM) || !onground) {
+            viewz = mo._z + Defines.VIEWHEIGHT
             if (viewz > mo.ceilingz - 4 * FRACUNIT) {
-                viewz = mo.ceilingz - 4 * FRACUNIT;
+                viewz = mo.ceilingz - 4 * FRACUNIT
             }
-
-            viewz = mo.z + viewheight;
-            return;
+            viewz = mo._z + viewheight
+            return
         }
-
-        angle = (FINEANGLES / 20 * DOOM.leveltime) & FINEMASK;
-        bob = FixedMul(this.bob / 2, finesine[angle]);
+        angle = Tables.FINEANGLES / 20 * DOOM.leveltime and Tables.FINEMASK
+        bob = FixedMul(this.bob / 2, Tables.finesine[angle])
 
         // move viewheight
-        if (playerstate == PST_LIVE) {
-            viewheight += deltaviewheight;
-
-            if (viewheight > VIEWHEIGHT) {
-                viewheight = VIEWHEIGHT;
-                deltaviewheight = 0;
+        if (playerstate == Defines.PST_LIVE) {
+            viewheight += deltaviewheight
+            if (viewheight > Defines.VIEWHEIGHT) {
+                viewheight = Defines.VIEWHEIGHT
+                deltaviewheight = 0
             }
-
-            if (viewheight < VIEWHEIGHT / 2) {
-                viewheight = VIEWHEIGHT / 2;
+            if (viewheight < Defines.VIEWHEIGHT / 2) {
+                viewheight = Defines.VIEWHEIGHT / 2
                 if (deltaviewheight <= 0) {
-                    deltaviewheight = 1;
+                    deltaviewheight = 1
                 }
             }
-
             if (deltaviewheight != 0) {
-                deltaviewheight += FRACUNIT / 4;
+                deltaviewheight += FRACUNIT / 4
                 if (deltaviewheight == 0) {
-                    deltaviewheight = 1;
+                    deltaviewheight = 1
                 }
             }
         }
-        viewz = mo.z + viewheight + bob;
-
+        viewz = mo._z + viewheight + bob
         if (viewz > mo.ceilingz - 4 * FRACUNIT) {
-            viewz = mo.ceilingz - 4 * FRACUNIT;
+            viewz = mo.ceilingz - 4 * FRACUNIT
         }
     }
-
-    private static final long ANG5 = (ANG90 / 18);
 
     /**
      * P_DeathThink
@@ -786,125 +658,112 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * DOOMGUY IS SO AWESOME THAT HE THINKS EVEN WHEN DEAD!!!
      *
      */
-    public void DeathThink() {
-        long angle; //angle_t
-        long delta;
-
-        MovePsprites();
+    fun DeathThink() {
+        val angle: Long //angle_t
+        val delta: Long
+        MovePsprites()
 
         // fall to the ground
         if (viewheight > 6 * FRACUNIT) {
-            viewheight -= FRACUNIT;
+            viewheight -= FRACUNIT
         }
-
         if (viewheight < 6 * FRACUNIT) {
-            viewheight = 6 * FRACUNIT;
+            viewheight = 6 * FRACUNIT
         }
-
-        deltaviewheight = 0;
-        onground = (mo.z <= mo.floorz);
-        CalcHeight();
-
-        if (attacker != null && attacker != mo) {
-            angle = DOOM.sceneRenderer.PointToAngle2(mo.x,
-                mo.y,
-                attacker.x,
-                attacker.y);
-
-            delta = Tables.addAngles(angle, -mo.angle);
-
-            if (delta < ANG5 || delta > -ANG5) {
+        deltaviewheight = 0
+        val mo = mo!!
+        onground = mo._z <= mo.floorz
+        CalcHeight()
+        if (attacker != null && attacker !== mo) {
+            angle = DOOM.sceneRenderer.PointToAngle2(
+                mo._x,
+                mo._y,
+                attacker!!._x,
+                attacker!!._y
+            )
+            delta = Tables.addAngles(angle, -mo.angle)
+            if (delta < player_t.ANG5 || delta > -player_t.ANG5) {
                 // Looking at killer,
                 //  so fade damage flash down.
-                mo.angle = angle;
-
+                mo.angle = angle
                 if (damagecount != 0) {
-                    damagecount--;
+                    damagecount--
                 }
-            } else if (delta < ANG180) {
-                mo.angle += ANG5;
+            } else if (delta < Tables.ANG180) {
+                mo.angle += player_t.ANG5
             } else {
-                mo.angle -= ANG5;
+                mo.angle -= player_t.ANG5
             }
         } else if (damagecount != 0) {
-            damagecount--;
+            damagecount--
         }
-
-        if (flags(cmd.buttons, BT_USE)) {
-            playerstate = PST_REBORN;
+        if (C2JUtils.flags(cmd.buttons.code, Defines.BT_USE)) {
+            playerstate = Defines.PST_REBORN
         }
     }
 
-//
-// P_MovePsprites
-// Called every tic by player thinking routine.
-//
-    public void MovePsprites() {
-
-        pspdef_t psp;
-        @SuppressWarnings("unused") // Shut up compiler
-        state_t state = null;
-
-        for (int i = 0; i < NUMPSPRITES; i++) {
-            psp = psprites[i];
+    //
+    // P_MovePsprites
+    // Called every tic by player thinking routine.
+    //
+    fun MovePsprites() {
+        var psp: pspdef_t
+        var state:  // Shut up compiler
+                state_t? = null
+        for (i in 0 until player_t.NUMPSPRITES) {
+            psp = psprites[i]
             // a null state means not active
-            if ((state = psp.state) != null) {
+            if (psp.state.also { state = it } != null) {
                 // drop tic count and possibly change state
 
                 // a -1 tic count never changes
                 if (psp.tics != -1) {
-                    psp.tics--;
-                    if (!eval(psp.tics)) {
-                        this.SetPsprite(i, psp.state.nextstate);
+                    psp.tics--
+                    if (!C2JUtils.eval(psp.tics)) {
+                        SetPsprite(i, psp.state!!.nextstate!!)
                     }
                 }
             }
         }
-
-        psprites[ps_flash].sx = psprites[ps_weapon].sx;
-        psprites[ps_flash].sy = psprites[ps_weapon].sy;
+        psprites[player_t.ps_flash].sx = psprites[player_t.ps_weapon].sx
+        psprites[player_t.ps_flash].sy = psprites[player_t.ps_weapon].sy
     }
 
     /**
      * P_SetPsprite
      */
     @SourceCode.Exact
-    @P_Pspr.C(P_SetPsprite)
-    public void SetPsprite(int position, statenum_t newstate) {
-        final pspdef_t psp;
-        state_t state;
-
-        psp = psprites[position];
-
+    @P_Pspr.C(P_Pspr.P_SetPsprite)
+    fun SetPsprite(position: Int, newstate: statenum_t) {
+        var newstate = newstate
+        val psp: pspdef_t
+        var state: state_t
+        psp = psprites[position]
         do {
-            if (!eval(newstate)) {
+            if (!C2JUtils.eval(newstate)) {
                 // object removed itself
-                psp.state = null;
-                break;
+                psp.state = null
+                break
             }
-
-            state = states[newstate.ordinal()];
-            psp.state = state;
-            psp.tics = state.tics;    // could be 0
-
-            if (eval(state.misc1)) {
+            state = info.states[newstate.ordinal]
+            psp.state = state
+            psp.tics = state.tics // could be 0
+            if (C2JUtils.eval(state.misc1)) {
                 // coordinate set
-                psp.sx = state.misc1 << FRACBITS;
-                psp.sy = state.misc2 << FRACBITS;
+                psp.sx = state.misc1 shl FRACBITS
+                psp.sy = state.misc2 shl FRACBITS
             }
 
             // Call action routine.
             // Modified handling.
-            if (state.action.isParamType(PlayerSpriteConsumer.class)) {
-                state.action.fun(PlayerSpriteConsumer.class).accept(DOOM.actions, this, psp);
-                if (!eval(psp.state)) {
-                    break;
+            if (state.action?.activeState is PlayerSpriteActiveStates) {
+                (state.action!!.activeState as PlayerSpriteActiveStates).accept(DOOM.actions, PlayerSpriteConsumer(this, psp))
+                if (!C2JUtils.eval(psp.state)) {
+                    break
                 }
             }
-
-            newstate = psp.state.nextstate;
-
-        } while (!eval(psp.tics));
+            newstate = psp.state!!.nextstate!!
+        } while (!C2JUtils.eval(psp.tics))
         // an initial state of 0 could cycle through
     }
 
@@ -916,42 +775,24 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * If -1 is returned, then we have existential problems.
      *
      */
-    public int identify() {
-
+    fun identify(): Int {
         if (id >= 0) {
-            return id;
+            return id
         }
-        int i;
+        var i: Int
         // Let's assume that we know jack.
-        for (i = 0; i < DOOM.players.length; i++) {
-            if (this == DOOM.players[i]) {
-                break;
+        i = 0
+        while (i < DOOM.players.size) {
+            if (this === DOOM.players[i]) {
+                break
             }
+            i++
         }
-
-        return id = i;
-
+        return i.also { id = it }
     }
 
-    private int id = -1;
-
-    private boolean onground;
-
-    /* psprnum_t enum */
-    public static int ps_weapon = 0,
-        ps_flash = 1,
-        NUMPSPRITES = 2;
-
-    public static int LOWERSPEED = MAPFRACUNIT * 6;
-    public static int RAISESPEED = MAPFRACUNIT * 6;
-
-    public static int WEAPONBOTTOM = 128 * FRACUNIT;
-    public static int WEAPONTOP = 32 * FRACUNIT;
-
-    // plasma cells for a bfg attack
-    private static int BFGCELLS = 40;
-
-
+    private var id = -1
+    private var onground = false
     /*
      P_SetPsprite
     
@@ -1005,27 +846,26 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
     /**
      * fixed_t
      */
-    int swingx, swingy;
+    var swingx = 0
+    var swingy = 0
 
     /**
      * P_CalcSwing
      *
      * @param player
      */
-    public void CalcSwing(player_t player) {
-        int swing; // fixed_t
-        int angle;
+    fun CalcSwing(player: player_t?) {
+        val swing: Int // fixed_t
+        var angle: Int
 
         // OPTIMIZE: tablify this.
         // A LUT would allow for different modes,
         //  and add flexibility.
-        swing = this.bob;
-
-        angle = (FINEANGLES / 70 * DOOM.leveltime) & FINEMASK;
-        swingx = FixedMul(swing, finesine[angle]);
-
-        angle = (FINEANGLES / 70 * DOOM.leveltime + FINEANGLES / 2) & FINEMASK;
-        swingy = -FixedMul(swingx, finesine[angle]);
+        swing = bob
+        angle = Tables.FINEANGLES / 70 * DOOM.leveltime and Tables.FINEMASK
+        swingx = FixedMul(swing, Tables.finesine[angle])
+        angle = Tables.FINEANGLES / 70 * DOOM.leveltime + Tables.FINEANGLES / 2 and Tables.FINEMASK
+        swingy = -FixedMul(swingx, Tables.finesine[angle])
     }
 
     //
@@ -1035,27 +875,22 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
     // Uses player
     //
     @SourceCode.Exact
-    @P_Pspr.C(P_BringUpWeapon)
-    public void BringUpWeapon() {
-        statenum_t newstate;
-
+    @P_Pspr.C(P_Pspr.P_BringUpWeapon)
+    fun BringUpWeapon() {
+        val newstate: statenum_t
         if (pendingweapon == weapontype_t.wp_nochange) {
-            pendingweapon = readyweapon;
+            pendingweapon = readyweapon
         }
-
         if (pendingweapon == weapontype_t.wp_chainsaw) {
-            S_StartSound: {
-                DOOM.doomSound.StartSound(mo, sfxenum_t.sfx_sawup);
+            S_StartSound@ run {
+                DOOM.doomSound.StartSound(mo, sfxenum_t.sfx_sawup)
             }
         }
-
-        newstate = weaponinfo[pendingweapon.ordinal()].upstate;
-
-        pendingweapon = weapontype_t.wp_nochange;
-        psprites[ps_weapon].sy = WEAPONBOTTOM;
-
-        P_SetPsprite: {
-            this.SetPsprite(ps_weapon, newstate);
+        newstate = items.weaponinfo[pendingweapon!!.ordinal].upstate
+        pendingweapon = weapontype_t.wp_nochange
+        psprites[player_t.ps_weapon].sy = player_t.WEAPONBOTTOM
+        P_SetPsprite@ run {
+            SetPsprite(player_t.ps_weapon, newstate)
         }
     }
 
@@ -1064,77 +899,76 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * Returns true if there is enough ammo to shoot.
      * If not, selects the next weapon to use.
      */
-    public boolean CheckAmmo() {
-        ammotype_t ammo;
-        int count;
-
-        ammo = weaponinfo[readyweapon.ordinal()].ammo;
+    fun CheckAmmo(): Boolean {
+        val ammo: ammotype_t
+        val count: Int
+        ammo = items.weaponinfo[readyweapon.ordinal].ammo
 
         // Minimal amount for one shot varies.
-        if (readyweapon == weapontype_t.wp_bfg) {
-            count = BFGCELLS;
+        count = if (readyweapon == weapontype_t.wp_bfg) {
+            player_t.BFGCELLS
         } else if (readyweapon == weapontype_t.wp_supershotgun) {
-            count = 2;  // Double barrel.
+            2 // Double barrel.
         } else {
-            count = 1;  // Regular.
+            1 // Regular.
         }
         // Some do not need ammunition anyway.
         // Return if current ammunition sufficient.
-        if (ammo == ammotype_t.am_noammo || this.ammo[ammo.ordinal()] >= count) {
-            return true;
+        if (ammo == ammotype_t.am_noammo || this.ammo[ammo.ordinal] >= count) {
+            return true
         }
 
         // Out of ammo, pick a weapon to change to.
         // Preferences are set here.
         do {
-            if (weaponowned[weapontype_t.wp_plasma.ordinal()]
-                && (this.ammo[ammotype_t.am_cell.ordinal()] != 0)
-                && !DOOM.isShareware()) {
-                pendingweapon = weapontype_t.wp_plasma;
-            } else if (weaponowned[weapontype_t.wp_supershotgun.ordinal()]
-                && this.ammo[ammotype_t.am_shell.ordinal()] > 2
-                && DOOM.isCommercial()) {
-                pendingweapon = weapontype_t.wp_supershotgun;
-            } else if (weaponowned[weapontype_t.wp_chaingun.ordinal()]
-                && this.ammo[ammotype_t.am_clip.ordinal()] != 0) {
-                pendingweapon = weapontype_t.wp_chaingun;
-            } else if (weaponowned[weapontype_t.wp_shotgun.ordinal()]
-                && this.ammo[ammotype_t.am_shell.ordinal()] != 0) {
-                pendingweapon = weapontype_t.wp_shotgun;
-            } else if (this.ammo[ammotype_t.am_clip.ordinal()] != 0) {
-                pendingweapon = weapontype_t.wp_pistol;
-            } else if (weaponowned[weapontype_t.wp_chainsaw.ordinal()]) {
-                pendingweapon = weapontype_t.wp_chainsaw;
-            } else if (weaponowned[weapontype_t.wp_missile.ordinal()]
-                && this.ammo[ammotype_t.am_misl.ordinal()] != 0) {
-                pendingweapon = weapontype_t.wp_missile;
-            } else if (weaponowned[weapontype_t.wp_bfg.ordinal()]
-                && this.ammo[ammotype_t.am_cell.ordinal()] > 40
-                && !DOOM.isShareware()) {
-                pendingweapon = weapontype_t.wp_bfg;
-            } else {
-                // If everything fails.
-                pendingweapon = weapontype_t.wp_fist;
-            }
-
-        } while (pendingweapon == weapontype_t.wp_nochange);
+            pendingweapon =
+                if (weaponowned[weapontype_t.wp_plasma.ordinal] && this.ammo[ammotype_t.am_cell.ordinal] != 0
+                    && !DOOM.isShareware()
+                ) {
+                    weapontype_t.wp_plasma
+                } else if (weaponowned[weapontype_t.wp_supershotgun.ordinal] && this.ammo[ammotype_t.am_shell.ordinal] > 2 && DOOM.isCommercial()) {
+                    weapontype_t.wp_supershotgun
+                } else if (weaponowned[weapontype_t.wp_chaingun.ordinal]
+                    && this.ammo[ammotype_t.am_clip.ordinal] != 0
+                ) {
+                    weapontype_t.wp_chaingun
+                } else if (weaponowned[weapontype_t.wp_shotgun.ordinal]
+                    && this.ammo[ammotype_t.am_shell.ordinal] != 0
+                ) {
+                    weapontype_t.wp_shotgun
+                } else if (this.ammo[ammotype_t.am_clip.ordinal] != 0) {
+                    weapontype_t.wp_pistol
+                } else if (weaponowned[weapontype_t.wp_chainsaw.ordinal]) {
+                    weapontype_t.wp_chainsaw
+                } else if (weaponowned[weapontype_t.wp_missile.ordinal]
+                    && this.ammo[ammotype_t.am_misl.ordinal] != 0
+                ) {
+                    weapontype_t.wp_missile
+                } else if (weaponowned[weapontype_t.wp_bfg.ordinal] && this.ammo[ammotype_t.am_cell.ordinal] > 40 && !DOOM.isShareware()) {
+                    weapontype_t.wp_bfg
+                } else {
+                    // If everything fails.
+                    weapontype_t.wp_fist
+                }
+        } while (pendingweapon == weapontype_t.wp_nochange)
 
         // Now set appropriate weapon overlay.
-        this.SetPsprite(
-            ps_weapon,
-            weaponinfo[readyweapon.ordinal()].downstate);
-
-        return false;
+        SetPsprite(
+            player_t.ps_weapon,
+            items.weaponinfo[readyweapon.ordinal].downstate
+        )
+        return false
     }
 
     /**
      * P_DropWeapon
      * Player died, so put the weapon away.
      */
-    public void DropWeapon() {
-        this.SetPsprite(
-            ps_weapon,
-            weaponinfo[readyweapon.ordinal()].downstate);
+    fun DropWeapon() {
+        SetPsprite(
+            player_t.ps_weapon,
+            items.weaponinfo[readyweapon.ordinal].downstate
+        )
     }
 
     /**
@@ -1142,166 +976,162 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      * Called at start of level for each
      */
     @SourceCode.Exact
-    @P_Pspr.C(P_SetupPsprites)
-    public void SetupPsprites() {
+    @P_Pspr.C(P_Pspr.P_SetupPsprites)
+    fun SetupPsprites() {
         // remove all psprites
-        for (int i = 0; i < NUMPSPRITES; i++) {
-            psprites[i].state = null;
+        for (i in 0 until player_t.NUMPSPRITES) {
+            psprites[i].state = null
         }
 
         // spawn the gun
-        pendingweapon = readyweapon;
-        BringUpWeapon();
+        pendingweapon = readyweapon
+        BringUpWeapon()
     }
-
     /**
      * P_PlayerThink
      */
-    public void PlayerThink(player_t player) {
-        ticcmd_t cmd;
-        weapontype_t newweapon;
+    /**
+     * Called by Actions ticker
+     */
+    @JvmOverloads
+    fun PlayerThink(player: player_t = this) {
+        val cmd: ticcmd_t
+        var newweapon: weapontype_t
 
         // fixme: do this in the cheat code
-        if (flags(player.cheats, player_t.CF_NOCLIP)) {
-            player.mo.flags |= MF_NOCLIP;
+        val player_mo = player.mo!!
+        if (C2JUtils.flags(player.cheats, player_t.CF_NOCLIP)) {
+            player_mo.flags = player_mo.flags or mobj_t.MF_NOCLIP
         } else {
-            player.mo.flags &= ~MF_NOCLIP;
+            player_mo.flags = player_mo.flags and mobj_t.MF_NOCLIP.inv()
         }
 
         // chain saw run forward
-        cmd = player.cmd;
-        if (flags(player.mo.flags, MF_JUSTATTACKED)) {
-            cmd.angleturn = 0;
-            cmd.forwardmove = (0xc800 / 512);
-            cmd.sidemove = 0;
-            player.mo.flags &= ~MF_JUSTATTACKED;
+        cmd = player.cmd
+        if (C2JUtils.flags(player_mo.flags, mobj_t.MF_JUSTATTACKED)) {
+            cmd.angleturn = 0
+            cmd.forwardmove = (0xc800 / 512).toByte()
+            cmd.sidemove = 0
+            player_mo.flags = player_mo.flags and mobj_t.MF_JUSTATTACKED.inv()
         }
-
-        if (player.playerstate == PST_DEAD) {
-            player.DeathThink();
-            return;
+        if (player.playerstate == Defines.PST_DEAD) {
+            player.DeathThink()
+            return
         }
 
         // Move around.
         // Reactiontime is used to prevent movement
         //  for a bit after a teleport.
-        if (eval(player.mo.reactiontime)) {
-            player.mo.reactiontime--;
+        if (C2JUtils.eval(player_mo.reactiontime)) {
+            player_mo.reactiontime--
         } else {
-            player.MovePlayer();
+            player.MovePlayer()
         }
-
-        player.CalcHeight();
-
-        if (eval(player.mo.subsector.sector.special)) {
-            player.PlayerInSpecialSector();
+        player.CalcHeight()
+        if (C2JUtils.eval(player_mo.subsector!!.sector!!.special.toInt())) {
+            player.PlayerInSpecialSector()
         }
 
         // Check for weapon change.
         // A special event has no other buttons.
-        if (flags(cmd.buttons, BT_SPECIAL)) {
-            cmd.buttons = 0;
+        if (C2JUtils.flags(cmd.buttons.code, Defines.BT_SPECIAL)) {
+            cmd.buttons = 0.toChar()
         }
-
-        if (flags(cmd.buttons, BT_CHANGE)) {
+        if (C2JUtils.flags(cmd.buttons.code, Defines.BT_CHANGE)) {
             // The actual changing of the weapon is done
             //  when the weapon psprite can do it
             //  (read: not in the middle of an attack).
             // System.out.println("Weapon change detected, attempting to perform");
-
-            newweapon = weapontype_t.values()[(cmd.buttons & BT_WEAPONMASK) >> BT_WEAPONSHIFT];
+            newweapon = weapontype_t.values()[cmd.buttons.code and Defines.BT_WEAPONMASK shr Defines.BT_WEAPONSHIFT]
 
             // If chainsaw is available, it won't change back to the fist 
             // unless player also has berserk.
-            if (newweapon == weapontype_t.wp_fist
-                && player.weaponowned[weapontype_t.wp_chainsaw.ordinal()]
+            if (newweapon == weapontype_t.wp_fist && player.weaponowned[weapontype_t.wp_chainsaw.ordinal]
                 && !(player.readyweapon == weapontype_t.wp_chainsaw
-                && eval(player.powers[pw_strength]))) {
-                newweapon = weapontype_t.wp_chainsaw;
+                        && C2JUtils.eval(player.powers[Defines.pw_strength]))
+            ) {
+                newweapon = weapontype_t.wp_chainsaw
             }
 
             // Will switch between SG and SSG in Doom 2.
-            if (DOOM.isCommercial()
-                && newweapon == weapontype_t.wp_shotgun
-                && player.weaponowned[weapontype_t.wp_supershotgun.ordinal()]
-                && player.readyweapon != weapontype_t.wp_supershotgun) {
-                newweapon = weapontype_t.wp_supershotgun;
+            if (DOOM.isCommercial() && newweapon == weapontype_t.wp_shotgun && player.weaponowned[weapontype_t.wp_supershotgun.ordinal] && player.readyweapon != weapontype_t.wp_supershotgun) {
+                newweapon = weapontype_t.wp_supershotgun
             }
-
-            if (player.weaponowned[newweapon.ordinal()]
-                && newweapon != player.readyweapon) {
+            if (player.weaponowned[newweapon.ordinal]
+                && newweapon != player.readyweapon
+            ) {
                 // Do not go to plasma or BFG in shareware,
                 //  even if cheated.
                 if ((newweapon != weapontype_t.wp_plasma
-                    && newweapon != weapontype_t.wp_bfg)
-                    || !DOOM.isShareware()) {
-                    player.pendingweapon = newweapon;
+                            && newweapon != weapontype_t.wp_bfg)
+                    || !DOOM.isShareware()
+                ) {
+                    player.pendingweapon = newweapon
                 }
             }
         }
 
         // check for use
-        if (flags(cmd.buttons, BT_USE)) {
+        if (C2JUtils.flags(cmd.buttons.code, Defines.BT_USE)) {
             if (!player.usedown) {
-                DOOM.actions.UseLines(player);
-                player.usedown = true;
+                DOOM.actions.UseLines(player)
+                player.usedown = true
             }
         } else {
-            player.usedown = false;
+            player.usedown = false
         }
 
         // cycle psprites
-        player.MovePsprites();
+        player.MovePsprites()
 
         // Counters, time dependent power ups.
         // Strength counts up to diminish fade.
-        if (eval(player.powers[pw_strength])) {
-            player.powers[pw_strength]++;
+        if (C2JUtils.eval(player.powers[Defines.pw_strength])) {
+            player.powers[Defines.pw_strength]++
         }
-
-        if (eval(player.powers[pw_invulnerability])) {
-            player.powers[pw_invulnerability]--;
+        if (C2JUtils.eval(player.powers[Defines.pw_invulnerability])) {
+            player.powers[Defines.pw_invulnerability]--
         }
-
-        if (eval(player.powers[pw_invisibility])) {
-            if (!eval(--player.powers[pw_invisibility])) {
-                player.mo.flags &= ~MF_SHADOW;
+        if (C2JUtils.eval(player.powers[Defines.pw_invisibility])) {
+            if (!C2JUtils.eval(--player.powers[Defines.pw_invisibility])) {
+                player.mo!!.flags = player.mo!!.flags and mobj_t.MF_SHADOW.inv()
             }
         }
-
-        if (eval(player.powers[pw_infrared])) {
-            player.powers[pw_infrared]--;
+        if (C2JUtils.eval(player.powers[Defines.pw_infrared])) {
+            player.powers[Defines.pw_infrared]--
         }
-
-        if (eval(player.powers[pw_ironfeet])) {
-            player.powers[pw_ironfeet]--;
+        if (C2JUtils.eval(player.powers[Defines.pw_ironfeet])) {
+            player.powers[Defines.pw_ironfeet]--
         }
-
-        if (eval(player.damagecount)) {
-            player.damagecount--;
+        if (C2JUtils.eval(player.damagecount)) {
+            player.damagecount--
         }
-
-        if (eval(player.bonuscount)) {
-            player.bonuscount--;
+        if (C2JUtils.eval(player.bonuscount)) {
+            player.bonuscount--
         }
 
         // Handling colormaps.
-        if (eval(player.powers[pw_invulnerability])) {
-            if (player.powers[pw_invulnerability] > 4 * 32 || flags(player.powers[pw_invulnerability], 8)) {
-                player.fixedcolormap = Palettes.COLORMAP_INVERSE;
+        if (C2JUtils.eval(player.powers[Defines.pw_invulnerability])) {
+            if (player.powers[Defines.pw_invulnerability] > 4 * 32 || C2JUtils.flags(
+                    player.powers[Defines.pw_invulnerability],
+                    8
+                )
+            ) {
+                player.fixedcolormap = Lights.COLORMAP_INVERSE
             } else {
-                player.fixedcolormap = Palettes.COLORMAP_FIXED;
+                player.fixedcolormap = Lights.COLORMAP_FIXED
             }
-        } else if (eval(player.powers[pw_infrared])) {
-            if (player.powers[pw_infrared] > 4 * 32
-                || flags(player.powers[pw_infrared], 8)) {
+        } else if (C2JUtils.eval(player.powers[Defines.pw_infrared])) {
+            if (player.powers[Defines.pw_infrared] > 4 * 32
+                || C2JUtils.flags(player.powers[Defines.pw_infrared], 8)
+            ) {
                 // almost full bright
-                player.fixedcolormap = Palettes.COLORMAP_BULLBRIGHT;
+                player.fixedcolormap = Lights.COLORMAP_BULLBRIGHT
             } else {
-                player.fixedcolormap = Palettes.COLORMAP_FIXED;
+                player.fixedcolormap = Lights.COLORMAP_FIXED
             }
         } else {
-            player.fixedcolormap = Palettes.COLORMAP_FIXED;
+            player.fixedcolormap = Lights.COLORMAP_FIXED
         }
     }
 
@@ -1312,67 +1142,61 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
      *
      *
      */
-    @G_Game.C(G_PlayerReborn)
-    public void PlayerReborn() {
-        final int[] localFrags = new int[MAXPLAYERS];
-        final int localKillCount, localItemCount, localSecretCount;
+    @G_Game.C(G_Game.G_PlayerReborn)
+    fun PlayerReborn() {
+        val localFrags = IntArray(Limits.MAXPLAYERS)
+        val localKillCount: Int
+        val localItemCount: Int
+        val localSecretCount: Int
 
         // System.arraycopy(players[player].frags, 0, frags, 0, frags.length);
         // We save the player's frags here...
-        C2JUtils.memcpy(localFrags, this.frags, localFrags.length);
-        localKillCount = this.killcount;
-        localItemCount = this.itemcount;
-        localSecretCount = this.secretcount;
+        C2JUtils.memcpy(localFrags, frags, localFrags.size)
+        localKillCount = killcount
+        localItemCount = itemcount
+        localSecretCount = secretcount
 
         //MAES: we need to simulate an erasure, possibly without making
         // a new object.memset (p, 0, sizeof(*p));
         //players[player]=(player_t) player_t.nullplayer.clone();
         // players[player]=new player_t();
-        this.reset();
+        reset()
 
         // And we copy the old frags into the "new" player. 
-        C2JUtils.memcpy(this.frags, localFrags, this.frags.length);
-
-        this.killcount = localKillCount;
-        this.itemcount = localItemCount;
-        this.secretcount = localSecretCount;
-
-        usedown = attackdown = true;  // don't do anything immediately 
-        playerstate = PST_LIVE;
-        health[0] = MAXHEALTH;
-        readyweapon = pendingweapon = weapontype_t.wp_pistol;
-        weaponowned[weapontype_t.wp_fist.ordinal()] = true;
-        weaponowned[weapontype_t.wp_pistol.ordinal()] = true;
-        ammo[ammotype_t.am_clip.ordinal()] = 50;
-        lookdir = 0; // From Heretic
-
-        System.arraycopy(DoomStatus.maxammo, 0, this.maxammo, 0, NUMAMMO);
+        C2JUtils.memcpy(frags, localFrags, frags.size)
+        killcount = localKillCount
+        itemcount = localItemCount
+        secretcount = localSecretCount
+        attackdown = true
+        usedown = attackdown // don't do anything immediately 
+        playerstate = Defines.PST_LIVE
+        health[0] = Limits.MAXHEALTH
+        pendingweapon = weapontype_t.wp_pistol
+        readyweapon = pendingweapon!!
+        weaponowned[weapontype_t.wp_fist.ordinal] = true
+        weaponowned[weapontype_t.wp_pistol.ordinal] = true
+        ammo[ammotype_t.am_clip.ordinal] = 50
+        lookdir = 0 // From Heretic
+        System.arraycopy(DoomStatus.maxammo, 0, maxammo, 0, Defines.NUMAMMO)
     }
 
-    /**
-     * Called by Actions ticker
-     */
-    public void PlayerThink() {
-        PlayerThink(this);
+    override fun toString(): String {
+        val mo = mo!!
+        player_t.sb.setLength(0)
+        player_t.sb.append("player")
+        player_t.sb.append(" momx ")
+        player_t.sb.append(mo.momx)
+        player_t.sb.append(" momy ")
+        player_t.sb.append(mo.momy)
+        player_t.sb.append(" x ")
+        player_t.sb.append(mo._x)
+        player_t.sb.append(" y ")
+        player_t.sb.append(mo._y)
+        return player_t.sb.toString()
     }
 
-    public String toString() {
-        sb.setLength(0);
-        sb.append("player");
-        sb.append(" momx ");
-        sb.append(this.mo.momx);
-        sb.append(" momy ");
-        sb.append(this.mo.momy);
-        sb.append(" x ");
-        sb.append(this.mo.x);
-        sb.append(" y ");
-        sb.append(this.mo.y);
-        return sb.toString();
-    }
-
-    private static StringBuilder sb = new StringBuilder();
-
-    public void read(DataInputStream f) throws IOException {
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
 
         // Careful when loading/saving:
         // A player only carries a pointer to a mobj, which is "saved"
@@ -1385,77 +1209,98 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
         // its own map object in an absolute way. Once we identify
         // at least one (e.g. object #45 is pointer 0x43545345) then, since
         // map objects are stored in a nice serialized order.
-        this.p_mobj = DoomIO.readLEInt(f); // player mobj pointer
-
-        this.playerstate = DoomIO.readLEInt(f);
-        this.cmd.read(f);
-        this.viewz = DoomIO.readLEInt(f);
-        this.viewheight = DoomIO.readLEInt(f);
-        this.deltaviewheight = DoomIO.readLEInt(f);
-        this.bob = DoomIO.readLEInt(f);
-        this.health[0] = DoomIO.readLEInt(f);
-        this.armorpoints[0] = DoomIO.readLEInt(f);
-        this.armortype = DoomIO.readLEInt(f);
-        DoomIO.readIntArray(f, this.powers, ByteOrder.LITTLE_ENDIAN);
-        DoomIO.readBooleanIntArray(f, this.cards);
-        this.backpack = DoomIO.readIntBoolean(f);
-        DoomIO.readIntArray(f, frags, ByteOrder.LITTLE_ENDIAN);
-        this.readyweapon = weapontype_t.values()[DoomIO.readLEInt(f)];
-        this.pendingweapon = weapontype_t.values()[DoomIO.readLEInt(f)];
-        DoomIO.readBooleanIntArray(f, this.weaponowned);
-        DoomIO.readIntArray(f, ammo, ByteOrder.LITTLE_ENDIAN);
-        DoomIO.readIntArray(f, maxammo, ByteOrder.LITTLE_ENDIAN);
+        p_mobj = w.DoomIO.readLEInt(f) // player mobj pointer
+        playerstate = w.DoomIO.readLEInt(f)
+        cmd.read(f)
+        viewz = w.DoomIO.readLEInt(f)
+        viewheight = w.DoomIO.readLEInt(f)
+        deltaviewheight = w.DoomIO.readLEInt(f)
+        bob = w.DoomIO.readLEInt(f)
+        health[0] = w.DoomIO.readLEInt(f)
+        armorpoints[0] = w.DoomIO.readLEInt(f)
+        armortype = w.DoomIO.readLEInt(f)
+        w.DoomIO.readIntArray(f, powers, ByteOrder.LITTLE_ENDIAN)
+        readBooleanIntArray(f, cards)
+        backpack = w.DoomIO.readIntBoolean(f)
+        w.DoomIO.readIntArray(f, frags, ByteOrder.LITTLE_ENDIAN)
+        readyweapon = weapontype_t.values()[w.DoomIO.readLEInt(f)]
+        pendingweapon = weapontype_t.values()[w.DoomIO.readLEInt(f)]
+        readBooleanIntArray(f, weaponowned)
+        w.DoomIO.readIntArray(f, ammo, ByteOrder.LITTLE_ENDIAN)
+        w.DoomIO.readIntArray(f, maxammo, ByteOrder.LITTLE_ENDIAN)
         // Read these as "int booleans"
-        this.attackdown = DoomIO.readIntBoolean(f);
-        this.usedown = DoomIO.readIntBoolean(f);
-        this.cheats = DoomIO.readLEInt(f);
-        this.refire = DoomIO.readLEInt(f);
+        attackdown = w.DoomIO.readIntBoolean(f)
+        usedown = w.DoomIO.readIntBoolean(f)
+        cheats = w.DoomIO.readLEInt(f)
+        refire = w.DoomIO.readLEInt(f)
         // For intermission stats.
-        this.killcount = DoomIO.readLEInt(f);
-        this.itemcount = DoomIO.readLEInt(f);
-        this.secretcount = DoomIO.readLEInt(f);
+        killcount = w.DoomIO.readLEInt(f)
+        itemcount = w.DoomIO.readLEInt(f)
+        secretcount = w.DoomIO.readLEInt(f)
         // Hint messages.
-        f.skipBytes(4);
+        f.skipBytes(4)
         // For screen flashing (red or bright).
-        this.damagecount = DoomIO.readLEInt(f);
-        this.bonuscount = DoomIO.readLEInt(f);
+        damagecount = w.DoomIO.readLEInt(f)
+        bonuscount = w.DoomIO.readLEInt(f)
         // Who did damage (NULL for floors/ceilings).
         // TODO: must be properly denormalized before saving/loading
-        f.skipBytes(4); // TODO: waste a read for attacker mobj.
+        f.skipBytes(4) // TODO: waste a read for attacker mobj.
         // So gun flashes light up areas.
-        this.extralight = DoomIO.readLEInt(f);
+        extralight = w.DoomIO.readLEInt(f)
         // Current PLAYPAL, ???
         //  can be set to REDCOLORMAP for pain, etc.
-        this.fixedcolormap = DoomIO.readLEInt(f);
-        this.colormap = DoomIO.readLEInt(f);
+        fixedcolormap = w.DoomIO.readLEInt(f)
+        colormap = w.DoomIO.readLEInt(f)
         // PSPDEF _is_ readable.
-        for (pspdef_t p : this.psprites) {
-            p.read(f);
+        for (p in psprites) {
+            p.read(f)
         }
-        this.didsecret = DoomIO.readIntBoolean(f);
+        didsecret = w.DoomIO.readIntBoolean(f)
         // Total size should be 280 bytes.
     }
 
-    public void write(DataOutputStream f) throws IOException {
+    @Throws(IOException::class)
+    fun write(f: DataOutputStream) {
 
         // It's much more convenient to pre-buffer, since
         // we'll be writing all Little Endian stuff.
-        ByteBuffer b = ByteBuffer.allocate(280);
-        this.pack(b);
+        val b = ByteBuffer.allocate(280)
+        pack(b)
         // Total size should be 280 bytes.
         // Write everything nicely and at once.        
-        f.write(b.array());
+        f.write(b.array())
     }
 
     // Used to disambiguate between objects
-    public int p_mobj;
+    var p_mobj = 0
 
-    @Override
-    public void pack(ByteBuffer buf)
-        throws IOException {
+    /* Fugly hack to "reset" the player. Not worth the fugliness.
+    public static player_t nullplayer;
+    static {
+        nullplayer = new player_t();
+    }
+     */
+    init {
+        powers = IntArray(Defines.NUMPOWERS)
+        frags = IntArray(Limits.MAXPLAYERS)
+        ammo = IntArray(Defines.NUMAMMO)
+        //maxammo = new int[NUMAMMO];
+        maxammo = IntArray(Defines.NUMAMMO)
+        cards = BooleanArray(card_t.NUMCARDS.ordinal)
+        weaponowned = BooleanArray(Defines.NUMWEAPONS)
+        psprites = GenericCopy.malloc({ pspdef_t() }, player_t.NUMPSPRITES)
+        mo = mobj_t.createOn(DOOM)
+        // If a player doesn't reference himself through his object, he will have an existential crisis.
+        mo!!.player = this
+        readyweapon = weapontype_t.wp_fist
+        cmd = ticcmd_t()
+        //weaponinfo=new weaponinfo_t();
+    }
 
-        ByteOrder bo = ByteOrder.LITTLE_ENDIAN;
-        buf.order(bo);
+    @Throws(IOException::class)
+    override fun pack(buf: ByteBuffer) {
+        val bo = ByteOrder.LITTLE_ENDIAN
+        buf.order(bo)
         // The player is special in that it unambiguously allows identifying
         // its own map object in an absolute way. Once we identify
         // at least one (e.g. object #45 is pointer 0x43545345) then, since
@@ -1463,60 +1308,92 @@ public class player_t /*extends mobj_t */ implements Cloneable, IReadableDoomObj
         // their next/prev pointers, you can reconstruct their
         // relationships a posteriori.
         // Store our own hashcode or "pointer" if you wish.
-        buf.putInt(pointer(mo));
-        buf.putInt(playerstate);
-        cmd.pack(buf);
-        buf.putInt(viewz);
-        buf.putInt(viewheight);
-        buf.putInt(deltaviewheight);
-        buf.putInt(bob);
-        buf.putInt(health[0]);
-        buf.putInt(armorpoints[0]);
-        buf.putInt(armortype);
-        DoomBuffer.putIntArray(buf, this.powers, this.powers.length, bo);
-        DoomBuffer.putBooleanIntArray(buf, this.cards, this.cards.length, bo);
-        DoomBuffer.putBooleanInt(buf, backpack, bo);
-        DoomBuffer.putIntArray(buf, this.frags, this.frags.length, bo);
-        buf.putInt(readyweapon.ordinal());
-        buf.putInt(pendingweapon.ordinal());
-        DoomBuffer.putBooleanIntArray(buf, this.weaponowned, this.weaponowned.length, bo);
-        DoomBuffer.putIntArray(buf, this.ammo, this.ammo.length, bo);
-        DoomBuffer.putIntArray(buf, this.maxammo, this.maxammo.length, bo);
+        buf.putInt(C2JUtils.pointer(mo))
+        buf.putInt(playerstate)
+        cmd.pack(buf)
+        buf.putInt(viewz)
+        buf.putInt(viewheight)
+        buf.putInt(deltaviewheight)
+        buf.putInt(bob)
+        buf.putInt(health[0])
+        buf.putInt(armorpoints[0])
+        buf.putInt(armortype)
+        DoomBuffer.putIntArray(buf, powers, powers.size, bo)
+        DoomBuffer.putBooleanIntArray(buf, cards, cards.size, bo)
+        DoomBuffer.putBooleanInt(buf, backpack, bo)
+        DoomBuffer.putIntArray(buf, frags, frags.size, bo)
+        buf.putInt(readyweapon.ordinal)
+        buf.putInt(pendingweapon!!.ordinal)
+        DoomBuffer.putBooleanIntArray(buf, weaponowned, weaponowned.size, bo)
+        DoomBuffer.putIntArray(buf, ammo, ammo.size, bo)
+        DoomBuffer.putIntArray(buf, maxammo, maxammo.size, bo)
         // Read these as "int booleans"
-        DoomBuffer.putBooleanInt(buf, attackdown, bo);
-        DoomBuffer.putBooleanInt(buf, usedown, bo);
-        buf.putInt(cheats);
-        buf.putInt(refire);
+        DoomBuffer.putBooleanInt(buf, attackdown, bo)
+        DoomBuffer.putBooleanInt(buf, usedown, bo)
+        buf.putInt(cheats)
+        buf.putInt(refire)
         // For intermission stats.
-        buf.putInt(this.killcount);
-        buf.putInt(this.itemcount);
-        buf.putInt(this.secretcount);
+        buf.putInt(killcount)
+        buf.putInt(itemcount)
+        buf.putInt(secretcount)
         // Hint messages.
-        buf.putInt(0);
+        buf.putInt(0)
         // For screen flashing (red or bright).
-        buf.putInt(this.damagecount);
-        buf.putInt(this.bonuscount);
+        buf.putInt(damagecount)
+        buf.putInt(bonuscount)
         // Who did damage (NULL for floors/ceilings).
         // TODO: must be properly denormalized before saving/loading
-        buf.putInt(pointer(attacker));
+        buf.putInt(C2JUtils.pointer(attacker))
         // So gun flashes light up areas.
-        buf.putInt(this.extralight);
+        buf.putInt(extralight)
         // Current PLAYPAL, ???
         //  can be set to REDCOLORMAP for pain, etc.
-
         /**
          * Here the fixed color map of player is written when player_t object is packed.
          * Make sure not to write any preshifted value there! Do not scale player_r.fixedcolormap,
          * scale dependent array accesses.
          * - Good Sign 2017/04/15
          */
-        buf.putInt(this.fixedcolormap);
-        buf.putInt(this.colormap);
+        buf.putInt(fixedcolormap)
+        buf.putInt(colormap)
         // PSPDEF _is_ readable.
-        for (pspdef_t p : this.psprites) {
-            p.pack(buf);
+        for (p in psprites) {
+            p.pack(buf)
         }
-        buf.putInt(this.didsecret ? 1 : 0);
+        buf.putInt(if (didsecret) 1 else 0)
+    }
 
+    companion object {
+        const val CF_NOCLIP = 1 // No damage, no health loss.
+        const val CF_GODMODE = 2
+        const val CF_NOMOMENTUM = 4 // Not really a cheat, just a debug aid.
+
+        /**
+         * 16 pixels of bob
+         */
+        private const val MAXBOB = 0x100000
+        protected const val PLAYERTHRUST = 2048 / Defines.TIC_MUL
+
+        //
+        // GET STUFF
+        //
+        // a weapon is found with two clip loads,
+        // a big item has five clip loads
+        val clipammo = intArrayOf(10, 4, 20, 1)
+        const val BONUSADD = 6
+        private const val ANG5 = Tables.ANG90 / 18
+
+        /* psprnum_t enum */
+        var ps_weapon = 0
+        var ps_flash = 1
+        var NUMPSPRITES = 2
+        var LOWERSPEED: Int = MAPFRACUNIT * 6
+        var RAISESPEED: Int = MAPFRACUNIT * 6
+        var WEAPONBOTTOM: Int = 128 * FRACUNIT
+        var WEAPONTOP: Int = 32 * FRACUNIT
+
+        // plasma cells for a bfg attack
+        private const val BFGCELLS = 40
+        private val sb = StringBuilder()
     }
 }

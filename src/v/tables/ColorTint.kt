@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,141 +13,229 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http:></http:>//www.gnu.org/licenses/>.
  */
+package v.tables
 
-package v.tables;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*
 
 /**
  * Default generated tints for berserk, radsuit, bonus pickup and so on.
  * I think they may be invalid if the game uses custom COLORMAP, so we need an ability
  * to regenerate them when loading such lump.
  * Thus, it is an Enum... but only almost.
- * 
+ *
  * Added new LUT's for HiColor and TrueColor renderers
  * They are capable of tinting and gamma correcting full direct colors(not indexed) on the fly
- *  - Good Sign
+ * - Good Sign
  */
-public class ColorTint {
-    public final static ColorTint
-        NORMAL = new ColorTint(0, 0, 0, .0f),
-        RED_11 = new ColorTint(255, 2, 3, 0.11f),
-        RED_22 = new ColorTint(255, 0, 0, 0.22f),
-        RED_33 = new ColorTint(255, 0, 0, 0.33f),
-        RED_44 = new ColorTint(255, 0, 0, 0.44f),
-        RED_55 = new ColorTint(255, 0, 0, 0.55f),
-        RED_66 = new ColorTint(255, 0, 0, 0.66f),
-        RED_77 = new ColorTint(255, 0, 0, 0.77f),
-        RED_88 = new ColorTint(255, 0, 0, 0.88f),
-        BERSERK_SLIGHT = new ColorTint(215, 185, 68, 0.12f),
-        BERSERK_SOMEWHAT = new ColorTint(215, 185, 68, 0.25f),
-        BERSERK_NOTICABLE = new ColorTint(215, 185, 68, 0.375f),
-        BERSERK_HEAVY = new ColorTint(215, 185, 68, 0.50f),
-        RADSUIT = new ColorTint(3, 253, 3, 0.125f),
-
-        GREY_NORMAL = new ColorTint(NORMAL.mid(), NORMAL.mid5(), NORMAL.purepart),
-        GREY_RED_11 = new ColorTint(RED_11.mid(), RED_11.mid5(), RED_11.purepart),
-        GREY_RED_22 = new ColorTint(RED_22.mid(), RED_22.mid5(), RED_22.purepart),
-        GREY_RED_33 = new ColorTint(RED_33.mid(), RED_33.mid5(), RED_33.purepart),
-        GREY_RED_44 = new ColorTint(RED_44.mid(), RED_44.mid5(), RED_44.purepart),
-        GREY_RED_55 = new ColorTint(RED_55.mid(), RED_55.mid5(), RED_55.purepart),
-        GREY_RED_66 = new ColorTint(RED_66.mid(), RED_66.mid5(), RED_66.purepart),
-        GREY_RED_77 = new ColorTint(RED_77.mid(), RED_77.mid5(), RED_77.purepart),
-        GREY_RED_88 = new ColorTint(RED_88.mid(), RED_88.mid5(), RED_88.purepart),
-        GREY_BERSERK_SLIGHT = new ColorTint(BERSERK_SLIGHT.mid(), BERSERK_SLIGHT.mid5(), BERSERK_SLIGHT.purepart),
-        GREY_BERSERK_SOMEWHAT = new ColorTint(BERSERK_SOMEWHAT.mid(), BERSERK_SOMEWHAT.mid5(), BERSERK_SOMEWHAT.purepart),
-        GREY_BERSERK_NOTICABLE = new ColorTint(BERSERK_NOTICABLE.mid(), BERSERK_NOTICABLE.mid5(), BERSERK_NOTICABLE.purepart),
-        GREY_BERSERK_HEAVY = new ColorTint(BERSERK_HEAVY.mid(), BERSERK_HEAVY.mid5(), BERSERK_HEAVY.purepart),
-        GREY_RADSUIT = new ColorTint(RADSUIT.mid(), RADSUIT.mid5(), RADSUIT.purepart);
-    
-    public static final List<ColorTint> NORMAL_TINTS = Collections.unmodifiableList(Arrays.asList(
-        NORMAL,
-        RED_11, RED_22, RED_33, RED_44, RED_55, RED_66, RED_77, RED_88,
-        BERSERK_SLIGHT, BERSERK_SOMEWHAT, BERSERK_NOTICABLE, BERSERK_HEAVY, RADSUIT
-    ));
-    
-    public static final List<ColorTint> GREY_TINTS = Collections.unmodifiableList(Arrays.asList(
-        GREY_NORMAL,
-        GREY_RED_11, GREY_RED_22, GREY_RED_33, GREY_RED_44, GREY_RED_55, GREY_RED_66, GREY_RED_77, GREY_RED_88,
-        GREY_BERSERK_SLIGHT, GREY_BERSERK_SOMEWHAT, GREY_BERSERK_NOTICABLE, GREY_BERSERK_HEAVY, GREY_RADSUIT
-    ));
-    
+class ColorTint internal constructor(
+    private val r: Float,
+    private val r5: Float,
+    private val g: Float,
+    private val g5: Float,
+    private val b: Float,
+    private val b5: Float,
+    private val purepart: Float
+) {
     /*public static List<ColorTint> generateTints(byte cmaps[][]) {
     }*/
-    
-    ColorTint(int r, int g, int b, float tint) {
-        this(r * tint, (r >> 3) * tint, g * tint, (g >> 3) * tint, b * tint, (b >> 3) * tint, 1 - tint);
+    internal constructor(r: Int, g: Int, b: Int, tint: Float) : this(
+        r * tint,
+        (r shr 3) * tint,
+        g * tint,
+        (g shr 3) * tint,
+        b * tint,
+        (b shr 3) * tint,
+        1 - tint
+    ) {
     }
 
-    ColorTint(float mid8, float mid5, float purepart) {
-        this(mid8, mid5, mid8, mid5, mid8, mid5, purepart);
+    internal constructor(mid8: Float, mid5: Float, purepart: Float) : this(
+        mid8,
+        mid5,
+        mid8,
+        mid5,
+        mid8,
+        mid5,
+        purepart
+    ) {
     }
-    
-    ColorTint(float r, float r5, float g, float g5, float b, float b5, float purepart) {
-        this.r = r;
-        this.r5 = r5;
-        this.g = g;
-        this.g5 = g5;
-        this.b = b;
-        this.b5 = b5;
-        this.purepart = purepart;
-        for (int j = 0; j < GammaTables.LUT.length; ++j) {
-            for (int i = 0; i <= 0xFF; ++i) {
-                LUT_r8[j][i] = (byte) GammaTables.LUT[j][tintRed8(i)];
-                LUT_g8[j][i] = (byte) GammaTables.LUT[j][tintGreen8(i)];
-                LUT_b8[j][i] = (byte) GammaTables.LUT[j][tintBlue8(i)];
+
+    val LUT_r8 = Array(5) { ByteArray(0x100) }
+    val LUT_g8 = Array(5) { ByteArray(0x100) }
+    val LUT_b8 = Array(5) { ByteArray(0x100) }
+    val LUT_r5 = Array(5) { ByteArray(0x20) }
+    val LUT_g5 = Array(5) { ByteArray(0x20) }
+    val LUT_b5 = Array(5) { ByteArray(0x20) }
+
+    init {
+        for (j in GammaTables.LUT.indices) {
+            for (i in 0..0xFF) {
+                LUT_r8[j][i] = GammaTables.LUT[j][tintRed8(i)].toByte()
+                LUT_g8[j][i] = GammaTables.LUT[j][tintGreen8(i)].toByte()
+                LUT_b8[j][i] = GammaTables.LUT[j][tintBlue8(i)].toByte()
                 if (i <= 0x1F) {
-                    LUT_r5[j][i] = (byte) (GammaTables.LUT[j][tintRed5(i) << 3] >> 3);
-                    LUT_g5[j][i] = (byte) (GammaTables.LUT[j][tintGreen5(i) << 3] >> 3);
-                    LUT_b5[j][i] = (byte) (GammaTables.LUT[j][tintBlue5(i) << 3] >> 3);
+                    LUT_r5[j][i] = (GammaTables.LUT[j][tintRed5(i) shl 3] shr 3).toByte()
+                    LUT_g5[j][i] = (GammaTables.LUT[j][tintGreen5(i) shl 3] shr 3).toByte()
+                    LUT_b5[j][i] = (GammaTables.LUT[j][tintBlue5(i) shl 3] shr 3).toByte()
                 }
             }
         }
     }
 
-    private final float r, g, b;
-    private final float r5, g5, b5;
-    private final float purepart;
-    public final byte[][] LUT_r8 = new byte[5][0x100];
-    public final byte[][] LUT_g8 = new byte[5][0x100];
-    public final byte[][] LUT_b8 = new byte[5][0x100];
-    public final byte[][] LUT_r5 = new byte[5][0x20];
-    public final byte[][] LUT_g5 = new byte[5][0x20];
-    public final byte[][] LUT_b5 = new byte[5][0x20];
-    
-    public float mid() {
-        return (r + g + b) / 3;
+    fun mid(): Float {
+        return (r + g + b) / 3
     }
 
-    public float mid5() {
-        return (r5 + g5 + b5) / 3;
+    fun mid5(): Float {
+        return (r5 + g5 + b5) / 3
     }
 
-    public final int tintGreen8(int green8) {
-        return Math.min((int) (green8 * purepart + g), 0xFF);
+    fun tintGreen8(green8: Int): Int {
+        return Math.min((green8 * purepart + g).toInt(), 0xFF)
     }
 
-    public final int tintGreen5(int green5) {
-        return Math.min((int) (green5 * purepart + g5), 0x1F);
+    fun tintGreen5(green5: Int): Int {
+        return Math.min((green5 * purepart + g5).toInt(), 0x1F)
     }
 
-    public final int tintBlue8(int blue8) {
-        return Math.min((int) (blue8 * purepart + b), 0xFF);
+    fun tintBlue8(blue8: Int): Int {
+        return Math.min((blue8 * purepart + b).toInt(), 0xFF)
     }
 
-    public final int tintBlue5(int blue5) {
-        return Math.min((int) (blue5 * purepart + b5), 0x1F);
+    fun tintBlue5(blue5: Int): Int {
+        return Math.min((blue5 * purepart + b5).toInt(), 0x1F)
     }
 
-    public final int tintRed8(int red8) {
-        return Math.min((int) (red8 * purepart + r), 0xFF);
+    fun tintRed8(red8: Int): Int {
+        return Math.min((red8 * purepart + r).toInt(), 0xFF)
     }
 
-    public final int tintRed5(int red5) {
-        return Math.min((int) (red5 * purepart + r5), 0x1F);
+    fun tintRed5(red5: Int): Int {
+        return Math.min((red5 * purepart + r5).toInt(), 0x1F)
+    }
+
+    companion object {
+        val NORMAL: ColorTint = ColorTint(0, 0, 0, .0f)
+        val RED_11: ColorTint = ColorTint(255, 2, 3, 0.11f)
+        val RED_22: ColorTint = ColorTint(255, 0, 0, 0.22f)
+        val RED_33: ColorTint = ColorTint(255, 0, 0, 0.33f)
+        val RED_44: ColorTint = ColorTint(255, 0, 0, 0.44f)
+        val RED_55: ColorTint = ColorTint(255, 0, 0, 0.55f)
+        val RED_66: ColorTint = ColorTint(255, 0, 0, 0.66f)
+        val RED_77: ColorTint = ColorTint(255, 0, 0, 0.77f)
+        val RED_88: ColorTint = ColorTint(255, 0, 0, 0.88f)
+        val BERSERK_SLIGHT: ColorTint = ColorTint(215, 185, 68, 0.12f)
+        val BERSERK_SOMEWHAT: ColorTint = ColorTint(215, 185, 68, 0.25f)
+        val BERSERK_NOTICABLE: ColorTint = ColorTint(215, 185, 68, 0.375f)
+        val BERSERK_HEAVY: ColorTint = ColorTint(215, 185, 68, 0.50f)
+        val RADSUIT: ColorTint = ColorTint(3, 253, 3, 0.125f)
+        val GREY_NORMAL: ColorTint = ColorTint(
+            ColorTint.NORMAL.mid(),
+            ColorTint.NORMAL.mid5(),
+            ColorTint.NORMAL.purepart
+        )
+        val GREY_RED_11: ColorTint = ColorTint(
+            ColorTint.RED_11.mid(),
+            ColorTint.RED_11.mid5(),
+            ColorTint.RED_11.purepart
+        )
+        val GREY_RED_22: ColorTint = ColorTint(
+            ColorTint.RED_22.mid(),
+            ColorTint.RED_22.mid5(),
+            ColorTint.RED_22.purepart
+        )
+        val GREY_RED_33: ColorTint = ColorTint(
+            ColorTint.RED_33.mid(),
+            ColorTint.RED_33.mid5(),
+            ColorTint.RED_33.purepart
+        )
+        val GREY_RED_44: ColorTint = ColorTint(
+            ColorTint.RED_44.mid(),
+            ColorTint.RED_44.mid5(),
+            ColorTint.RED_44.purepart
+        )
+        val GREY_RED_55: ColorTint = ColorTint(
+            ColorTint.RED_55.mid(),
+            ColorTint.RED_55.mid5(),
+            ColorTint.RED_55.purepart
+        )
+        val GREY_RED_66: ColorTint = ColorTint(
+            ColorTint.RED_66.mid(),
+            ColorTint.RED_66.mid5(),
+            ColorTint.RED_66.purepart
+        )
+        val GREY_RED_77: ColorTint = ColorTint(
+            ColorTint.RED_77.mid(),
+            ColorTint.RED_77.mid5(),
+            ColorTint.RED_77.purepart
+        )
+        val GREY_RED_88: ColorTint = ColorTint(
+            ColorTint.RED_88.mid(),
+            ColorTint.RED_88.mid5(),
+            ColorTint.RED_88.purepart
+        )
+        val GREY_BERSERK_SLIGHT: ColorTint = ColorTint(
+            ColorTint.BERSERK_SLIGHT.mid(),
+            ColorTint.BERSERK_SLIGHT.mid5(),
+            ColorTint.BERSERK_SLIGHT.purepart
+        )
+        val GREY_BERSERK_SOMEWHAT: ColorTint = ColorTint(
+            ColorTint.BERSERK_SOMEWHAT.mid(),
+            ColorTint.BERSERK_SOMEWHAT.mid5(),
+            ColorTint.BERSERK_SOMEWHAT.purepart
+        )
+        val GREY_BERSERK_NOTICABLE: ColorTint = ColorTint(
+            ColorTint.BERSERK_NOTICABLE.mid(),
+            ColorTint.BERSERK_NOTICABLE.mid5(),
+            ColorTint.BERSERK_NOTICABLE.purepart
+        )
+        val GREY_BERSERK_HEAVY: ColorTint = ColorTint(
+            ColorTint.BERSERK_HEAVY.mid(),
+            ColorTint.BERSERK_HEAVY.mid5(),
+            ColorTint.BERSERK_HEAVY.purepart
+        )
+        val GREY_RADSUIT: ColorTint = ColorTint(
+            ColorTint.RADSUIT.mid(),
+            ColorTint.RADSUIT.mid5(),
+            ColorTint.RADSUIT.purepart
+        )
+        val NORMAL_TINTS = Collections.unmodifiableList(
+            Arrays.asList<ColorTint>(
+                ColorTint.NORMAL,
+                ColorTint.RED_11,
+                ColorTint.RED_22,
+                ColorTint.RED_33,
+                ColorTint.RED_44,
+                ColorTint.RED_55,
+                ColorTint.RED_66,
+                ColorTint.RED_77,
+                ColorTint.RED_88,
+                ColorTint.BERSERK_SLIGHT,
+                ColorTint.BERSERK_SOMEWHAT,
+                ColorTint.BERSERK_NOTICABLE,
+                ColorTint.BERSERK_HEAVY,
+                ColorTint.RADSUIT
+            )
+        )
+        val GREY_TINTS = Collections.unmodifiableList(
+            Arrays.asList<ColorTint>(
+                ColorTint.GREY_NORMAL,
+                ColorTint.GREY_RED_11,
+                ColorTint.GREY_RED_22,
+                ColorTint.GREY_RED_33,
+                ColorTint.GREY_RED_44,
+                ColorTint.GREY_RED_55,
+                ColorTint.GREY_RED_66,
+                ColorTint.GREY_RED_77,
+                ColorTint.GREY_RED_88,
+                ColorTint.GREY_BERSERK_SLIGHT,
+                ColorTint.GREY_BERSERK_SOMEWHAT,
+                ColorTint.GREY_BERSERK_NOTICABLE,
+                ColorTint.GREY_BERSERK_HEAVY,
+                ColorTint.GREY_RADSUIT
+            )
+        )
     }
 }

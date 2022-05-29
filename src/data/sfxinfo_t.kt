@@ -1,114 +1,111 @@
-package data;
+package data
 
 /**
- *   SoundFX struct.
- *    
- *   
+ * SoundFX struct.
+ *
+ *
  *
  */
+open class sfxinfo_t {
+    constructor() {}
 
-public class sfxinfo_t {
-	
-		public sfxinfo_t(){
-			
-		}
-	
-        /** up to 6-character name */
-        public String   name;
+    /** up to 6-character name  */
+    var name: String? = null
 
-        /** Sfx singularity (only one at a time) */
-        public boolean     singularity;
+    /** Sfx singularity (only one at a time)  */
+    var singularity = false
 
-        /** Sfx priority */
-        public int     priority;
+    /** Sfx priority  */
+    var priority = 0
 
-        // referenced sound if a link
-        // MAES: since in pure hackish C style, a "0" value would be used as a boolean, we'll need to distinguish more
-        // unambiguously. So for querying, look at the "linked" boolean or a getter.
-        public boolean linked;
-        
-        public sfxinfo_t  link;
+    // referenced sound if a link
+    // MAES: since in pure hackish C style, a "0" value would be used as a boolean, we'll need to distinguish more
+    // unambiguously. So for querying, look at the "linked" boolean or a getter.
+    var linked = false
+    var _link: sfxinfo_t? = null
+    fun getLink(): sfxinfo_t? {
+        return if (linked) _link else null
+    }
 
-        public sfxinfo_t getLink() {
-            if (linked) return link;
-            else return null;
+    fun setLink(link: sfxinfo_t?) {
+        this._link = link
+    }
+
+    // pitch if a link
+    var pitch = 0
+
+    // volume if a link
+    var volume = 0
+
+    /** sound data (used to be void*)  */
+    lateinit var data: ByteArray
+
+    // this is checked every second to see if sound
+    // can be thrown out (if 0, then decrement, if -1,
+    // then throw out, if > 0, then it is in use)
+    var usefulness = 0
+
+    // lump number of sfx
+    var lumpnum = 0
+
+    constructor(
+        name: String?, singularity: Boolean, priority: Int,
+        link: sfxinfo_t?, pitch: Int, volume: Int, data: ByteArray,
+        usefulness: Int, lumpnum: Int
+    ) {
+        this.name = name
+        this.singularity = singularity
+        this.priority = priority
+        this._link = link
+        this.pitch = pitch
+        this.volume = volume
+        this.data = data
+        this.usefulness = usefulness
+        this.lumpnum = lumpnum
+    }
+
+    /** MAES: Call this constructor if you don't want a cross-linked sound.
+     *
+     * @param name
+     * @param singularity
+     * @param priority
+     * @param pitch
+     * @param volume
+     * @param usefulness
+     */
+    constructor(
+        name: String?, singularity: Boolean, priority: Int,
+        pitch: Int, volume: Int, usefulness: Int
+    ) {
+        this.name = name
+        this.singularity = singularity
+        this.priority = priority
+        linked = false
+        this.pitch = pitch
+        this.volume = volume
+        this.usefulness = usefulness
+    }
+
+    constructor(
+        name: String?, singularity: Boolean, priority: Int, linked: Boolean,
+        pitch: Int, volume: Int, usefulness: Int
+    ) {
+        this.name = name
+        this.singularity = singularity
+        this.priority = priority
+        this.linked = linked
+        this.pitch = pitch
+        this.volume = volume
+        this.usefulness = usefulness
+    }
+
+    fun identify(array: Array<sfxinfo_t>): Int {
+        for (i in array.indices) {
+            if (array[i] === this) {
+                return i
+            }
         }
-
-        public void setLink(sfxinfo_t link) {
-            this.link=link;
-        }
-        
-        // pitch if a link
-        public int     pitch;
-
-        // volume if a link
-        public int     volume;
-
-        /** sound data (used to be void*) */
-        public byte[]  data;
-
-        // this is checked every second to see if sound
-        // can be thrown out (if 0, then decrement, if -1,
-        // then throw out, if > 0, then it is in use)
-        public int     usefulness;
-
-        // lump number of sfx
-        public int     lumpnum;
-
-        public sfxinfo_t(String name, boolean singularity, int priority,
-                sfxinfo_t link, int pitch, int volume, byte[] data,
-                int usefulness, int lumpnum) {
-            this.name = name;
-            this.singularity = singularity;
-            this.priority = priority;
-            this.link = link;
-            this.pitch = pitch;
-            this.volume = volume;
-            this.data = data;
-            this.usefulness = usefulness;
-            this.lumpnum = lumpnum;
-        }
-        
-        /** MAES: Call this constructor if you don't want a cross-linked sound.
-         * 
-         * @param name
-         * @param singularity
-         * @param priority
-         * @param pitch
-         * @param volume
-         * @param usefulness
-         */
-        
-        public sfxinfo_t(String name, boolean singularity, int priority,
-                int pitch, int volume, int usefulness) {
-            this.name = name;
-            this.singularity = singularity;
-            this.priority = priority;
-            this.linked = false;
-            this.pitch = pitch;
-            this.volume = volume;
-            this.usefulness = usefulness;
-        }
-        
-        public sfxinfo_t(String name, boolean singularity, int priority, boolean linked,
-                int pitch, int volume, int usefulness) {
-            this.name = name;
-            this.singularity = singularity;
-            this.priority = priority;
-            this.linked = linked;
-            this.pitch = pitch;
-            this.volume = volume;
-            this.usefulness = usefulness;
-        }
-        
-        public int identify(sfxinfo_t[] array){
-        	for (int i=0;i<array.length;i++){
-        		if (array[i]==this){
-        			return i;
-        		}
-        	}
-        	// Duh
-        	return 0;
-        }
-        
-    };
+        // Duh
+        return 0
+    }
+}

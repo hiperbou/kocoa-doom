@@ -1,91 +1,77 @@
-package rr;
+package rr
 
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
-import p.Resettable;
-
-import static m.fixed_t.FRACBITS;
-import w.DoomIO;
-import w.IPackableDoomObject;
-import w.IReadableDoomObject;
+import m.fixed_t.Companion.FRACBITS
+import p.Resettable
+import w.DoomIO
+import w.IPackableDoomObject
+import w.IReadableDoomObject
+import java.io.DataInputStream
+import java.io.IOException
+import java.nio.ByteBuffer
 
 /**
  * The SideDef.
- * 
+ *
  * @author admin
  */
-public class side_t
-        implements IReadableDoomObject, IPackableDoomObject, Resettable {
-    /** (fixed_t) add this to the calculated texture column */
-    public int textureoffset;
+class side_t : IReadableDoomObject, IPackableDoomObject, Resettable {
+    /** (fixed_t) add this to the calculated texture column  */
+    var textureoffset = 0
 
-    /** (fixed_t) add this to the calculated texture top */
-    public int rowoffset;
+    /** (fixed_t) add this to the calculated texture top  */
+    var rowoffset = 0
 
     /**
      * Texture indices. We do not maintain names here.
      */
-    public short toptexture;
+    var toptexture: Short = 0
+    var bottomtexture: Short = 0
+    var midtexture: Short = 0
 
-    public short bottomtexture;
+    /** Sector the SideDef is facing. MAES: pointer  */
+    var sector: sector_t? = null
+    var sectorid = 0
+    var special = 0
 
-    public short midtexture;
-
-    /** Sector the SideDef is facing. MAES: pointer */
-    public sector_t sector;
-
-    public int sectorid;
-
-    public int special;
-
-    public side_t() {
+    constructor() {}
+    constructor(
+        textureoffset: Int, rowoffset: Int, toptexture: Short,
+        bottomtexture: Short, midtexture: Short, sector: sector_t?
+    ) : super() {
+        this.textureoffset = textureoffset
+        this.rowoffset = rowoffset
+        this.toptexture = toptexture
+        this.bottomtexture = bottomtexture
+        this.midtexture = midtexture
+        this.sector = sector
     }
 
-    public side_t(int textureoffset, int rowoffset, short toptexture,
-            short bottomtexture, short midtexture, sector_t sector) {
-        super();
-        this.textureoffset = textureoffset;
-        this.rowoffset = rowoffset;
-        this.toptexture = toptexture;
-        this.bottomtexture = bottomtexture;
-        this.midtexture = midtexture;
-        this.sector = sector;
-    }
-
-    @Override
-    public void read(DataInputStream f)
-            throws IOException {
-        this.textureoffset = DoomIO.readLEShort(f) << FRACBITS;
-        this.rowoffset = DoomIO.readLEShort(f) << FRACBITS;
-        this.toptexture = DoomIO.readLEShort(f);
-        this.bottomtexture = DoomIO.readLEShort(f);
-        this.midtexture = DoomIO.readLEShort(f);
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
+        textureoffset = DoomIO.readLEShort(f).toInt() shl FRACBITS
+        rowoffset = DoomIO.readLEShort(f).toInt() shl FRACBITS
+        toptexture = DoomIO.readLEShort(f)
+        bottomtexture = DoomIO.readLEShort(f)
+        midtexture = DoomIO.readLEShort(f)
         // this.sectorid=f.readLEInt();
-
     }
 
-    @Override
-    public void pack(ByteBuffer buffer) {
-        buffer.putShort((short) (textureoffset >> FRACBITS));
-        buffer.putShort((short) (rowoffset >> FRACBITS));
-        buffer.putShort(toptexture);
-        buffer.putShort(bottomtexture);
-        buffer.putShort(midtexture);
+    override fun pack(buffer: ByteBuffer) {
+        buffer.putShort((textureoffset shr FRACBITS).toShort())
+        buffer.putShort((rowoffset shr FRACBITS).toShort())
+        buffer.putShort(toptexture)
+        buffer.putShort(bottomtexture)
+        buffer.putShort(midtexture)
     }
 
-    @Override
-    public void reset() {
-        textureoffset = 0;
-        rowoffset = 0;
-        toptexture = 0;
-        bottomtexture = 0;
-        midtexture = 0;
-        sector = null;
-        sectorid = 0;
-        special = 0;
-
+    override fun reset() {
+        textureoffset = 0
+        rowoffset = 0
+        toptexture = 0
+        bottomtexture = 0
+        midtexture = 0
+        sector = null
+        sectorid = 0
+        special = 0
     }
-
 }

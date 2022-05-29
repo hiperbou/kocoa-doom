@@ -1,57 +1,42 @@
-package rr;
+package rr
 
-import static data.Tables.FINEANGLES;
-import doom.SourceCode.R_Draw;
-import static doom.SourceCode.R_Draw.R_FillBackScreen;
-import doom.player_t;
-import i.IDoomSystem;
-import static m.fixed_t.FRACUNIT;
-import rr.drawfuns.ColFuncs;
-import rr.drawfuns.ColVars;
-import rr.drawfuns.SpanVars;
-import v.tables.LightsAndColors;
-import w.IWadLoader;
+import data.Tables
+import doom.SourceCode.R_Draw
+import doom.player_t
+import i.IDoomSystem
+import m.fixed_t.Companion.FRACUNIT
+import rr.drawfuns.ColFuncs
+import rr.drawfuns.ColVars
+import rr.drawfuns.SpanVars
+import v.tables.LightsAndColors
+import w.IWadLoader
 
-public interface SceneRenderer<T, V> {
+interface SceneRenderer<T, V> {
+    fun Init()
+    fun RenderPlayerView(player: player_t)
+    fun ExecuteSetViewSize()
 
-    /**
-     * Fineangles in the SCREENWIDTH wide window.
-     */
-    public static final int FIELDOFVIEW = FINEANGLES / 4;
-    public static final int MINZ = (FRACUNIT * 4);
-    public static final int FUZZTABLE = 50;
-
-    /**
-     * killough: viewangleoffset is a legacy from the pre-v1.2 days, when Doom
-     * had Left/Mid/Right viewing. +/-ANG90 offsets were placed here on each
-     * node, by d_net.c, to set up a L/M/R session.
-     */
-    public static final long viewangleoffset = 0;
-
-    public void Init();
-    public void RenderPlayerView(player_t player);
-    public void ExecuteSetViewSize();
-    @R_Draw.C(R_FillBackScreen)
-    public void FillBackScreen();
-    public void DrawViewBorder();
-    public void SetViewSize(int size, int detaillevel);
-    public long PointToAngle2(int x1, int y1, int x2, int y2);
-    public void PreCacheThinkers();
-    public int getValidCount();
-    public void increaseValidCount(int amount);
-    public boolean isFullHeight();
-    public void resetLimits();
-    public boolean getSetSizeNeeded();
-    public boolean isFullScreen();
+    @R_Draw.C(R_Draw.R_FillBackScreen)
+    fun FillBackScreen()
+    fun DrawViewBorder()
+    fun SetViewSize(size: Int, detaillevel: Int)
+    fun PointToAngle2(x1: Int, y1: Int, x2: Int, y2: Int): Long
+    fun PreCacheThinkers()
+    fun getValidCount(): Int
+    fun increaseValidCount(amount: Int)
+    fun isFullHeight(): Boolean
+    fun resetLimits()
+    fun getSetSizeNeeded(): Boolean
+    fun isFullScreen(): Boolean
 
     // Isolation methods
-    public TextureManager<T> getTextureManager();
-    public PlaneDrawer<T, V> getPlaneDrawer();
-    public ViewVars getView();
-    public SpanVars<T, V> getDSVars();
-    public LightsAndColors<V> getColorMap();
-    public IDoomSystem getDoomSystem();
-    public IWadLoader getWadLoader();
+    fun getTextureManager(): TextureManager<T>
+    fun getPlaneDrawer(): PlaneDrawer<T, V>
+    fun getView(): ViewVars
+    fun getDSVars(): SpanVars<T, V>
+    fun getColorMap(): LightsAndColors<V>
+    fun getDoomSystem(): IDoomSystem
+    fun getWadLoader(): IWadLoader?
 
     /**
      * Use this to "peg" visplane drawers (even parallel ones) to
@@ -59,14 +44,28 @@ public interface SceneRenderer<T, V> {
      *
      * @return
      */
-    public Visplanes getVPVars();
-    public SegVars getSegVars();
-    public ISpriteManager getSpriteManager();
-    public BSPVars getBSPVars();
-    public IVisSpriteManagement<V> getVisSpriteManager();
-    public ColFuncs<T, V> getColFuncsHi();
-    public ColFuncs<T, V> getColFuncsLow();
-    public ColVars<T, V> getMaskedDCVars();
+    fun getVPVars(): Visplanes
+    fun getSegVars(): SegVars
+    fun getSpriteManager(): ISpriteManager?
+    fun getBSPVars(): BSPVars
+    fun getVisSpriteManager(): IVisSpriteManagement<V>
+    fun getColFuncsHi(): ColFuncs<T, V>
+    fun getColFuncsLow(): ColFuncs<T, V>
+    fun getMaskedDCVars(): ColVars<T, V> //public subsector_t PointInSubsector(int x, int y);
 
-    //public subsector_t PointInSubsector(int x, int y);
+    companion object {
+        /**
+         * Fineangles in the SCREENWIDTH wide window.
+         */
+        const val FIELDOFVIEW = Tables.FINEANGLES / 4
+        val MINZ: Int = FRACUNIT * 4
+        const val FUZZTABLE = 50
+
+        /**
+         * killough: viewangleoffset is a legacy from the pre-v1.2 days, when Doom
+         * had Left/Mid/Right viewing. +/-ANG90 offsets were placed here on each
+         * node, by d_net.c, to set up a L/M/R session.
+         */
+        const val viewangleoffset: Long = 0
+    }
 }

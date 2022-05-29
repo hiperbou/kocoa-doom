@@ -1,18 +1,17 @@
-package rr.drawfuns;
+package rr.drawfuns
 
-public class SpanVars<T,V> {
 
-    public int ds_xfrac;
-    public int ds_yfrac;
-    public int ds_xstep;
-    public T ds_source;
-    
-    /** DrawSpan colormap. */
-    public V ds_colormap;
-    public int ds_y;
-    public int ds_x2;
-    public int ds_x1;
-    public int ds_ystep;
-    
-    public DoomSpanFunction<T,V>  spanfunc;
+class SpanVars<T, V> {
+    var ds_xfrac = 0
+    var ds_yfrac = 0
+    var ds_xstep = 0
+    var ds_source: T? = null
+
+    /** DrawSpan colormap.  */
+    var ds_colormap: V? = null
+    var ds_y = 0
+    var ds_x2 = 0
+    var ds_x1 = 0
+    var ds_ystep = 0
+    var spanfunc: DoomSpanFunction<T, V>? = null
 }

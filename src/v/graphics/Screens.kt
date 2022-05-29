@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,82 +15,86 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.graphics;
+package v.graphics
 
-import f.Wiper;
-import java.lang.reflect.Array;
-import m.IRandom;
-import static utils.GenericCopy.*;
-import v.renderers.DoomScreen;
+import f.Wiper
+import m.IRandom
+import utils.GenericCopy
+import v.graphics.Plotter.Thin
+import v.renderers.DoomScreen
+import java.lang.reflect.Array
 
 /**
  * Screen surface library
  *
  * @author Good Sign
  */
-public interface Screens<V, E extends Enum<E>> {
-    final int SCREENS_COUNT = DoomScreen.values().length;
-    
-    V getScreen(E screenType);
-    int getScalingX();
-    int getScalingY();
-    int getScreenWidth();
-    int getScreenHeight();
-    Wiper createWiper(IRandom random);
-    
+interface Screens<V, E : Enum<E>> {
+    fun getScreen(screenType: E): V?
+    fun getScalingX(): Int
+    fun getScalingY(): Int
+    fun getScreenWidth(): Int
+    fun getScreenHeight(): Int
+    fun createWiper(random: IRandom): Wiper
     /**
      * memset-like methods for screen surfaces
      */
-    
     /**
      * Will fill destPortion on the screen with color of the specified point on it
      * The point argument IS NOT a color to fill, only a POINTER to the pixel on the screen
      */
-    default void screenSet(V screen, int point, Horizontal destination) {
-        memset(screen, destination.start, destination.length, screen, point, 1);
+    fun screenSet(screen: V, point: Int, destination: Horizontal) {
+        GenericCopy.memset(screen, destination.start, destination.length, screen, point, 1)
     }
-    
+
     /**
      * Will fill destPortion on the dstScreen by scrPortion pattern from srcScreen
      */
-    default void screenSet(V srcScreen, Horizontal pattern, V dstScreen, Horizontal destination) {
-        memset(dstScreen, destination.start, destination.length, srcScreen, pattern.start, pattern.length);
+    fun screenSet(srcScreen: V, pattern: Horizontal, dstScreen: V, destination: Horizontal) {
+        GenericCopy.memset(dstScreen, destination.start, destination.length, srcScreen, pattern.start, pattern.length)
     }
 
     /**
      * Will fill destPortion on the dstScreen with color of the specified point on the srcScreen
      * The point argument IS NOT a color to fill, only a POINTER to the pixel on the screen
      */
-    default void screenSet(V srcScreen, int point, V dstScreen, Horizontal destination) {
-        memset(dstScreen, destination.start, destination.length, srcScreen, point, 1);
+    fun screenSet(srcScreen: V, point: Int, dstScreen: V, destination: Horizontal) {
+        GenericCopy.memset(dstScreen, destination.start, destination.length, srcScreen, point, 1)
     }
 
     /**
      * Will fill destPortion on the screen with srcPortion pattern from the same screen
      */
-    default void screenSet(V screen, Horizontal pattern, Horizontal destination) {
-        memset(screen, destination.start, destination.length, screen, pattern.start, pattern.length);
+    fun screenSet(screen: V, pattern: Horizontal, destination: Horizontal) {
+        GenericCopy.memset(screen, destination.start, destination.length, screen, pattern.start, pattern.length)
     }
 
     /**
      * memcpy-like method for screen surfaces
      */
-    default void screenCopy(V srcScreen, V dstScreen, Relocation relocation) {
-        memcpy(srcScreen, relocation.source, dstScreen, relocation.destination, relocation.length);
+    fun screenCopy(srcScreen: V, dstScreen: V, relocation: Relocation) {
+        GenericCopy.memcpy(srcScreen, relocation.source, dstScreen, relocation.destination, relocation.length)
     }
-    
-    default void screenCopy(E srcScreen, E dstScreen) {
-        final Object dstScreenObj = getScreen(dstScreen);
-        memcpy(getScreen(srcScreen), 0, dstScreenObj, 0, Array.getLength(dstScreenObj));
+
+    fun screenCopy(srcScreen: E, dstScreen: E) {
+        val dstScreenObj: Any? = getScreen(dstScreen)
+        GenericCopy.memcpy(getScreen(srcScreen), 0, dstScreenObj, 0, Array.getLength(dstScreenObj))
     }
-    
-    default Plotter<V> createPlotter(E screen) {
-        return new Plotter.Thin<>(getScreen(screen), getScreenWidth());
+
+    fun createPlotter(screen: E): Plotter<V?> {
+        return Thin(getScreen(screen), getScreenWidth())
     }
-    
-    class BadRangeException extends Exception {
-		private static final long serialVersionUID = 2903441181162189295L;
-		public BadRangeException(String m) { super(m);}
-        public BadRangeException() {}
+
+    class BadRangeException : Exception {
+        constructor(m: String?) : super(m) {}
+        constructor() {}
+
+        companion object {
+            private const val serialVersionUID = 2903441181162189295L
+        }
+    }
+
+    companion object {
+        val SCREENS_COUNT = DoomScreen.values().size
     }
 }

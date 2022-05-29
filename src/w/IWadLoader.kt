@@ -1,28 +1,27 @@
-package w;
+package w
 
-import data.Defines;
-import doom.SourceCode.W_Wad;
-import static doom.SourceCode.W_Wad.*;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.function.IntFunction;
-import rr.patch_t;
-import utils.GenericCopy.ArraySupplier;
-import v.graphics.Lights;
-import static v.graphics.Palettes.PAL_NUM_COLORS;
-import static v.graphics.Palettes.PAL_NUM_STRIDES;
-import v.tables.Playpal;
+import data.Defines
+import data.mapvertex_t
+import doom.SourceCode.W_Wad
+import rr.patch_t
+import utils.GenericCopy.ArraySupplier
+import v.graphics.Lights
+import v.graphics.Palettes
+import v.tables.Playpal
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.util.function.IntFunction
 
-public interface IWadLoader {
-
+interface IWadLoader {
     /**
      * W_Reload Flushes any of the reloadable lumps in memory and reloads the
      * directory.
      *
      * @throws Exception
      */
-    @W_Wad.C(W_Reload)
-    public abstract void Reload() throws Exception;
+    @W_Wad.C(W_Wad.W_Reload)
+    @Throws(Exception::class)
+    fun Reload()
 
     /**
      * W_InitMultipleFiles
@@ -44,10 +43,10 @@ public interface IWadLoader {
      * does override all earlier ones.
      *
      * @param filenames
-     *
      */
-    @W_Wad.C(W_InitMultipleFiles)
-    public abstract void InitMultipleFiles(String[] filenames) throws Exception;
+    @W_Wad.C(W_Wad.W_InitMultipleFiles)
+    @Throws(Exception::class)
+    fun InitMultipleFiles(filenames: Array<String?>)
 
     /**
      * W_InitFile
@@ -55,9 +54,9 @@ public interface IWadLoader {
      * Just initialize from a single file.
      *
      * @param filename
-     *
      */
-    public abstract void InitFile(String filename) throws Exception;
+    @Throws(Exception::class)
+    fun InitFile(filename: String?)
 
     /**
      * W_NumLumps
@@ -65,7 +64,7 @@ public interface IWadLoader {
      * Returns the total number of lumps loaded in this Wad manager. Awesome.
      *
      */
-    public abstract int NumLumps();
+    fun NumLumps(): Int
 
     /**
      * Returns actual lumpinfo_t object for a given name. Useful if you want to
@@ -74,28 +73,28 @@ public interface IWadLoader {
      * @param name
      * @return
      */
-    public abstract lumpinfo_t GetLumpinfoForName(String name);
+    fun GetLumpinfoForName(name: String): lumpinfo_t?
 
     /**
      * W_GetNumForName
      * Calls W_CheckNumForName, but bombs out if not found.
      */
-    @W_Wad.C(W_GetNumForName)
-    public abstract int GetNumForName(String name);
+    @W_Wad.C(W_Wad.W_GetNumForName)
+    fun GetNumForName(name: String): Int
 
     /**
      *
      * @param lumpnum
      * @return
      */
-    public abstract String GetNameForNum(int lumpnum);
+    fun GetNameForNum(lumpnum: Int): String?
 
     //
     // W_LumpLength
     // Returns the buffer size needed to load the given lump.
     //
-    @W_Wad.C(W_LumpLength)
-    public abstract int LumpLength(int lump);
+    @W_Wad.C(W_Wad.W_LumpLength)
+    fun LumpLength(lump: Int): Int
 
     /**
      * W_CacheLumpNum Modified to read a lump as a specific type of
@@ -103,16 +102,21 @@ public interface IWadLoader {
      * generic DoomBuffer object is left in the lump cache and returned.
      *
      * @param <T>
-     */
-    @W_Wad.C(W_CacheLumpNum)
-    public abstract <T> T CacheLumpNum(int lump, int tag,
-        Class<T> what);
+    </T> */
+    @W_Wad.C(W_Wad.W_CacheLumpNum)
+    fun <T> CacheLumpNum(
+        lump: Int, tag: Int,
+        what: Class<T>?
+    ): T?
 
     // MAES 24/8/2011: superseded by auto-allocating version with proper 
     // container-based caching.
-    @Deprecated
-    public abstract void CacheLumpNumIntoArray(int lump, int tag,
-        Object[] array, Class<?> what) throws IOException;
+    @Deprecated("")
+    @Throws(IOException::class)
+    fun CacheLumpNumIntoArray(
+        lump: Int, tag: Int,
+        array: Array<mapvertex_t>, what: Class<*>?
+    )
 
     /**
      * Return a cached lump based on its name, as raw bytes, no matter what.
@@ -123,7 +127,7 @@ public interface IWadLoader {
      * @param what
      * @return
      */
-    public abstract byte[] CacheLumpNameAsRawBytes(String name, int tag);
+    fun CacheLumpNameAsRawBytes(name: String, tag: Int): ByteArray
 
     /**
      * Return a cached lump based on its num, as raw bytes, no matter what.
@@ -134,7 +138,7 @@ public interface IWadLoader {
      * @param what
      * @return
      */
-    public abstract byte[] CacheLumpNumAsRawBytes(int num, int tag);
+    fun CacheLumpNumAsRawBytes(num: Int, tag: Int): ByteArray
 
     /**
      * Get a DoomBuffer of the specified lump name
@@ -143,8 +147,8 @@ public interface IWadLoader {
      * @param tag
      * @return
      */
-    @W_Wad.C(W_CacheLumpName)
-    public abstract DoomBuffer CacheLumpName(String name, int tag);
+    @W_Wad.C(W_Wad.W_CacheLumpName)
+    fun CacheLumpName(name: String, tag: Int): DoomBuffer
 
     /**
      * Get a DoomBuffer of the specified lump num
@@ -152,7 +156,7 @@ public interface IWadLoader {
      * @param lump
      * @return
      */
-    public abstract DoomBuffer CacheLumpNumAsDoomBuffer(int lump);
+    fun CacheLumpNumAsDoomBuffer(lump: Int): DoomBuffer
 
     /**
      * Specific method for loading cached patches by name, since it's by FAR the
@@ -161,7 +165,7 @@ public interface IWadLoader {
      * @param name
      * @return
      */
-    public abstract patch_t CachePatchName(String name);
+    fun CachePatchName(name: String): patch_t
 
     /**
      * Specific method for loading cached patches, since it's by FAR the most
@@ -171,7 +175,7 @@ public interface IWadLoader {
      * @param tag
      * @return
      */
-    public abstract patch_t CachePatchName(String name, int tag);
+    fun CachePatchName(name: String, tag: Int): patch_t
 
     /**
      * Specific method for loading cached patches by number.
@@ -179,10 +183,10 @@ public interface IWadLoader {
      * @param num
      * @return
      */
-    public abstract patch_t CachePatchNum(int num);
+    fun CachePatchNum(num: Int): patch_t
 
-    @W_Wad.C(W_CacheLumpName)
-    public abstract <T extends CacheableDoomObject> T CacheLumpName(String name, int tag, Class<T> what);
+    @W_Wad.C(W_Wad.W_CacheLumpName)
+    fun <T : CacheableDoomObject?> CacheLumpName(name: String, tag: Int, what: Class<T>?): T
 
     /**
      * A lump with size 0 is a marker. This means that it
@@ -192,12 +196,11 @@ public interface IWadLoader {
      * @param lump
      * @return
      */
-    public abstract boolean isLumpMarker(int lump);
+    fun isLumpMarker(lump: Int): Boolean
+    fun GetNameForLump(lump: Int): String?
 
-    public abstract String GetNameForLump(int lump);
-
-    @W_Wad.C(W_CheckNumForName)
-    public abstract int CheckNumForName(String name/* , int namespace */);
+    @W_Wad.C(W_Wad.W_CheckNumForName)
+    fun CheckNumForName(name: String /* , int namespace */): Int
 
     /**
      * Return ALL possible results for a given name, in order to resolve name clashes without
@@ -206,15 +209,14 @@ public interface IWadLoader {
      * @param name
      * @return
      */
-    public abstract int[] CheckNumsForName(String name);
-
-    public abstract lumpinfo_t GetLumpInfo(int i);
+    fun CheckNumsForName(name: String): IntArray
+    fun GetLumpInfo(i: Int): lumpinfo_t?
 
     /**
      * A way to cleanly close open file handles still pointed at by lumps.
      * Is also called upon finalize
      */
-    public void CloseAllHandles();
+    fun CloseAllHandles()
 
     /**
      * Null the disk lump associated with a particular object,
@@ -223,11 +225,14 @@ public interface IWadLoader {
      *
      * @param lump
      */
-    void UnlockLumpNum(int lump);
-
-    void UnlockLumpNum(CacheableDoomObject lump);
-
-    public <T extends CacheableDoomObject> T[] CacheLumpNumIntoArray(int lump, int num, ArraySupplier<T> what, IntFunction<T[]> arrGen);
+    fun UnlockLumpNum(lump: Int)
+    fun UnlockLumpNum(lump: CacheableDoomObject?)
+    fun <T : CacheableDoomObject> CacheLumpNumIntoArray(
+        lump: Int,
+        num: Int,
+        what: ArraySupplier<T>,
+        arrGen: IntFunction<Array<T>?>
+    ): Array<T>
 
     /**
      * Verify whether a certain lump number is valid and has
@@ -237,7 +242,7 @@ public interface IWadLoader {
      * @param lumpname
      * @return
      */
-    boolean verifyLumpName(int lump, String lumpname);
+    fun verifyLumpName(lump: Int, lumpname: String): Boolean
 
     /**
      * The index of a known loaded wadfile
@@ -245,14 +250,14 @@ public interface IWadLoader {
      * @param wad1
      * @return
      */
-    public abstract int GetWadfileIndex(wadfile_info_t wad1);
+    fun GetWadfileIndex(wad1: wadfile_info_t): Int
 
     /**
      * The number of loaded wadfile
      *
      * @return
      */
-    public abstract int GetNumWadfiles();
+    fun GetNumWadfiles(): Int
 
     /**
      * Force a lump (in memory) to be equal to a dictated content. Useful
@@ -262,7 +267,7 @@ public interface IWadLoader {
      * @param lump
      * @param obj
      */
-    void InjectLumpNum(int lump, CacheableDoomObject obj);
+    fun InjectLumpNum(lump: Int, obj: CacheableDoomObject?)
 
     /**
      * Read a lump into a bunch of bytes straight. No caching, no frills.
@@ -270,8 +275,8 @@ public interface IWadLoader {
      * @param lump
      * @return
      */
-    @W_Wad.C(W_ReadLump)
-    byte[] ReadLump(int lump);
+    @W_Wad.C(W_Wad.W_ReadLump)
+    fun ReadLump(lump: Int): ByteArray
 
     /**
      * Use your own buffer, of proper size of course.
@@ -279,7 +284,7 @@ public interface IWadLoader {
      * @param lump
      * @param buf
      */
-    void ReadLump(int lump, byte[] buf);
+    fun ReadLump(lump: Int, buf: ByteArray?)
 
     /**
      * Use your own buffer, of proper size AND offset.
@@ -287,7 +292,7 @@ public interface IWadLoader {
      * @param lump
      * @param buf
      */
-    void ReadLump(int lump, byte[] buf, int offset);
+    fun ReadLump(lump: Int, buf: ByteArray?, offset: Int)
 
     /**
      * Loads PLAYPAL from wad lump. Repairs if necessary.
@@ -295,23 +300,21 @@ public interface IWadLoader {
      *
      * @return byte[] of presumably 256 colors, 3 bytes each
      */
-    default byte[] LoadPlaypal() {
+    fun LoadPlaypal(): ByteArray? {
         // Copy over the one you read from disk...
-        int pallump = GetNumForName("PLAYPAL");
-        byte[] playpal = Playpal.properPlaypal(CacheLumpNumAsRawBytes(pallump, Defines.PU_STATIC));
-
-        final int minLength = PAL_NUM_COLORS * PAL_NUM_STRIDES;
-        if (playpal.length < minLength) {
-            throw new IllegalArgumentException(String.format(
+        val pallump = GetNumForName("PLAYPAL")
+        val playpal = Playpal.properPlaypal(CacheLumpNumAsRawBytes(pallump, Defines.PU_STATIC))
+        val minLength: Int = Palettes.PAL_NUM_COLORS * Palettes.PAL_NUM_STRIDES
+        require(playpal.size >= minLength) {
+            String.format(
                 "Invalid PLAYPAL: has %d entries instead of %d. Try -noplaypal mode",
-                playpal.length, minLength));
+                playpal.size, minLength
+            )
         }
-
-        System.out.print("VI_Init: set palettes.\n");
-        System.out.println("Palette: " + playpal.length / PAL_NUM_STRIDES + " colors");
-
-        InjectLumpNum(pallump, new DoomBuffer(ByteBuffer.wrap(playpal)));
-        return playpal;
+        print("VI_Init: set palettes.\n")
+        println("Palette: " + playpal.size / Palettes.PAL_NUM_STRIDES + " colors")
+        InjectLumpNum(pallump, DoomBuffer(ByteBuffer.wrap(playpal)))
+        return playpal
     }
 
     /**
@@ -320,29 +323,33 @@ public interface IWadLoader {
      *
      * @return byte[][] of presumably 34 colormaps 256 entries each with an entry being index in PLAYPAL
      */
-    default byte[][] LoadColormap() {
+    fun LoadColormap(): Array<ByteArray> {
         // Load in the light tables,
         // 256 byte align tables.
-        final int lump = GetNumForName("COLORMAP");
-        final int length = LumpLength(lump) + PAL_NUM_COLORS;
-        final byte[][] colormap = new byte[(length / PAL_NUM_COLORS)][PAL_NUM_COLORS];
-        final int minLength = Lights.COLORMAP_STD_LENGTH_15;
-        if (colormap.length < minLength) {
-            throw new IllegalArgumentException(String.format(
+        val lump = GetNumForName("COLORMAP")
+        val length: Int = LumpLength(lump) + Palettes.PAL_NUM_COLORS
+        val colormap =
+            Array(length / Palettes.PAL_NUM_COLORS) { ByteArray(Palettes.PAL_NUM_COLORS) }
+        val minLength: Int = Lights.COLORMAP_STD_LENGTH_15
+        require(colormap.size >= minLength) {
+            String.format(
                 "Invalid COLORMAP: has %d entries, minimum is %d. Try -nocolormap mode",
-                colormap.length, minLength));
+                colormap.size, minLength
+            )
         }
-
-        System.out.print("VI_Init: set colormaps.\n");
-        System.out.println("Colormaps: " + colormap.length);
-
-        final byte[] tmp = new byte[length];
-        ReadLump(lump, tmp);
-
-        for (int i = 0; i < colormap.length; ++i) {
-            System.arraycopy(tmp, i * PAL_NUM_COLORS, colormap[i], 0, PAL_NUM_COLORS);
+        print("VI_Init: set colormaps.\n")
+        println("Colormaps: " + colormap.size)
+        val tmp = ByteArray(length)
+        ReadLump(lump, tmp)
+        for (i in colormap.indices) {
+            System.arraycopy(
+                tmp,
+                i * Palettes.PAL_NUM_COLORS,
+                colormap[i],
+                0,
+                Palettes.PAL_NUM_COLORS
+            )
         }
-
-        return colormap;
+        return colormap
     }
 }

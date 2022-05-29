@@ -1,57 +1,55 @@
-package p;
+package p
 
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import rr.SectorAction;
-import w.DoomIO;
 
-public class strobe_t extends SectorAction {
+import rr.SectorAction
+import w.DoomIO
+import java.io.DataInputStream
+import java.io.IOException
+import java.nio.ByteBuffer
 
-    public int count;
-    public int minlight;
-    public int maxlight;
-    public int darktime;
-    public int brighttime;
+class strobe_t : SectorAction() {
+    var count = 0
+    var minlight = 0
+    var maxlight = 0
+    var darktime = 0
+    var brighttime = 0
 
     //
     // T_StrobeFlash
     //
-    public void StrobeFlash() {
+    fun StrobeFlash() {
         if (--count != 0) {
-            return;
+            return
         }
-
-        if (sector.lightlevel == minlight) {
-            sector.lightlevel = (short) maxlight;
-            count = brighttime;
+        val sector = sector!!
+        if (sector.lightlevel.toInt() == minlight) {
+            sector.lightlevel = maxlight.toShort()
+            count = brighttime
         } else {
-            sector.lightlevel = (short) minlight;
-            count = darktime;
+            sector.lightlevel = minlight.toShort()
+            count = darktime
         }
-
     }
 
-    @Override
-    public void read(DataInputStream f) throws IOException {
-
-        super.read(f); // Call thinker reader first            
-        super.sectorid = DoomIO.readLEInt(f); // Sector index
-        count = DoomIO.readLEInt(f);
-        maxlight = DoomIO.readLEInt(f);
-        minlight = DoomIO.readLEInt(f);
-        darktime = DoomIO.readLEInt(f);
-        brighttime = DoomIO.readLEInt(f);
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
+        super.read(f) // Call thinker reader first            
+        super.sectorid = DoomIO.readLEInt(f) // Sector index
+        count = DoomIO.readLEInt(f)
+        maxlight = DoomIO.readLEInt(f)
+        minlight = DoomIO.readLEInt(f)
+        darktime = DoomIO.readLEInt(f)
+        brighttime = DoomIO.readLEInt(f)
     }
 
-    @Override
-    public void pack(ByteBuffer b) throws IOException {
-        super.pack(b); //12            
-        b.putInt(super.sectorid); // 16
-        b.putInt(count); //20
-        b.putInt(maxlight);//24
-        b.putInt(minlight);//28
-        b.putInt(darktime);//32
-        b.putInt(brighttime);//36
+    @Throws(IOException::class)
+    override fun pack(b: ByteBuffer) {
+        super.pack(b) //12            
+        b.putInt(super.sectorid) // 16
+        b.putInt(count) //20
+        b.putInt(maxlight) //24
+        b.putInt(minlight) //28
+        b.putInt(darktime) //32
+        b.putInt(brighttime) //36
     }
-};
+}

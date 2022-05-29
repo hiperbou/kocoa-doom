@@ -1,63 +1,52 @@
-package rr;
-
+package rr
 
 /** A vissprite_t is a thing
  * that will be drawn during a refresh.
  * I.e. a sprite object that is partly visible.
  */
+class vissprite_t<V> : Comparable<vissprite_t<V>> {
+    // Doubly linked list.
+    var prev: vissprite_t<V>? = null
+    var next: vissprite_t<V>? = null
+    var x1 = 0
+    var x2 = 0
 
-public class vissprite_t<V> implements Comparable<vissprite_t<V>>{
+    // for line side calculation
+    var gx = 0
+    var gy = 0
 
-// Doubly linked list.
-public vissprite_t<V> prev;
-public vissprite_t<V> next;
+    // global bottom / top for silhouette clipping
+    var gz = 0
+    var gzt = 0
 
-public int         x1;
-public int         x2;
+    // horizontal position of x1
+    var startfrac = 0
+    var scale = 0
 
-// for line side calculation
-public int     gx;
-public int     gy;     
+    // negative if flipped
+    var xiscale = 0
+    var texturemid = 0
+    var patch = 0
 
-// global bottom / top for silhouette clipping
-public int     gz;
-public int     gzt;
+    /** for color translation and shadow draw,
+     * maxbright frames as well.
+     *
+     * Use paired with pcolormap;
+     */
+    var colormap: V? = null
 
-// horizontal position of x1
-public int     startfrac;
-
-public int     scale;
-
-// negative if flipped
-public int     xiscale;    
-
-public int     texturemid;
-public int         patch;
-
-/** for color translation and shadow draw,
- * maxbright frames as well.
- * 
- * Use paired with pcolormap;
- */ 
-public V colormap;
-
-/* pointer into colormap
+    /* pointer into colormap
 public int pcolormap; */
+    var mobjflags = 0
 
-public long mobjflags;
+    /** visspites are sorted by scale  */
+    override fun compareTo(o: vissprite_t<V>): Int {
+        // We only really care if it's drawn before. 
+        if (scale > o.scale) return 1
+        return if (scale < o.scale) -1 else 0
+    }
 
-/** visspites are sorted by scale */
-
-@Override
-public final int compareTo(vissprite_t<V> o) {
-    // We only really care if it's drawn before. 
-    if (this.scale> o.scale) return 1;
-    if (this.scale< o.scale) return -1;
-    return 0;
-}
-
-public String toString(){    
-    return ("Effective drawing position x1: "+x1 + " x2: "+ x2 +" scale "+(scale/65535.0) +" iscale "+(xiscale/65535.0));
-}
-
+    override fun toString(): String {
+        return "Effective drawing position x1: $x1 x2: $x2 scale ${scale / 65535.0}"  + " iscale " + xiscale / 65535.0
+    }
 }

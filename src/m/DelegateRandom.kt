@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,102 +15,92 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package m;
+package m
 
-import data.Defines;
-import data.mobjtype_t;
-import doom.SourceCode.M_Random;
-import static doom.SourceCode.M_Random.*;
-import p.ActiveStates;
-import utils.C2JUtils;
+
+import data.Defines
+import data.mobjtype_t
+import doom.SourceCode
+import doom.SourceCode.M_Random
+import p.ActiveStates
+import utils.C2JUtils
 
 /**
  * A "IRandom" that delegates its function to one of the two available IRandom implementations
  * By default, MochaDoom now uses JavaRandom, however it switches
  * to DoomRandom (supposedly Vanilla DOOM v1.9 compatible, tested only in Chocolate DOOM)
  * whenever you start recording or playing demo. When you start then new game, MochaDoom restores new JavaRandom.
- * 
+ *
  * However, if you start MochaDoom with -javarandom command line argument and -record demo,
  * then MochaDoom will record the demo using JavaRandom. Such demo will be neither compatible
  * with Vanilla DOOM v1.9, nor with another source port.
- * 
+ *
  * Only MochaDoom can play JavaRandom demos.
- *  - Good Sign 2017/04/10
- * 
+ * - Good Sign 2017/04/10
+ *
  * @author Good Sign
  */
-public class DelegateRandom implements IRandom {
-    
-    private IRandom random;
-    private IRandom altRandom;
+class DelegateRandom : IRandom {
+    private var random: IRandom
+    private var altRandom: IRandom? = null
 
-    public DelegateRandom() {
-        this.random = new JavaRandom();
+    init {
+        random = JavaRandom()
     }
 
-    public void requireRandom(final int version) {
-        if (C2JUtils.flags(version, Defines.JAVARANDOM_MASK) && this.random instanceof DoomRandom) {
-            switchRandom(true);
-        } else if (!C2JUtils.flags(version, Defines.JAVARANDOM_MASK) && !(this.random instanceof DoomRandom)) {
-            switchRandom(false);
+    fun requireRandom(version: Int) {
+        if (C2JUtils.flags(version, Defines.JAVARANDOM_MASK) && random is DoomRandom) {
+            switchRandom(true)
+        } else if (!C2JUtils.flags(version, Defines.JAVARANDOM_MASK) && random !is DoomRandom) {
+            switchRandom(false)
         }
     }
 
-    private void switchRandom(boolean which) {
-        IRandom arandom = altRandom;
-        if (arandom != null && ((!which && arandom instanceof DoomRandom) || (which && arandom instanceof JavaRandom))) {
-            this.altRandom = random;
-            this.random = arandom;
-            System.out.print(String.format("M_Random: Switching to %s\n", random.getClass().getSimpleName()));
+    private fun switchRandom(which: Boolean) {
+        val arandom = altRandom
+        if (arandom != null && (!which && arandom is DoomRandom || which) && arandom is JavaRandom) {
+            altRandom = random
+            random = arandom
+            print(String.format("M_Random: Switching to %s\n", random.javaClass.simpleName))
         } else {
-            this.altRandom = random;
-            this.random = which ? new JavaRandom() : new DoomRandom();
-            System.out.print(String.format("M_Random: Switching to %s (new instance)\n", random.getClass().getSimpleName()));
+            altRandom = random
+            random = if (which) JavaRandom() else DoomRandom()
+            print(String.format("M_Random: Switching to %s (new instance)\n", random.javaClass.simpleName))
         }
         //random.ClearRandom();
     }
 
-    @Override
-    @M_Random.C(P_Random)
-    public int P_Random() {
-        return random.P_Random();
+    @M_Random.C(M_Random.P_Random)
+    override fun P_Random(): Int {
+        return random.P_Random()
     }
 
-    @Override
-    @M_Random.C(M_Random)
-    public int M_Random() {
-        return random.M_Random();
+    @M_Random.C(M_Random.M_Random)
+    override fun M_Random(): Int {
+        return random.M_Random()
     }
 
-    @Override
-    @M_Random.C(M_ClearRandom)
-    public void ClearRandom() {
-        random.ClearRandom();
+    @M_Random.C(M_Random.M_ClearRandom)
+    override fun ClearRandom() {
+        random.ClearRandom()
     }
 
-    @Override
-    public int getIndex() {
-        return random.getIndex();
+    override val index: Int
+        get() = random.index
+
+    override fun P_Random(caller: Int): Int {
+        return random.P_Random(caller)
     }
 
-    @Override
-    public int P_Random(int caller) {
-        return random.P_Random(caller);
+    override fun P_Random(message: String?): Int {
+        return random.P_Random(message)
     }
 
-    @Override
-    public int P_Random(String message) {
-        return random.P_Random(message);
+    override fun P_Random(caller: ActiveStates?, sequence: Int): Int {
+        return random.P_Random(caller, sequence)
     }
 
-    @Override
-    public int P_Random(ActiveStates caller, int sequence) {
-        return random.P_Random(caller, sequence);
+    override fun P_Random(caller: ActiveStates?, type: mobjtype_t?, sequence: Int): Int {
+        return random.P_Random(caller, type, sequence)
     }
-
-    @Override
-    public int P_Random(ActiveStates caller, mobjtype_t type, int sequence) {
-        return random.P_Random(caller, type, sequence);
-    }
-    
 }

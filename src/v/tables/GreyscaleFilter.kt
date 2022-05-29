@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,116 +15,109 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.tables;
+package v.tables
 
-import m.Settings;
-import mochadoom.Engine;
+import m.Settings
+import mochadoom.Engine
+import v.tables.GreyscaleFilter
 
 /**
  *
  * @author Good Sign
  */
-public enum GreyscaleFilter {
-    Lightness,
-    Average,
-    Luminance, // this one is the default for invulnerability map
+enum class GreyscaleFilter {
+    Lightness, Average, Luminance,  // this one is the default for invulnerability map
     Luminosity;
-    
-    private static GreyscaleFilter FILTER;
-    
-    public static int component(int r, int g, int b) {
-        if (FILTER == null) {
-            readSetting();
-        }
-        return FILTER.getComponent(r, g, b);
-    }
-    
-    public static float component(float r, float g, float b) {
-        if (FILTER == null) {
-            readSetting();
-        }
-        return FILTER.getComponent(r, g, b);
-    }
-    
-    public static int grey888(int rgb888) {
-        if (FILTER == null) {
-            readSetting();
-        }
-        return FILTER.getGrey888(rgb888);
-    }
 
-    public static int grey888(int r8, int g8, int b8) {
-        if (FILTER == null) {
-            readSetting();
+    fun getComponent(r: Int, g: Int, b: Int): Int {
+        when (this) {
+            GreyscaleFilter.Lightness -> return (Math.max(Math.max(r, g), b) + Math.min(Math.min(r, g), b)) / 2
+            GreyscaleFilter.Average -> return (r + g + b) / 3
+            GreyscaleFilter.Luminance -> return (0.299f * r + 0.587f * g + 0.114f * b).toInt()
+            GreyscaleFilter.Luminosity -> return (0.2126f * r + 0.7152f * g + 0.0722f * b).toInt()
         }
-        return FILTER.getGrey888(r8, g8, b8);
-    }
 
-    public static short grey555(int r5, int g5, int b5) {
-        if (FILTER == null) {
-            readSetting();
-        }
-        return FILTER.getGrey555(r5, g5, b5);
-    }
-
-    public static short grey555(short rgb555) {
-        if (FILTER == null) {
-            readSetting();
-        }
-        return FILTER.getGrey555(rgb555);
-    }
-
-    private static void readSetting() {
-        FILTER = Engine.getConfig().getValue(Settings.greyscale_filter, GreyscaleFilter.class);
-    }
-        
-    public int getComponent(int r, int g, int b) {
-        switch(this) {
-            case Lightness:
-                return (Math.max(Math.max(r, g), b) + Math.min(Math.min(r, g), b)) / 2;
-            case Average:
-                return (r + g + b) / 3;
-            case Luminance:
-                return (int) (0.299f * r + 0.587f * g + 0.114f * b);
-            case Luminosity:
-                return (int) (0.2126f * r + 0.7152f * g + 0.0722f * b);
-        }
-        
         // should not happen
-        return 0;
+        return 0
     }
-    
-    public float getComponent(float r, float g, float b) {
-        switch(this) {
-            case Lightness:
-                return (Math.max(Math.max(r, g), b) + Math.min(Math.min(r, g), b)) / 2;
-            case Average:
-                return (r + g + b) / 3;
-            case Luminance:
-                return 0.299f * r + 0.587f * g + 0.114f * b;
-            case Luminosity:
-                return 0.2126f * r + 0.7152f * g + 0.0722f * b;
+
+    fun getComponent(r: Float, g: Float, b: Float): Float {
+        when (this) {
+            GreyscaleFilter.Lightness -> return (Math.max(Math.max(r, g), b) + Math.min(Math.min(r, g), b)) / 2
+            GreyscaleFilter.Average -> return (r + g + b) / 3
+            GreyscaleFilter.Luminance -> return 0.299f * r + 0.587f * g + 0.114f * b
+            GreyscaleFilter.Luminosity -> return 0.2126f * r + 0.7152f * g + 0.0722f * b
         }
-        
+
         // should not happen
-        return 0.0f;
+        return 0.0f
     }
-    
-    public int getGrey888(int r8, int g8, int b8) {
-        final int component = getComponent(r8, g8, b8) & 0xFF;
-        return 0xFF000000 + (component << 16) + (component << 8) + component;
+
+    fun getGrey888(r8: Int, g8: Int, b8: Int): Int {
+        val component = getComponent(r8, g8, b8) and 0xFF
+        return -0x1000000 + (component shl 16) + (component shl 8) + component
     }
-    
-    public short getGrey555(int r5, int g5, int b5){
-        final int component = getComponent(r5, g5, b5) & 0x1F;
-        return (short) ((component << 10) + (component << 5) + component);
+
+    fun getGrey555(r5: Int, g5: Int, b5: Int): Short {
+        val component = getComponent(r5, g5, b5) and 0x1F
+        return ((component shl 10) + (component shl 5) + component).toShort()
     }
-    
-    public int getGrey888(int rgb888) {
-        return getGrey888((rgb888 >> 16) & 0xFF, (rgb888 >> 8) & 0xFF, rgb888 & 0xFF);
+
+    fun getGrey888(rgb888: Int): Int {
+        return getGrey888(rgb888 shr 16 and 0xFF, rgb888 shr 8 and 0xFF, rgb888 and 0xFF)
     }
-    
-    public short getGrey555(short rgb555) {
-        return getGrey555((rgb555 >> 10) & 0x1F, (rgb555 >> 5) & 0x1F, rgb555 & 0x1F);
+
+    fun getGrey555(rgb555: Short): Short {
+        return getGrey555(rgb555.toInt() shr 10 and 0x1F, rgb555.toInt() shr 5 and 0x1F, rgb555.toInt() and 0x1F)
+    }
+
+    companion object {
+        private var FILTER: GreyscaleFilter? = null
+        fun component(r: Int, g: Int, b: Int): Int {
+            if (GreyscaleFilter.FILTER == null) {
+                GreyscaleFilter.readSetting()
+            }
+            return GreyscaleFilter.FILTER!!.getComponent(r, g, b)
+        }
+
+        fun component(r: Float, g: Float, b: Float): Float {
+            if (GreyscaleFilter.FILTER == null) {
+                GreyscaleFilter.readSetting()
+            }
+            return GreyscaleFilter.FILTER!!.getComponent(r, g, b)
+        }
+
+        fun grey888(rgb888: Int): Int {
+            if (GreyscaleFilter.FILTER == null) {
+                GreyscaleFilter.readSetting()
+            }
+            return GreyscaleFilter.FILTER!!.getGrey888(rgb888)
+        }
+
+        fun grey888(r8: Int, g8: Int, b8: Int): Int {
+            if (GreyscaleFilter.FILTER == null) {
+                GreyscaleFilter.readSetting()
+            }
+            return GreyscaleFilter.FILTER!!.getGrey888(r8, g8, b8)
+        }
+
+        fun grey555(r5: Int, g5: Int, b5: Int): Short {
+            if (GreyscaleFilter.FILTER == null) {
+                GreyscaleFilter.readSetting()
+            }
+            return GreyscaleFilter.FILTER!!.getGrey555(r5, g5, b5)
+        }
+
+        fun grey555(rgb555: Short): Short {
+            if (GreyscaleFilter.FILTER == null) {
+                GreyscaleFilter.readSetting()
+            }
+            return GreyscaleFilter.FILTER!!.getGrey555(rgb555)
+        }
+
+        private fun readSetting() {
+            GreyscaleFilter.FILTER = Engine.getConfig()
+                .getValue<GreyscaleFilter>(Settings.greyscale_filter, GreyscaleFilter::class.java)
+        }
     }
 }

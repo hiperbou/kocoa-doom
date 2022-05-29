@@ -1,13 +1,14 @@
-package p;
+package p
 
-import doom.player_t;
-import m.fixed_t;
-import static m.fixed_t.*;
-import p.Actions.ActionsLights.glow_t;
-import p.Actions.ActionsLights.lightflash_t;
-import rr.line_t;
-import rr.sector_t;
-import rr.side_t;
+
+import doom.player_t
+import m.fixed_t
+import p.Actions.ActionsLights.glow_t
+import p.Actions.ActionsLights.lightflash_t
+import p.mobj_t
+import rr.line_t
+import rr.sector_t
+import rr.side_t
 
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
@@ -15,6 +16,7 @@ import rr.side_t;
 // $Id: Specials.java,v 1.7 2011/06/01 00:09:08 velktron Exp $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright (C) 2022 hiperbou
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -33,329 +35,168 @@ import rr.side_t;
 //	 utility functions, etc.
 //
 //-----------------------------------------------------------------------------
+interface Specials {
+    // at game start
+    fun P_InitPicAnims()
 
-public interface Specials {
+    // at map load
+    fun P_SpawnSpecials()
 
-//
-// End-level timer (-TIMER option)
-//
-//extern	boolean levelTimer;
-//extern	int	levelTimeCount;
+    // every tic
+    fun P_UpdateSpecials()
 
+    // when needed
+    fun P_UseSpecialLine(
+        thing: mobj_t?,
+        line: line_t?,
+        side: Int
+    ): Boolean
 
-//      Define values for map objects
-public static final int MO_TELEPORTMAN          =14;
+    fun P_ShootSpecialLine(
+        thing: mobj_t?,
+        line: line_t?
+    )
 
+    fun P_CrossSpecialLine(
+        linenum: Int,
+        side: Int,
+        thing: mobj_t?
+    )
 
-// at game start
-public void    P_InitPicAnims ();
+    fun P_PlayerInSpecialSector(player: player_t?)
+    fun twoSided(
+        sector: Int,
+        line: Int
+    ): Int
 
-// at map load
-public void    P_SpawnSpecials ();
+    fun getSector(
+        currentSector: Int,
+        line: Int,
+        side: Int
+    ): sector_t?
 
-// every tic
-public void    P_UpdateSpecials ();
+    fun getSide(
+        currentSector: Int,
+        line: Int,
+        side: Int
+    ): side_t?
 
-// when needed
-public boolean
-P_UseSpecialLine
-( mobj_t	thing,
-  line_t	line,
-  int		side );
+    fun P_FindLowestFloorSurrounding(sec: sector_t?): fixed_t?
+    fun P_FindHighestFloorSurrounding(sec: sector_t?): fixed_t?
+    fun P_FindNextHighestFloor(
+        sec: sector_t?,
+        currentheight: Int
+    ): fixed_t?
 
-public void
-P_ShootSpecialLine
-( mobj_t	thing,
-  line_t	line );
+    fun P_FindLowestCeilingSurrounding(sec: sector_t?): fixed_t?
+    fun P_FindHighestCeilingSurrounding(sec: sector_t?): fixed_t?
+    fun P_FindSectorFromLineTag(
+        line: line_t?,
+        start: Int
+    ): Int
 
-public 
-void
-P_CrossSpecialLine
-( int		linenum,
-  int		side,
-  mobj_t	thing );
+    fun P_FindMinSurroundingLight(
+        sector: sector_t?,
+        max: Int
+    ): Int
 
-public void    P_PlayerInSpecialSector (player_t player);
+    fun getNextSector(
+        line: line_t?,
+        sec: sector_t?
+    ): sector_t?
 
-public int
-twoSided
-( int		sector,
-  int		line );
+    //
+    // SPECIAL
+    //
+    fun EV_DoDonut(line: line_t?): Int
+    fun P_SpawnFireFlicker(sector: sector_t?)
+    fun T_LightFlash(flash: lightflash_t?)
+    fun P_SpawnLightFlash(sector: sector_t?)
+    fun T_StrobeFlash(flash: strobe_t?)
+    fun P_SpawnStrobeFlash(
+        sector: sector_t?,
+        fastOrSlow: Int,
+        inSync: Int
+    )
 
-public sector_t
-getSector
-( int		currentSector,
-  int		line,
-  int		side );
+    fun EV_StartLightStrobing(line: line_t?)
+    fun EV_TurnTagLightsOff(line: line_t?)
+    fun EV_LightTurnOn(
+        line: line_t?,
+        bright: Int
+    )
 
-side_t
-getSide
-( int		currentSector,
-  int		line,
-  int		side );
+    fun T_Glow(g: glow_t?)
+    fun P_SpawnGlowingLight(sector: sector_t?)
 
-public fixed_t P_FindLowestFloorSurrounding(sector_t sec);
-public fixed_t P_FindHighestFloorSurrounding(sector_t sec);
+    //extern button_t	buttonlist[MAXBUTTONS]; 
+    fun P_ChangeSwitchTexture(
+        line: line_t?,
+        useAgain: Int
+    )
 
-public fixed_t
-P_FindNextHighestFloor
-( sector_t	sec,
-  int		currentheight );
+    fun P_InitSwitchList()
 
-public fixed_t P_FindLowestCeilingSurrounding(sector_t sec);
-public fixed_t P_FindHighestCeilingSurrounding(sector_t sec);
+    //extern plat_t*	activeplats[MAXPLATS];
+    fun T_PlatRaise(plat: plat_t?)
+    fun EV_DoPlat(
+        line: line_t?,
+        type: plattype_e?,
+        amount: Int
+    ): Int
 
-public int
-P_FindSectorFromLineTag
-( line_t	line,
-  int		start );
+    fun P_AddActivePlat(plat: plat_t?)
+    fun P_RemoveActivePlat(plat: plat_t?)
+    fun EV_StopPlat(line: line_t?)
+    fun P_ActivateInStasis(tag: Int)
+    fun EV_VerticalDoor(
+        line: line_t?,
+        thing: mobj_t?
+    )
 
-public int
-P_FindMinSurroundingLight
-( sector_t	sector,
-  int		max );
+    fun EV_DoDoor(
+        line: line_t?,
+        type: vldoor_e?
+    ): Int
 
-public sector_t
-getNextSector
-( line_t	line,
-  sector_t	sec );
+    fun EV_DoLockedDoor(
+        line: line_t?,
+        type: vldoor_e?,
+        thing: mobj_t?
+    ): Int
 
+    fun T_VerticalDoor(door: vldoor_t?)
+    fun P_SpawnDoorCloseIn30(sec: sector_t?)
+    fun P_SpawnDoorRaiseIn5Mins(
+        sec: sector_t?,
+        secnum: Int
+    )
 
-//
-// SPECIAL
-//
-int EV_DoDonut(line_t line);
+    companion object {
+        //
+        // End-level timer (-TIMER option)
+        //
+        //extern	boolean levelTimer;
+        //extern	int	levelTimeCount;
+        //      Define values for map objects
+        const val MO_TELEPORTMAN = 14
+        const val GLOWSPEED = 8
+        const val STROBEBRIGHT = 5
+        const val FASTDARK = 15
+        const val SLOWDARK = 35
 
+        // max # of wall switches in a level
+        const val MAXSWITCHES = 50
 
-public static final int GLOWSPEED	=		8;
-public static final int STROBEBRIGHT=		5;
-public static final int FASTDARK	=		15;
-public static final int SLOWDARK	=		35;
+        // 4 players, 4 buttons each at once, max.
+        const val MAXBUTTONS = 16
 
-
-public void    P_SpawnFireFlicker (sector_t sector);
-public void    T_LightFlash (lightflash_t flash);
-public void    P_SpawnLightFlash (sector_t sector);
-public void    T_StrobeFlash (strobe_t flash);
-
-public void
-P_SpawnStrobeFlash
-( sector_t	sector,
-  int		fastOrSlow,
-  int		inSync );
-
-public void    EV_StartLightStrobing(line_t line);
-public void    EV_TurnTagLightsOff(line_t line);
-
-public void
-EV_LightTurnOn
-( line_t	line,
-  int		bright );
-
-public void    T_Glow(glow_t g);
-public void    P_SpawnGlowingLight(sector_t sector);
-
- // max # of wall switches in a level
-public static final int MAXSWITCHES	=	50;
-
- // 4 players, 4 buttons each at once, max.
-public static final int MAXBUTTONS		=16;
-
- // 1 second, in ticks. 
-public static final int BUTTONTIME   =   35         ;    
-
-//extern button_t	buttonlist[MAXBUTTONS]; 
-
-public void
-P_ChangeSwitchTexture
-( line_t	line,
-  int		useAgain );
-
-public void P_InitSwitchList();
-
-public static final int PLATWAIT    =	3;
-public static final int PLATSPEED	=	FRACUNIT;
-public static final int MAXPLATS	=	30;
-
-
-//extern plat_t*	activeplats[MAXPLATS];
-
-public void    T_PlatRaise(plat_t	plat);
-
-public int
-EV_DoPlat
-( line_t	line,
-  plattype_e	type,
-  int		amount );
-
-void    P_AddActivePlat(plat_t plat);
-void    P_RemoveActivePlat(plat_t plat);
-void    EV_StopPlat(line_t line);
-void    P_ActivateInStasis(int tag);
-
-public static final int VDOORSPEED	=	FRACUNIT*2;
-public static final int VDOORWAIT   =		150;
-
-void
-EV_VerticalDoor
-( line_t	line,
-  mobj_t	thing );
-
-int
-EV_DoDoor
-( line_t	line,
-  vldoor_e	type );
-
-int
-EV_DoLockedDoor
-( line_t	line,
-  vldoor_e	type,
-  mobj_t	thing );
-
-public void    T_VerticalDoor (vldoor_t door);
-public void    P_SpawnDoorCloseIn30 (sector_t sec);
-
-void
-P_SpawnDoorRaiseIn5Mins
-( sector_t	sec,
-  int		secnum );
-
+        // 1 second, in ticks. 
+        const val BUTTONTIME = 35
+        const val PLATWAIT = 3
+        val PLATSPEED: Int = fixed_t.FRACUNIT
+        const val MAXPLATS = 30
+        val VDOORSPEED: Int = fixed_t.FRACUNIT * 2
+        const val VDOORWAIT = 150
+    }
 }
-
-
-// UNUSED
-//
-//      Sliding doors...
-//
-
-/*
-typedef enum
-{
-    sd_opening,
-    sd_waiting,
-    sd_closing
-
-} sd_e;
-
-
-
-typedef enum
-{
-    sdt_openOnly,
-    sdt_closeOnly,
-    sdt_openAndClose
-
-} sdt_e;
-*/
-
-/*
-
-typedef struct
-{
-    thinker_t	thinker;
-    sdt_e	type;
-    line_t*	line;
-    int		frame;
-    int		whichDoorIndex;
-    int		timer;
-    sector_t*	frontsector;
-    sector_t*	backsector;
-    sd_e	 status;
-
-} slidedoor_t;
-*/
-
-/*
-
-typedef struct
-{
-    char	frontFrame1[9];
-    char	frontFrame2[9];
-    char	frontFrame3[9];
-    char	frontFrame4[9];
-    char	backFrame1[9];
-    char	backFrame2[9];
-    char	backFrame3[9];
-    char	backFrame4[9];
-    
-} slidename_t;
-*/
-
-/*
-
-typedef struct
-{
-    int             frontFrames[4];
-    int             backFrames[4];
-
-} slideframe_t;
-
-*/
-
-/*
-// how many frames of animation
-#define SNUMFRAMES		4
-
-#define SDOORWAIT		35*3
-#define SWAITTICS		4
-
-// how many diff. types of anims
-#define MAXSLIDEDOORS	5                            
-
-void P_InitSlidingDoorFrames(void);
-
-void
-EV_SlidingDoor
-( line_t*	line,
-  mobj_t*	thing );
-#endif
-
-#define CEILSPEED		FRACUNIT
-#define CEILWAIT		150
-#define MAXCEILINGS		30
-
-extern ceiling_t*	activeceilings[MAXCEILINGS];
-
-int
-EV_DoCeiling
-( line_t*	line,
-  ceiling_e	type );
-
-void    T_MoveCeiling (ceiling_t* ceiling);
-void    P_AddActiveCeiling(ceiling_t* c);
-void    P_RemoveActiveCeiling(ceiling_t* c);
-int	EV_CeilingCrushStop(line_t* line);
-void    P_ActivateInStasisCeiling(line_t* line);
-
-#define FLOORSPEED		FRACUNIT
-
-result_e
-T_MovePlane
-( sector_t*	sector,
-  fixed_t	speed,
-  fixed_t	dest,
-  boolean	crush,
-  int		floorOrCeiling,
-  int		direction );
-
-int
-EV_BuildStairs
-( line_t*	line,
-  stair_e	type );
-
-int
-EV_DoFloor
-( line_t*	line,
-  floor_e	floortype );
-
-void T_MoveFloor( floormove_t* floor);
-
-//
-// P_TELEPT
-//
-int
-EV_Teleport
-( line_t*	line,
-  int		side,
-  mobj_t*	thing );
-*/

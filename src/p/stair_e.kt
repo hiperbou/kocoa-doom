@@ -1,7 +1,7 @@
-package p;
+package p
 
-public enum stair_e
-{
-    build8, // slowly build by 8
+
+enum class stair_e {
+    build8,  // slowly build by 8
     turbo16 // quickly build by 16    
-} 
+}

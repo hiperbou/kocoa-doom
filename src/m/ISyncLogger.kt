@@ -1,11 +1,11 @@
-package m;
+package m
 
-import java.io.IOException;
 
-public interface ISyncLogger {
+import java.io.IOException
 
-	public void debugStart() throws IOException;
-	public void debugEnd();
-	public void sync(String format, Object ... args);
+interface ISyncLogger {
+    @Throws(IOException::class)
+    fun debugStart()
+    fun debugEnd()
+    fun sync(format: String?, vararg args: Any?)
 }
-

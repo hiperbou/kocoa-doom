@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,38 +15,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package utils;
+package utils
 
-import java.util.Optional;
+
+import java.util.*
 
 /**
  * @author Good Sign
  */
-public enum QuoteType {
+enum class QuoteType(val quoteChar: Char) {
     SINGLE('\''), DOUBLE('"');
-    public final char quoteChar;
 
-    QuoteType(final char quoteChar) {
-        this.quoteChar = quoteChar;
+    fun isQuoted(s: String): Boolean {
+        return C2JUtils.isQuoted(s, quoteChar)
     }
 
-    public boolean isQuoted(final String s) {
-        return C2JUtils.isQuoted(s, quoteChar);
+    fun unQuote(s: String): String? {
+        return C2JUtils.unquote(s, quoteChar)
     }
 
-    public String unQuote(final String s) {
-        return C2JUtils.unquote(s, quoteChar);
-    }
-    
-    public static Optional<QuoteType> getQuoteType(final String stringSource) {
-        if (stringSource.length() > 2) {
-            for (final QuoteType type: QuoteType.values()) {
-                if (type.isQuoted(stringSource)) {
-                    return Optional.of(type);
+    companion object {
+        fun getQuoteType(stringSource: String): Optional<QuoteType> {
+            if (stringSource.length > 2) {
+                for (type in QuoteType.values()) {
+                    if (type.isQuoted(stringSource)) {
+                        return Optional.of(type)
+                    }
                 }
             }
+            return Optional.empty()
         }
-
-        return Optional.empty();
     }
 }

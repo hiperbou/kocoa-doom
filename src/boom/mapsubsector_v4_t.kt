@@ -1,27 +1,26 @@
-package boom;
+package boom
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
-import w.CacheableDoomObject;
+import w.CacheableDoomObject
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
-public class mapsubsector_v4_t implements CacheableDoomObject{
-	
-    public char     numsegs;
-  	/** Index of first one, segs are stored sequentially. */
-  	public int     firstseg;
-  
-  	@Override
-	public void unpack(ByteBuffer buf)
-        throws IOException {
-    buf.order(ByteOrder.LITTLE_ENDIAN);
-    this.numsegs = buf.getChar();
-    this.firstseg = buf.getInt();        
-	} 
+class mapsubsector_v4_t : CacheableDoomObject {
+    var numsegs = 0.toChar()
 
-	public static int sizeOf(){
-    return 6;
-	}
-	
+    /** Index of first one, segs are stored sequentially.  */
+    var firstseg = 0
+    @Throws(IOException::class)
+    override fun unpack(buf: ByteBuffer) {
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        numsegs = buf.char
+        firstseg = buf.int
+    }
+
+    companion object {
+        fun sizeOf(): Int {
+            return 6
+        }
+    }
 }

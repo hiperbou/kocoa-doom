@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,124 +16,108 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates;
+package p.Actions.ActiveStatesimport
 
-import doom.SourceCode;
-import doom.SourceCode.P_Lights;
-import static doom.SourceCode.P_Lights.T_FireFlicker;
-import static doom.SourceCode.P_Lights.T_Glow;
-import static doom.SourceCode.P_Lights.T_LightFlash;
-import doom.thinker_t;
-import p.Actions.ActionTrait;
-import p.Actions.ActionsLights.fireflicker_t;
-import p.Actions.ActionsLights.glow_t;
-import p.Actions.ActionsLights.lightflash_t;
-import static p.DoorDefines.GLOWSPEED;
-import p.ceiling_t;
-import p.floormove_t;
-import p.plat_t;
-import p.slidedoor_t;
-import p.strobe_t;
-import p.vldoor_t;
+import doom.SourceCode
+import doom.SourceCode.P_Lights
+import doom.thinker_t
+import p.*
+import p.Actions.ActionTrait
+import p.Actions.ActionsLights.*
+import p.DoorDefines.GLOWSPEED
 
-public interface Thinkers extends ActionTrait {
+interface Thinkers : ActionTrait {
     //
     // T_FireFlicker
     //
     @SourceCode.Exact
-    @P_Lights.C(T_FireFlicker)
-    default void T_FireFlicker(thinker_t f) {
-        final fireflicker_t flick = (fireflicker_t) f;
-        int amount;
-
+    @P_Lights.C(P_Lights.T_FireFlicker)
+    fun T_FireFlicker(f: thinker_t) {
+        val flick = f as fireflicker_t
+        val amount: Int
         if (--flick.count != 0) {
-            return;
+            return
         }
-
-        amount = (P_Random() & 3) * 16;
-
-        if (flick.sector.lightlevel - amount < flick.minlight) {
-            flick.sector.lightlevel = (short) flick.minlight;
+        amount = (P_Random() and 3) * 16
+        if (flick.sector!!.lightlevel - amount < flick.minlight) {
+            flick.sector!!.lightlevel = flick.minlight.toShort()
         } else {
-            flick.sector.lightlevel = (short) (flick.maxlight - amount);
+            flick.sector!!.lightlevel = (flick.maxlight - amount).toShort()
         }
-
-        flick.count = 4;
+        flick.count = 4
     }
-    
+
     /**
      * T_LightFlash
      * Do flashing lights.
      */
     @SourceCode.Exact
-    @P_Lights.C(T_LightFlash)
-    default void T_LightFlash(thinker_t l) {
-        final lightflash_t flash = (lightflash_t) l;
+    @P_Lights.C(P_Lights.T_LightFlash)
+    fun T_LightFlash(l: thinker_t) {
+        val flash = l as lightflash_t
         if (--flash.count != 0) {
-            return;
+            return
         }
-
-        if (flash.sector.lightlevel == flash.maxlight) {
-            flash.sector.lightlevel = (short) flash.minlight;
-            flash.count = (P_Random() & flash.mintime) + 1;
+        if (flash.sector!!.lightlevel.toInt() == flash.maxlight) {
+            flash.sector!!.lightlevel = flash.minlight.toShort()
+            flash.count = (P_Random() and flash.mintime) + 1
         } else {
-            flash.sector.lightlevel = (short) flash.maxlight;
-            flash.count = (P_Random() & flash.maxtime) + 1;
+            flash.sector!!.lightlevel = flash.maxlight.toShort()
+            flash.count = (P_Random() and flash.maxtime) + 1
         }
     }
 
-    default void T_StrobeFlash(thinker_t s) {
-        ((strobe_t) s).StrobeFlash();
+    fun T_StrobeFlash(s: thinker_t) {
+        (s as strobe_t).StrobeFlash()
     }
 
     //
     // Spawn glowing light
     //
     @SourceCode.Exact
-    @P_Lights.C(T_Glow)
-    default void T_Glow(thinker_t t) {
-        glow_t g = (glow_t) t;
-        switch (g.direction) {
-            case -1:
+    @P_Lights.C(P_Lights.T_Glow)
+    fun T_Glow(t: thinker_t) {
+        val g = t as glow_t
+        when (g.direction) {
+            -1 -> {
                 // DOWN
-                g.sector.lightlevel -= GLOWSPEED;
-                if (g.sector.lightlevel <= g.minlight) {
-                    g.sector.lightlevel += GLOWSPEED;
-                    g.direction = 1;
+                g.sector!!.lightlevel = (g.sector!!.lightlevel - GLOWSPEED.toShort()).toShort()
+                if (g.sector!!.lightlevel <= g.minlight) {
+                    g.sector!!.lightlevel = (g.sector!!.lightlevel + GLOWSPEED.toShort()).toShort()
+                    g.direction = 1
                 }
-                break;
-
-            case 1:
+            }
+            1 -> {
                 // UP
-                g.sector.lightlevel += GLOWSPEED;
-                if (g.sector.lightlevel >= g.maxlight) {
-                    g.sector.lightlevel -= GLOWSPEED;
-                    g.direction = -1;
+                g.sector!!.lightlevel = (g.sector!!.lightlevel + GLOWSPEED.toShort()).toShort()
+                if (g.sector!!.lightlevel >= g.maxlight) {
+                    g.sector!!.lightlevel = (g.sector!!.lightlevel - GLOWSPEED.toShort()).toShort()
+                    g.direction = -1
                 }
-                break;
-                
-            default:
-                break;
+            }
+            else -> {}
         }
     }
 
-    default void T_MoveCeiling(thinker_t c) {
-        getThinkers().MoveCeiling((ceiling_t) c);
+    fun T_MoveCeiling(c: thinker_t?) {
+        thinkers.MoveCeiling(c as ceiling_t)
     }
 
-    default void T_MoveFloor(thinker_t f) {
-        getThinkers().MoveFloor((floormove_t) f);
+    fun T_MoveFloor(f: thinker_t?) {
+        thinkers.MoveFloor(f as floormove_t)
     }
 
-    default void T_VerticalDoor(thinker_t v) {
-        getThinkers().VerticalDoor((vldoor_t) v);
+    fun T_VerticalDoor(v: thinker_t?) {
+        thinkers.VerticalDoor(v as vldoor_t)
     }
-    
-    default void T_SlidingDoor(thinker_t door) {
-        getThinkers().SlidingDoor((slidedoor_t) door);
+
+    fun T_SlidingDoor(door: thinker_t?) {
+        thinkers.SlidingDoor(door as slidedoor_t)
     }
-    
-    default void T_PlatRaise(thinker_t p) {
-        getThinkers().PlatRaise((plat_t) p);
+
+    fun T_PlatRaise(p: thinker_t?) {
+        thinkers.PlatRaise(p as plat_t)
     }
+
+    fun nop(vararg o: Any) {}
 }

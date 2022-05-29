@@ -1,16 +1,9 @@
-package p;
+package p
+
 
 //
 // P_CEILNG
 //
-
-public enum ceiling_e {
-
-     lowerToFloor,
-     raiseToHighest,
-     lowerAndCrush,
-     crushAndRaise,
-     fastCrushAndRaise,
-     silentCrushAndRaise;
-
- }
+enum class ceiling_e {
+    lowerToFloor, raiseToHighest, lowerAndCrush, crushAndRaise, fastCrushAndRaise, silentCrushAndRaise
+}

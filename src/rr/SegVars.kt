@@ -1,33 +1,29 @@
-package rr;
+package rr
 
-import data.Limits;
-import utils.C2JUtils;
+import data.Limits
+import utils.C2JUtils
 
-public class SegVars {
-	// /// FROM BSP /////////
-	
-    public int MAXDRAWSEGS = Limits.MAXDRAWSEGS;
+class SegVars {
+    // /// FROM BSP /////////
+    var MAXDRAWSEGS = Limits.MAXDRAWSEGS
 
-	/** pointer to drawsegs */
-    public int ds_p;
+    /** pointer to drawsegs  */
+    var ds_p = 0
+    lateinit var drawsegs: Array<drawseg_t>
+    lateinit var maskedtexturecol: ShortArray
+    var pmaskedtexturecol = 0
 
-    public drawseg_t[] drawsegs;
+    /**
+     * R_ClearDrawSegs
+     *
+     * The drawseg list is reset by pointing back at 0.
+     *
+     */
+    fun ClearDrawSegs() {
+        ds_p = 0
+    }
 
-    public short[] maskedtexturecol;
-    public int pmaskedtexturecol = 0;
-
-
-	/**
-	 * R_ClearDrawSegs
-	 * 
-	 * The drawseg list is reset by pointing back at 0.
-	 * 
-	 */
-	public void ClearDrawSegs() {
-		ds_p = 0;
-	}
-
-	public final void ResizeDrawsegs() {
-		drawsegs = C2JUtils.resize(drawsegs[0], drawsegs, drawsegs.length*2);
-	}
+    fun ResizeDrawsegs() {
+        drawsegs = C2JUtils.resize(drawsegs[0], drawsegs, drawsegs.size * 2)
+    }
 }

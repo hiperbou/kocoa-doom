@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,91 +13,78 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http:></http:>//www.gnu.org/licenses/>.
  */
+package v.scale
 
-package v.scale;
+internal class VideoScaleInfo : VideoScale {
+    protected var scale: Float
+    protected var width: Int
+    protected var height: Int
+    protected var bestScaleX: Int
+    protected var bestScaleY: Int
+    protected var bestSafeScale: Int
 
-class VideoScaleInfo implements VideoScale {
-    
-   protected float scale;
-   protected int width;
-   protected int height;
-   protected int bestScaleX;
-   protected int bestScaleY;
-   protected int bestSafeScale;
-   
-   /** Scale is intended as a multiple of the base resolution, 320 x 200.
-    *  If changing the ratio is also desired, then keep in mind that
-    *  the base width is always considered fixed, while the base height
-    *  is not. 
-    * 
-    * @param scale
-    */
-   
-    public VideoScaleInfo(float scale) {
-        this.scale = scale;
-        width = (int) (BASE_WIDTH * scale);
-        height = (int) (scale * BASE_WIDTH * INV_ASPECT_RATIO);
-        bestScaleX = (int) Math.floor((float) width / (float) BASE_WIDTH);
-        bestScaleY = (int) Math.floor((float) height / (float) BASE_HEIGHT);
-        bestSafeScale = Math.min(bestScaleX, bestScaleY);
-    }
-   
-   /** It's possible to specify other aspect ratios, too, keeping in mind
-    *  that there are maximum width and height limits to take into account,
-    *  and that scaling of graphics etc. will be rather problematic. Default
-    *  ratio is 0.625, 0.75 will give a nice 4:3 ratio.
-    *  
-    *  TODO: pretty lame...
-    *  
-    * @param scale
-    * @param ratio
-    */
-   
-   public VideoScaleInfo(float scale, float ratio){
-       this.scale=scale;
-       width=(int) (BASE_WIDTH*scale);
-       height=(int) (scale*BASE_WIDTH*ratio);
-       bestScaleX= (int) Math.floor((float)width/(float)BASE_WIDTH);
-       bestScaleY= (int) Math.floor((float)height/(float)BASE_HEIGHT);
-       bestSafeScale= Math.min(bestScaleX, bestScaleY);
-       
-   }
-      
-    @Override
-    public int getScreenWidth() {
-        return width;
+    /** Scale is intended as a multiple of the base resolution, 320 x 200.
+     * If changing the ratio is also desired, then keep in mind that
+     * the base width is always considered fixed, while the base height
+     * is not.
+     *
+     * @param scale
+     */
+    constructor(scale: Float) {
+        this.scale = scale
+        width = (VideoScale.BASE_WIDTH * scale).toInt()
+        height = (scale * VideoScale.BASE_WIDTH * VideoScale.INV_ASPECT_RATIO).toInt()
+        bestScaleX = Math.floor((width.toFloat() / VideoScale.BASE_WIDTH.toFloat()).toDouble()).toInt()
+        bestScaleY = Math.floor((height.toFloat() / VideoScale.BASE_HEIGHT.toFloat()).toDouble()).toInt()
+        bestSafeScale = Math.min(bestScaleX, bestScaleY)
     }
 
-    @Override
-    public int getScreenHeight() {      
-        return height;
+    /** It's possible to specify other aspect ratios, too, keeping in mind
+     * that there are maximum width and height limits to take into account,
+     * and that scaling of graphics etc. will be rather problematic. Default
+     * ratio is 0.625, 0.75 will give a nice 4:3 ratio.
+     *
+     * TODO: pretty lame...
+     *
+     * @param scale
+     * @param ratio
+     */
+    constructor(scale: Float, ratio: Float) {
+        this.scale = scale
+        width = (VideoScale.BASE_WIDTH * scale).toInt()
+        height = (scale * VideoScale.BASE_WIDTH * ratio).toInt()
+        bestScaleX = Math.floor((width.toFloat() / VideoScale.BASE_WIDTH.toFloat()).toDouble()).toInt()
+        bestScaleY = Math.floor((height.toFloat() / VideoScale.BASE_HEIGHT.toFloat()).toDouble()).toInt()
+        bestSafeScale = Math.min(bestScaleX, bestScaleY)
     }
 
-    @Override
-    public int getScalingX() {
-        return bestScaleX;
+    override fun getScreenWidth(): Int {
+        return width
     }
 
-    @Override
-    public int getScalingY() {
-        return bestScaleY;
+    override fun getScreenHeight(): Int {
+        return height
     }
 
-    @Override
-    public int getSafeScaling() {
-        return bestSafeScale;
+    override fun getScalingX(): Int {
+        return bestScaleX
     }
 
-    @Override
-    public boolean changed() {
-        return false;
+    override fun getScalingY(): Int {
+        return bestScaleY
     }
 
-    @Override
-    public float getScreenMul() {        
-        return scale;
+    override fun getSafeScaling(): Int {
+        return bestSafeScale
     }
 
+    override fun changed(): Boolean {
+        return false
+    }
+
+    override fun getScreenMul(): Float {
+        return scale
+    }
 }

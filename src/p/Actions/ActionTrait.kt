@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,217 +16,205 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import automap.IAutoMap;
-import static data.Limits.MAXRADIUS;
-import static data.Limits.MAXSPECIALCROSS;
-import data.sounds;
-import defines.skill_t;
-import doom.DoomMain;
-import doom.SourceCode;
-import doom.SourceCode.P_Map;
-import static doom.SourceCode.P_Map.PIT_CheckLine;
-import static doom.SourceCode.P_Map.P_CheckPosition;
-import doom.SourceCode.P_MapUtl;
-import static doom.SourceCode.P_MapUtl.P_BlockLinesIterator;
-import static doom.SourceCode.P_MapUtl.P_BlockThingsIterator;
-import doom.SourceCode.fixed_t;
-import doom.player_t;
-import hu.IHeadsUp;
-import i.IDoomSystem;
-import java.util.function.Predicate;
-import static m.BBox.BOXBOTTOM;
-import static m.BBox.BOXLEFT;
-import static m.BBox.BOXRIGHT;
-import static m.BBox.BOXTOP;
-import p.AbstractLevelLoader;
-import static p.AbstractLevelLoader.FIX_BLOCKMAP_512;
-import p.ThinkerList;
-import p.UnifiedGameMap;
-import p.intercept_t;
-import p.mobj_t;
-import static p.mobj_t.MF_MISSILE;
-import static p.mobj_t.MF_NOCLIP;
-import rr.SceneRenderer;
-import rr.line_t;
-import static rr.line_t.ML_BLOCKING;
-import static rr.line_t.ML_BLOCKMONSTERS;
-import rr.sector_t;
-import rr.subsector_t;
-import s.ISoundOrigin;
-import st.IDoomStatusBar;
-import utils.C2JUtils;
-import static utils.C2JUtils.eval;
-import utils.TraitFactory;
-import utils.TraitFactory.ContextKey;
-import utils.TraitFactory.Trait;
 
-public interface ActionTrait extends Trait, ThinkerList {
-    TraitFactory.KeyChain ACTION_KEY_CHAIN = new TraitFactory.KeyChain();
+import automap.IAutoMap
+import data.Limits
+import data.sounds.sfxenum_t
+import defines.skill_t
+import doom.DoomMain
+import doom.SourceCode
+import doom.SourceCode.*
+import doom.player_t
+import hu.IHeadsUp
+import i.IDoomSystem
+import m.BBox
+import p.*
+import p.Actions.ActionTrait.*
+import p.UnifiedGameMap.Switches
+import rr.SceneRenderer
+import rr.line_t
+import rr.sector_t
+import rr.subsector_t
+import s.ISoundOrigin
+import st.IDoomStatusBar
+import utils.C2JUtils
+import utils.TraitFactory.ContextKey
+import utils.TraitFactory.KeyChain
+import utils.TraitFactory.Trait
+import java.util.function.Predicate
+import java.util.function.Supplier
 
-    ContextKey<SlideMove> KEY_SLIDEMOVE = ACTION_KEY_CHAIN.newKey(ActionTrait.class, SlideMove::new);
-    ContextKey<Spechits> KEY_SPECHITS = ACTION_KEY_CHAIN.newKey(ActionTrait.class, Spechits::new);
-    ContextKey<Movement> KEY_MOVEMENT = ACTION_KEY_CHAIN.newKey(ActionTrait.class, Movement::new);
-    
-    AbstractLevelLoader levelLoader();
-    IHeadsUp headsUp();
-    IDoomSystem doomSystem();
-    IDoomStatusBar statusBar();
-    IAutoMap<?, ?> autoMap();
-    SceneRenderer<?, ?> sceneRenderer();
+interface ActionTrait : Trait, ThinkerList {
+    fun levelLoader(): AbstractLevelLoader
+    fun headsUp(): IHeadsUp
+    fun doomSystem(): IDoomSystem
+    fun statusBar(): IDoomStatusBar
+    fun autoMap(): IAutoMap<*, *>
+    fun sceneRenderer(): SceneRenderer<*, *>
+    val specials: UnifiedGameMap.Specials
+    val switches: Switches
+    val thinkers: ActionsThinkers
+    val enemies: ActionsEnemies
+    val attacks: ActionsAttacks
+    fun StopSound(origin: ISoundOrigin?) // DOOM.doomSound.StopSound
+    fun StartSound(origin: ISoundOrigin?, s: sfxenum_t?) // DOOM.doomSound.StartSound
+    fun StartSound(origin: ISoundOrigin?, s: Int) // DOOM.doomSound.StartSound
+    fun getPlayer(number: Int): player_t? //DOOM.players[]
 
-    UnifiedGameMap.Specials getSpecials();
-    UnifiedGameMap.Switches getSwitches();
-    ActionsThinkers getThinkers();
-    ActionsEnemies getEnemies();
-    ActionsAttacks getAttacks();
-
-    void StopSound(ISoundOrigin origin); // DOOM.doomSound.StopSound
-    void StartSound(ISoundOrigin origin, sounds.sfxenum_t s); // DOOM.doomSound.StartSound
-    void StartSound(ISoundOrigin origin, int s); // DOOM.doomSound.StartSound
-
-    player_t getPlayer(int number); //DOOM.players[]
-    skill_t getGameSkill(); // DOOM.gameskill
-    mobj_t createMobj(); // mobj_t.from(DOOM);
-
-    int LevelTime(); // DOOM.leveltime
-    int P_Random();
-    int ConsolePlayerNumber(); // DOOM.consoleplayer
-    int MapNumber(); // DOOM.gamemap
-    boolean PlayerInGame(int number); // DOOM.palyeringame
-    boolean IsFastParm(); // DOOM.fastparm
-    boolean IsPaused(); // DOOM.paused
-    boolean IsNetGame(); // DOOM.netgame
-    boolean IsDemoPlayback(); // DOOM.demoplayback
-    boolean IsDeathMatch(); // DOOM.deathmatch
-    boolean IsAutoMapActive(); // DOOM.automapactive
-    boolean IsMenuActive(); // DOOM.menuactive
-    boolean CheckThing(mobj_t m);
-    boolean StompThing(mobj_t m);
-        
-    default void SetThingPosition(mobj_t mobj) {
-        levelLoader().SetThingPosition(mobj);
+    // DOOM.gameskill
+    val gameSkill: skill_t?
+    fun createMobj(): mobj_t // mobj_t.from(DOOM);
+    fun LevelTime(): Int // DOOM.leveltime
+    fun P_Random(): Int
+    fun ConsolePlayerNumber(): Int // DOOM.consoleplayer
+    fun MapNumber(): Int // DOOM.gamemap
+    fun PlayerInGame(number: Int): Boolean // DOOM.palyeringame
+    fun IsFastParm(): Boolean // DOOM.fastparm
+    fun IsPaused(): Boolean // DOOM.paused
+    fun IsNetGame(): Boolean // DOOM.netgame
+    fun IsDemoPlayback(): Boolean // DOOM.demoplayback
+    fun IsDeathMatch(): Boolean // DOOM.deathmatch
+    fun IsAutoMapActive(): Boolean // DOOM.automapactive
+    fun IsMenuActive(): Boolean // DOOM.menuactive
+    fun CheckThing(m: mobj_t): Boolean
+    fun StompThing(m: mobj_t): Boolean
+    fun SetThingPosition(mobj: mobj_t) {
+        levelLoader().SetThingPosition(mobj)
     }
 
     /**
      * Try to avoid.
      */
-    DoomMain<?, ?> DOOM();
-    
-    final class SlideMove {
+    fun DOOM(): DoomMain<*, *>
+    class SlideMove {
         //
         // SLIDE MOVE
         // Allows the player to slide along any angled walls.
         //
-        mobj_t slidemo;
-        
-        @fixed_t
-        int bestslidefrac, secondslidefrac;
-        
-        line_t bestslideline, secondslideline;
-        
-        @fixed_t
-        int tmxmove, tmymove;
+        var slidemo: mobj_t? = null
+
+        @SourceCode.fixed_t
+        var bestslidefrac = 0
+
+        @SourceCode.fixed_t
+        var secondslidefrac = 0
+        var bestslideline: line_t? = null
+        var secondslideline: line_t? = null
+
+        @SourceCode.fixed_t
+        var tmxmove = 0
+
+        @SourceCode.fixed_t
+        var tmymove = 0
     }
-    
-    final class Spechits {
-        line_t[] spechit = new line_t[MAXSPECIALCROSS];
-        int numspechit;
-        
+
+    class Spechits {
+        var spechit = arrayOfNulls<line_t>(Limits.MAXSPECIALCROSS)
+        var numspechit = 0
+
         //
         // USE LINES
         //
-        mobj_t usething;
+        var usething: mobj_t? = null
     }
-    
+
     ///////////////// MOVEMENT'S ACTIONS ////////////////////////
-    final class Movement {
+    class Movement {
         /**
          * If "floatok" true, move would be ok if within "tmfloorz - tmceilingz".
          */
-        public boolean floatok;
-        
-        @fixed_t
-        public int tmfloorz,
-                   tmceilingz,
-                   tmdropoffz;
-        
+        var floatok = false
+
+        @SourceCode.fixed_t
+        var tmfloorz = 0
+
+        @SourceCode.fixed_t
+        var tmceilingz = 0
+
+        @SourceCode.fixed_t
+        var tmdropoffz = 0
+
         // keep track of the line that lowers the ceiling,
         // so missiles don't explode against sky hack walls
-        public line_t ceilingline;
-        @fixed_t
-        int[] tmbbox = new int[4];
-        
-        mobj_t tmthing;
-        
-        long tmflags;
-        
-        @fixed_t
-        int tmx, tmy;
-        
+        var ceilingline: line_t? = null
+
+        @SourceCode.fixed_t
+        var tmbbox = IntArray(4)
+        var tmthing: mobj_t? = null
+        var tmflags = 0
+
+        @SourceCode.fixed_t
+        var tmx = 0
+
+        @SourceCode.fixed_t
+        var tmy = 0
+
         ////////////////////// FROM p_maputl.c ////////////////////
-        @fixed_t
-        int opentop, openbottom, openrange, lowfloor;
+        @SourceCode.fixed_t
+        var opentop = 0
+
+        @SourceCode.fixed_t
+        var openbottom = 0
+
+        @SourceCode.fixed_t
+        var openrange = 0
+
+        @SourceCode.fixed_t
+        var lowfloor = 0
     }
-    
+
     /**
      * P_LineOpening Sets opentop and openbottom to the window through a two
      * sided line. OPTIMIZE: keep this precalculated
      */
-
-    default void LineOpening(line_t linedef) {
-        final Movement ma = contextRequire(KEY_MOVEMENT);
-        sector_t front;
-        sector_t back;
-
+    fun LineOpening(linedef: line_t) {
+        val ma = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        val front: sector_t
+        val back: sector_t
         if (linedef.sidenum[1] == line_t.NO_INDEX) {
             // single sided line
-            ma.openrange = 0;
-            return;
+            ma.openrange = 0
+            return
         }
-
-        front = linedef.frontsector;
-        back = linedef.backsector;
-
+        front = linedef.frontsector!!
+        back = linedef.backsector!!
         if (front.ceilingheight < back.ceilingheight) {
-            ma.opentop = front.ceilingheight;
+            ma.opentop = front.ceilingheight
         } else {
-            ma.opentop = back.ceilingheight;
+            ma.opentop = back.ceilingheight
         }
-
         if (front.floorheight > back.floorheight) {
-            ma.openbottom = front.floorheight;
-            ma.lowfloor = back.floorheight;
+            ma.openbottom = front.floorheight
+            ma.lowfloor = back.floorheight
         } else {
-            ma.openbottom = back.floorheight;
-            ma.lowfloor = front.floorheight;
+            ma.openbottom = back.floorheight
+            ma.lowfloor = front.floorheight
         }
-
-        ma.openrange = ma.opentop - ma.openbottom;
+        ma.openrange = ma.opentop - ma.openbottom
     }
 
     //
     //P_BlockThingsIterator
     //
     @SourceCode.Exact
-    @P_MapUtl.C(P_BlockThingsIterator)
-    default boolean BlockThingsIterator(int x, int y, Predicate<mobj_t> func) {
-        final AbstractLevelLoader ll = levelLoader();
-        mobj_t mobj;
-
+    @P_MapUtl.C(P_MapUtl.P_BlockThingsIterator)
+    fun BlockThingsIterator(x: Int, y: Int, func: Predicate<mobj_t>): Boolean {
+        val ll = levelLoader()
+        var mobj: mobj_t?
         if (x < 0 || y < 0 || x >= ll.bmapwidth || y >= ll.bmapheight) {
-            return true;
+            return true
         }
-
-        for (mobj = ll.blocklinks[y * ll.bmapwidth + x]; mobj != null; mobj = (mobj_t) mobj.bnext) {
+        mobj = ll.blocklinks!![y * ll.bmapwidth + x]
+        while (mobj != null) {
             if (!func.test(mobj)) {
-                return false;
+                return false
             }
+            mobj = mobj.bnext as mobj_t?
         }
-        return true;
+        return true
     }
-
     //
     // SECTOR HEIGHT CHANGING
     // After modifying a sectors floor or ceiling height,
@@ -239,76 +228,68 @@ public interface ActionTrait extends Trait, ThinkerList {
     //  the way it was and call P_ChangeSector again
     //  to undo the changes.
     //
-
     /**
      * P_BlockLinesIterator The validcount flags are used to avoid checking lines that are marked in multiple mapblocks,
      * so increment validcount before the first call to P_BlockLinesIterator, then make one or more calls to it.
      */
-    @P_MapUtl.C(P_BlockLinesIterator)
-    default boolean BlockLinesIterator(int x, int y, Predicate<line_t> func) {
-        final AbstractLevelLoader ll = levelLoader();
-        final SceneRenderer<?, ?> sr = sceneRenderer();
-        int offset;
-        int lineinblock;
-        line_t ld;
-
+    @P_MapUtl.C(P_MapUtl.P_BlockLinesIterator)
+    fun BlockLinesIterator(x: Int, y: Int, func: Predicate<line_t>): Boolean {
+        val ll = levelLoader()
+        val sr = sceneRenderer()
+        var offset: Int
+        var lineinblock: Int
+        var ld: line_t
         if (x < 0 || y < 0 || x >= ll.bmapwidth || y >= ll.bmapheight) {
-            return true;
+            return true
         }
 
         // This gives us the index to look up (in blockmap)
-        offset = y * ll.bmapwidth + x;
+        offset = y * ll.bmapwidth + x
 
         // The index contains yet another offset, but this time 
-        offset = ll.blockmap[offset];
+        offset = ll.blockmap[offset]
 
         // MAES: blockmap terminating marker is always -1
-        @SourceCode.Compatible("validcount")
-        final int validcount = sr.getValidCount();
+        @Compatible("validcount") val validcount = sr.getValidCount()
 
         // [SYNC ISSUE]: don't skip offset+1 :-/
-        for (
-            @SourceCode.Compatible("list = blockmaplump+offset ; *list != -1 ; list++")
-            int list = offset; (lineinblock = ll.blockmap[list]) != -1; list++
-        ) {
-            ld = ll.lines[lineinblock];
+        @Compatible("list = blockmaplump+offset ; *list != -1 ; list++") var list = offset
+        while (ll.blockmap[list].also { lineinblock = it } != -1) {
+            ld = ll.lines[lineinblock]
             //System.out.println(ld);
             if (ld.validcount == validcount) {
-                continue;   // line has already been checked
+                list++
+                continue  // line has already been checked
             }
-            ld.validcount = validcount;
+            ld.validcount = validcount
             if (!func.test(ld)) {
-                return false;
+                return false
             }
+            list++
         }
-        return true;    // everything was checked
+        return true // everything was checked
     }
 
     // keep track of the line that lowers the ceiling,
     // so missiles don't explode against sky hack walls
-    default void ResizeSpechits() {
-        final Spechits spechits = contextRequire(KEY_SPECHITS);
-        spechits.spechit = C2JUtils.resize(spechits.spechit[0], spechits.spechit, spechits.spechit.length * 2);
+    fun ResizeSpechits() {
+        val spechits = contextRequire<Spechits>(ActionTrait.KEY_SPECHITS)
+        spechits.spechit = C2JUtils.resize(spechits.spechit[0], spechits.spechit, spechits.spechit.size * 2)
     }
-    
+
     /**
      * PIT_CheckLine Adjusts tmfloorz and tmceilingz as lines are contacted
      *
      */
-    @P_Map.C(PIT_CheckLine) default boolean CheckLine(line_t ld) {
-        final Spechits spechits = contextRequire(KEY_SPECHITS);
-        final Movement ma = contextRequire(KEY_MOVEMENT);
-        
-        if (ma.tmbbox[BOXRIGHT] <= ld.bbox[BOXLEFT]
-        || ma.tmbbox[BOXLEFT] >= ld.bbox[BOXRIGHT]
-        || ma.tmbbox[BOXTOP] <= ld.bbox[BOXBOTTOM]
-        || ma.tmbbox[BOXBOTTOM] >= ld.bbox[BOXTOP])
-        {
-            return true;
+    @P_Map.C(P_Map.PIT_CheckLine)
+    fun CheckLine(ld: line_t): Boolean {
+        val spechits = contextRequire<Spechits>(ActionTrait.KEY_SPECHITS)
+        val ma = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        if (ma.tmbbox[BBox.BOXRIGHT] <= ld.bbox[BBox.BOXLEFT] || ma.tmbbox[BBox.BOXLEFT] >= ld.bbox[BBox.BOXRIGHT] || ma.tmbbox[BBox.BOXTOP] <= ld.bbox[BBox.BOXBOTTOM] || ma.tmbbox[BBox.BOXBOTTOM] >= ld.bbox[BBox.BOXTOP]) {
+            return true
         }
-
         if (ld.BoxOnLineSide(ma.tmbbox) != -1) {
-            return true;
+            return true
         }
 
         // A line has been hit
@@ -321,47 +302,43 @@ public interface ActionTrait extends Trait, ThinkerList {
         // so two special lines that are only 8 pixels apart
         // could be crossed in either order.
         if (ld.backsector == null) {
-            return false;       // one sided line
+            return false // one sided line
         }
-        if (!eval(ma.tmthing.flags & MF_MISSILE)) {
-            if (eval(ld.flags & ML_BLOCKING)) {
-                return false;   // explicitly blocking everything
+        if (!C2JUtils.eval(ma.tmthing!!.flags and mobj_t.MF_MISSILE)) {
+            if (C2JUtils.eval(ld.flags.toInt() and line_t.ML_BLOCKING)) {
+                return false // explicitly blocking everything
             }
-            if ((ma.tmthing.player == null) && eval(ld.flags & ML_BLOCKMONSTERS)) {
-                return false;   // block monsters only
+            if (ma.tmthing!!.player == null && C2JUtils.eval(ld.flags.toInt() and line_t.ML_BLOCKMONSTERS)) {
+                return false // block monsters only
             }
         }
 
         // set openrange, opentop, openbottom
-        LineOpening(ld);
+        LineOpening(ld)
 
         // adjust floor / ceiling heights
         if (ma.opentop < ma.tmceilingz) {
-            ma.tmceilingz = ma.opentop;
-            ma.ceilingline = ld;
+            ma.tmceilingz = ma.opentop
+            ma.ceilingline = ld
         }
-
         if (ma.openbottom > ma.tmfloorz) {
-            ma.tmfloorz = ma.openbottom;
+            ma.tmfloorz = ma.openbottom
         }
-
         if (ma.lowfloor < ma.tmdropoffz) {
-            ma.tmdropoffz = ma.lowfloor;
+            ma.tmdropoffz = ma.lowfloor
         }
 
         // if contacted a special line, add it to the list
-        if (ld.special != 0) {
-            spechits.spechit[spechits.numspechit] = ld;
-            spechits.numspechit++;
+        if (ld.special.toInt() != 0) {
+            spechits.spechit[spechits.numspechit] = ld
+            spechits.numspechit++
             // Let's be proactive about this.
-            if (spechits.numspechit >= spechits.spechit.length) {
-                this.ResizeSpechits();
+            if (spechits.numspechit >= spechits.spechit.size) {
+                ResizeSpechits()
             }
         }
-
-        return true;
-    };
-
+        return true
+    }
     //
     // MOVEMENT CLIPPING
     //
@@ -379,48 +356,43 @@ public interface ActionTrait extends Trait, ThinkerList {
      * @param x fixed_t
      * @param y fixed_t
      */
-    @SourceCode.Compatible
-    @P_Map.C(P_CheckPosition)
-    default boolean CheckPosition(mobj_t thing, @fixed_t int x, @fixed_t int y) {
-        final AbstractLevelLoader ll = levelLoader();
-        final Spechits spechits = contextRequire(KEY_SPECHITS);
-        final Movement ma = contextRequire(KEY_MOVEMENT);
-        int xl;
-        int xh;
-        int yl;
-        int yh;
-        int bx;
-        int by;
-        subsector_t newsubsec;
-
-        ma.tmthing = thing;
-        ma.tmflags = thing.flags;
-
-        ma.tmx = x;
-        ma.tmy = y;
-
-        ma.tmbbox[BOXTOP] = y + ma.tmthing.radius;
-        ma.tmbbox[BOXBOTTOM] = y - ma.tmthing.radius;
-        ma.tmbbox[BOXRIGHT] = x + ma.tmthing.radius;
-        ma.tmbbox[BOXLEFT] = x - ma.tmthing.radius;
-
-        R_PointInSubsector: {
-            newsubsec = levelLoader().PointInSubsector(x, y);
-        }
-        ma.ceilingline = null;
+    @Compatible
+    @P_Map.C(P_Map.P_CheckPosition)
+    fun CheckPosition(thing: mobj_t, @SourceCode.fixed_t x: Int, @SourceCode.fixed_t y: Int): Boolean {
+        val ll = levelLoader()
+        val spechits = contextRequire<Spechits>(ActionTrait.KEY_SPECHITS)
+        val ma = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        var xl: Int
+        var xh: Int
+        var yl: Int
+        var yh: Int
+        var bx: Int
+        var by: Int
+        var newsubsec: subsector_t
+        ma.tmthing = thing
+        ma.tmflags = thing.flags
+        ma.tmx = x
+        ma.tmy = y
+        ma.tmbbox[BBox.BOXTOP] = y + ma.tmthing!!.radius
+        ma.tmbbox[BBox.BOXBOTTOM] = y - ma.tmthing!!.radius
+        ma.tmbbox[BBox.BOXRIGHT] = x + ma.tmthing!!.radius
+        ma.tmbbox[BBox.BOXLEFT] = x - ma.tmthing!!.radius
+        //R_PointInSubsector@ run { //TODO: check all "@ run {"
+            newsubsec = levelLoader().PointInSubsector(x, y)
+        //}
+        ma.ceilingline = null
 
         // The base floor / ceiling is from the subsector
         // that contains the point.
         // Any contacted lines the step closer together
         // will adjust them.
-        ma.tmfloorz = ma.tmdropoffz = newsubsec.sector.floorheight;
-        ma.tmceilingz = newsubsec.sector.ceilingheight;
-
-        sceneRenderer().increaseValidCount(1);
-        spechits.numspechit = 0;
-
-        if (eval(ma.tmflags & MF_NOCLIP)) {
-            return true;
+        ma.tmdropoffz = newsubsec.sector!!.floorheight
+        ma.tmfloorz = ma.tmdropoffz
+        ma.tmceilingz = newsubsec.sector!!.ceilingheight
+        sceneRenderer().increaseValidCount(1)
+        spechits.numspechit = 0
+        if (C2JUtils.eval(ma.tmflags and mobj_t.MF_NOCLIP)) {
+            return true
         }
 
         // Check things first, possibly picking things up.
@@ -428,57 +400,62 @@ public interface ActionTrait extends Trait, ThinkerList {
         // because mobj_ts are grouped into mapblocks
         // based on their origin point, and can overlap
         // into adjacent blocks by up to MAXRADIUS units.
-        xl = ll.getSafeBlockX(ma.tmbbox[BOXLEFT] - ll.bmaporgx - MAXRADIUS);
-        xh = ll.getSafeBlockX(ma.tmbbox[BOXRIGHT] - ll.bmaporgx + MAXRADIUS);
-        yl = ll.getSafeBlockY(ma.tmbbox[BOXBOTTOM] - ll.bmaporgy - MAXRADIUS);
-        yh = ll.getSafeBlockY(ma.tmbbox[BOXTOP] - ll.bmaporgy + MAXRADIUS);
-
-        for (bx = xl; bx <= xh; bx++) {
-            for (by = yl; by <= yh; by++) {
-                P_BlockThingsIterator: {
-                    if (!BlockThingsIterator(bx, by, this::CheckThing)) {
-                        return false;
+        xl = ll.getSafeBlockX(ma.tmbbox[BBox.BOXLEFT] - ll.bmaporgx - Limits.MAXRADIUS)
+        xh = ll.getSafeBlockX(ma.tmbbox[BBox.BOXRIGHT] - ll.bmaporgx + Limits.MAXRADIUS)
+        yl = ll.getSafeBlockY(ma.tmbbox[BBox.BOXBOTTOM] - ll.bmaporgy - Limits.MAXRADIUS)
+        yh = ll.getSafeBlockY(ma.tmbbox[BBox.BOXTOP] - ll.bmaporgy + Limits.MAXRADIUS)
+        bx = xl
+        while (bx <= xh) {
+            by = yl
+            while (by <= yh) {
+                //P_BlockThingsIterator@ run {
+                    if (!BlockThingsIterator(bx, by) { m: mobj_t -> CheckThing(m) }) {
+                        return false
                     }
-                }
+                //}
+                by++
             }
+            bx++
         }
 
         // check lines
-        xl = ll.getSafeBlockX(ma.tmbbox[BOXLEFT] - ll.bmaporgx);
-        xh = ll.getSafeBlockX(ma.tmbbox[BOXRIGHT] - ll.bmaporgx);
-        yl = ll.getSafeBlockY(ma.tmbbox[BOXBOTTOM] - ll.bmaporgy);
-        yh = ll.getSafeBlockY(ma.tmbbox[BOXTOP] - ll.bmaporgy);
-
-        if (FIX_BLOCKMAP_512) {
+        xl = ll.getSafeBlockX(ma.tmbbox[BBox.BOXLEFT] - ll.bmaporgx)
+        xh = ll.getSafeBlockX(ma.tmbbox[BBox.BOXRIGHT] - ll.bmaporgx)
+        yl = ll.getSafeBlockY(ma.tmbbox[BBox.BOXBOTTOM] - ll.bmaporgy)
+        yh = ll.getSafeBlockY(ma.tmbbox[BBox.BOXTOP] - ll.bmaporgy)
+        if (AbstractLevelLoader.FIX_BLOCKMAP_512) {
             // Maes's quick and dirty blockmap extension hack
             // E.g. for an extension of 511 blocks, max negative is -1.
             // A full 512x512 blockmap doesn't have negative indexes.
             if (xl <= ll.blockmapxneg) {
-                xl = 0x1FF & xl;         // Broke width boundary
+                xl = 0x1FF and xl // Broke width boundary
             }
             if (xh <= ll.blockmapxneg) {
-                xh = 0x1FF & xh;    // Broke width boundary
+                xh = 0x1FF and xh // Broke width boundary
             }
             if (yl <= ll.blockmapyneg) {
-                yl = 0x1FF & yl;        // Broke height boundary
+                yl = 0x1FF and yl // Broke height boundary
             }
             if (yh <= ll.blockmapyneg) {
-                yh = 0x1FF & yh;   // Broke height boundary     
+                yh = 0x1FF and yh // Broke height boundary     
             }
         }
-        for (bx = xl; bx <= xh; bx++) {
-            for (by = yl; by <= yh; by++) {
-                P_BlockLinesIterator: {
-                    if (!this.BlockLinesIterator(bx, by, this::CheckLine)) {
-                        return false;
+        bx = xl
+        while (bx <= xh) {
+            by = yl
+            while (by <= yh) {
+                //P_BlockLinesIterator@ run {
+                    if (!BlockLinesIterator(bx, by) { ld: line_t -> CheckLine(ld) }) {
+                        return false
                     }
-                }
+                //}
+                by++
             }
+            bx++
         }
-
-        return true;
+        return true
     }
-    
+
     //
     // P_ThingHeightClip
     // Takes a valid thing and adjusts the thing.floorz,
@@ -489,43 +466,47 @@ public interface ActionTrait extends Trait, ThinkerList {
     // the z will be set to the lowest value
     // and false will be returned.
     //
-    default boolean ThingHeightClip(mobj_t thing) {
-        final Movement ma = contextRequire(KEY_MOVEMENT);
-        boolean onfloor;
-
-        onfloor = (thing.z == thing.floorz);
-
-        this.CheckPosition(thing, thing.x, thing.y);
+    fun ThingHeightClip(thing: mobj_t): Boolean {
+        val ma = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        val onfloor: Boolean
+        onfloor = thing._z == thing.floorz
+        CheckPosition(thing, thing._x, thing._y)
         // what about stranding a monster partially off an edge?
-
-        thing.floorz = ma.tmfloorz;
-        thing.ceilingz = ma.tmceilingz;
-
+        thing.floorz = ma.tmfloorz
+        thing.ceilingz = ma.tmceilingz
         if (onfloor) {
             // walking monsters rise and fall with the floor
-            thing.z = thing.floorz;
+            thing._z = thing.floorz
         } else {
             // don't adjust a floating monster unless forced to
-            if (thing.z + thing.height > thing.ceilingz) {
-                thing.z = thing.ceilingz - thing.height;
+            if (thing._z + thing.height > thing.ceilingz) {
+                thing._z = thing.ceilingz - thing.height
             }
         }
-
-        return thing.ceilingz - thing.floorz >= thing.height;
+        return thing.ceilingz - thing.floorz >= thing.height
     }
-    
-    default boolean isblocking(intercept_t in, line_t li) {
-        final SlideMove slideMove = contextRequire(KEY_SLIDEMOVE);
+
+    fun isblocking(`in`: intercept_t, li: line_t?): Boolean {
+        val slideMove = contextRequire<SlideMove>(ActionTrait.KEY_SLIDEMOVE)
         // the line does block movement,
         // see if it is closer than best so far
-
-        if (in.frac < slideMove.bestslidefrac) {
-            slideMove.secondslidefrac = slideMove.bestslidefrac;
-            slideMove.secondslideline = slideMove.bestslideline;
-            slideMove.bestslidefrac = in.frac;
-            slideMove.bestslideline = li;
+        if (`in`.frac < slideMove.bestslidefrac) {
+            slideMove.secondslidefrac = slideMove.bestslidefrac
+            slideMove.secondslideline = slideMove.bestslideline
+            slideMove.bestslidefrac = `in`.frac
+            slideMove.bestslideline = li
         }
+        return false // stop
+    }
 
-        return false;   // stop
+    companion object {
+        var ACTION_KEY_CHAIN = KeyChain()
+
+        var KEY_SLIDEMOVE: ContextKey<SlideMove> =
+            ACTION_KEY_CHAIN.newKey(ActionTrait::class.java) { SlideMove() }
+        var KEY_SPECHITS: ContextKey<Spechits> =
+            ACTION_KEY_CHAIN.newKey(ActionTrait::class.java) { Spechits() }
+        var KEY_MOVEMENT: ContextKey<Movement> =
+            ACTION_KEY_CHAIN.newKey(ActionTrait::class.java) { Movement() }
     }
 }

@@ -1,23 +1,20 @@
-package doom;
+package doom
 
-import java.io.IOException;
+
+import java.io.IOException
 
 /** Stuff that the "main" is supposed to do. DoomMain implements those.
- * 
- * @author Maes
  *
+ * @author Maes
  */
+interface IDoom {
+    /** Called by IO functions when input is detected.  */
+    fun PostEvent(ev: event_t)
+    fun PageTicker()
+    fun PageDrawer()
+    fun AdvanceDemo()
+    fun StartTitle()
 
-
-public interface IDoom {
-
-
-	/** Called by IO functions when input is detected. */
-	void PostEvent (event_t ev);
-	void PageTicker ();
-	void PageDrawer ();
-	void AdvanceDemo ();
-	void StartTitle ();
-    void QuitNetGame() throws IOException; 
-
+    @Throws(IOException::class)
+    fun QuitNetGame()
 }

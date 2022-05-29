@@ -1,21 +1,16 @@
-package i;
+package i
+
 
 /** Interface for Doom-to-System event handling methods
- * 
- * @author Velktron
  *
+ * @author Velktron
  */
-
-
-public interface DoomEventInterface {
-
-	/** The implementation is windowing subsystem-specific 
-	 *  e.g. DOS, XServer, AWT or Swing or whatever.
-	 * 
-	 */
-	public void GetEvent();
-
-    public boolean mouseMoving();
-    
-    public void setMouseMoving(boolean mousMoving);
+interface DoomEventInterface {
+    /** The implementation is windowing subsystem-specific
+     * e.g. DOS, XServer, AWT or Swing or whatever.
+     *
+     */
+    fun GetEvent()
+    fun mouseMoving(): Boolean
+    fun setMouseMoving(mousMoving: Boolean)
 }

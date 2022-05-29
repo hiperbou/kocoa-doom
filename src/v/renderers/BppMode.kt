@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,79 +15,130 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package v.renderers;
+package v.renderers
 
-import doom.CVarManager;
-import doom.CommandVariable;
-import doom.DoomMain;
-import mochadoom.Engine;
-import java.awt.Transparency;
-import java.util.function.Function;
-import m.Settings;
-import rr.SceneRenderer;
-import v.DoomGraphicSystem;
+import doom.CVarManager
+import doom.CommandVariable
+import doom.DoomMain
+import m.Settings
+import mochadoom.Engine
+import rr.SceneRenderer
+import v.DoomGraphicSystem
+import v.renderers.BppMode
+import v.renderers.RendererFactory.WithWadLoader
+import java.awt.Transparency
+import java.util.function.Function
 
 /**
  * This class helps to choose proper components for bit depth
  * selected in config or through use of command line arguments
  */
-public enum BppMode {
-    Indexed(5, BufferedRenderer::new, BppMode::SceneGen_8, Transparency.OPAQUE),
-    HiColor(5, BufferedRenderer16::new, BppMode::SceneGen_16, Transparency.OPAQUE),
-    TrueColor(8, BufferedRenderer32::new, BppMode::SceneGen_32, Transparency.OPAQUE),
-    AlphaTrueColor(8, BufferedRenderer32::new, BppMode::SceneGen_32, Transparency.TRANSLUCENT);
-    
-    public final int transparency;
-    public final int lightBits;
-    final RenderGen<?, ?> renderGen;
-    final ScenerGen<?, ?> scenerGen;
+enum class BppMode(lightBits: Int, renderGen: RenderGen<ByteArray, *>, scenerGen: ScenerGen<ByteArray, *>, transparency: Int) {
+    Indexed(5,
+        object : RenderGen<ByteArray, ByteArray> {
+            override fun apply(rf: WithWadLoader<ByteArray, ByteArray>): SoftwareGraphicsSystem<ByteArray, ByteArray> {
+                return BufferedRenderer(
+                    rf
+                ) as SoftwareGraphicsSystem<ByteArray, ByteArray>
+            }
+        },
+        object : ScenerGen<ByteArray, ByteArray> {
+            override fun apply(DOOM: DoomMain<ByteArray, ByteArray>): SceneRenderer<ByteArray, ByteArray> {
+                return SceneGen_8(DOOM)
+            }
+        }, Transparency.OPAQUE
+    ),
+    HiColor(5,
+        object : RenderGen<ByteArray, ShortArray> {
+            override fun apply(rf: WithWadLoader<ByteArray, ShortArray>): SoftwareGraphicsSystem<ByteArray, ShortArray> {
+                return BufferedRenderer16(
+                    rf
+                ) as SoftwareGraphicsSystem<ByteArray, ShortArray>
+            }
+        },
+        object : ScenerGen<ByteArray, ShortArray> {
+            override fun apply(DOOM: DoomMain<ByteArray, ShortArray>): SceneRenderer<ByteArray, ShortArray> {
+                return SceneGen_16(DOOM)
+            }
+        }, Transparency.OPAQUE
+    ),
+    TrueColor(8,
+        object : RenderGen<ByteArray, IntArray> {
+            override fun apply(rf: WithWadLoader<ByteArray, IntArray>): SoftwareGraphicsSystem<ByteArray, IntArray> {
+                return BufferedRenderer32(
+                    rf
+                ) as SoftwareGraphicsSystem<ByteArray, IntArray>
+            }
+        },
+        object : ScenerGen<ByteArray, IntArray> {
+            override fun apply(DOOM: DoomMain<ByteArray, IntArray>): SceneRenderer<ByteArray, IntArray> {
+                return SceneGen_32(DOOM)
+            }
+        }, Transparency.OPAQUE
+    ),
+    AlphaTrueColor(8,
+        object : RenderGen<ByteArray, IntArray> {
+            override fun apply(rf: WithWadLoader<ByteArray, IntArray>): SoftwareGraphicsSystem<ByteArray, IntArray> {
+                return BufferedRenderer32(
+                    rf
+                ) as SoftwareGraphicsSystem<ByteArray, IntArray>
+            }
+        },
+        object : ScenerGen<ByteArray, IntArray> {
+            override fun apply(DOOM: DoomMain<ByteArray, IntArray>): SceneRenderer<ByteArray, IntArray> {
+                return SceneGen_32(DOOM)
+            }
+        }, Transparency.TRANSLUCENT
+    );
 
-    private <T, V> BppMode(int lightBits, RenderGen<T, V> renderGen, ScenerGen<T, V> scenerGen, int transparency) {
-        this.lightBits = lightBits;
-        this.renderGen = renderGen;
-        this.scenerGen = scenerGen;
-        this.transparency = transparency;
-    }
-    
-    @SuppressWarnings("unchecked")
-	public <T, V> DoomGraphicSystem<T, V> graphics(RendererFactory.WithWadLoader<T, V> rf) {
-        return ((RenderGen<T, V>) renderGen).apply(rf);
+    val transparency: Int
+    val lightBits: Int
+    private val renderGen: RenderGen<*, *>
+    private val scenerGen: ScenerGen<*, *>
+
+    init {
+        this.lightBits = lightBits
+        this.renderGen = renderGen
+        this.scenerGen = scenerGen
+        this.transparency = transparency
     }
 
-    @SuppressWarnings("unchecked")
-	public <T, V> SceneRenderer<T, V> sceneRenderer(DoomMain<T, V> DOOM) {
-        return ((ScenerGen<T, V>) scenerGen).apply(DOOM);
+    fun <T, V> graphics(rf: WithWadLoader<T, V>): DoomGraphicSystem<T, V> {
+        return (renderGen as RenderGen<T, V>).apply(rf)
     }
 
-    public static BppMode chooseBppMode(CVarManager CVM) {
-        if (CVM.bool(CommandVariable.TRUECOLOR)) {
-            return TrueColor;
-        } else if (CVM.bool(CommandVariable.HICOLOR)) {
-            return HiColor;
-        } else if (CVM.bool(CommandVariable.INDEXED)) {
-            return Indexed;
-        } else if (CVM.bool(CommandVariable.ALPHATRUECOLOR)) {
-            return AlphaTrueColor;
-        } else {
-            return Engine.getConfig().getValue(Settings.color_depth, BppMode.class);
+    fun <T, V> sceneRenderer(DOOM: DoomMain<T, V>): SceneRenderer<T, V> {
+        return (scenerGen as ScenerGen<T, V>).apply(DOOM)
+    }
+
+    internal interface ScenerGen<T, V> : Function<DoomMain<T, V>, SceneRenderer<T, V>>
+    internal interface RenderGen<T, V> : Function<WithWadLoader<T, V>, SoftwareGraphicsSystem<T, V>>
+
+    companion object {
+        fun chooseBppMode(CVM: CVarManager): BppMode {
+            return if (CVM.bool(CommandVariable.TRUECOLOR)) {
+                TrueColor
+            } else if (CVM.bool(CommandVariable.HICOLOR)) {
+                HiColor
+            } else if (CVM.bool(CommandVariable.INDEXED)) {
+                Indexed
+            } else if (CVM.bool(CommandVariable.ALPHATRUECOLOR)) {
+                AlphaTrueColor
+            } else {
+                Engine.getConfig().getValue(Settings.color_depth, BppMode::class.java)
+            }
+        }
+
+        private fun <T, V> SceneGen_8(DOOM: DoomMain<T, V>): SceneRenderer<T, V> {
+            return SceneRendererMode.getMode().indexedGen.apply(DOOM as DoomMain<ByteArray, ByteArray>) as SceneRenderer<T, V>
+        }
+
+        private fun <T, V> SceneGen_16(DOOM: DoomMain<T, V>): SceneRenderer<T, V> {
+            return SceneRendererMode.getMode().hicolorGen.apply(DOOM as DoomMain<ByteArray, ShortArray>) as SceneRenderer<T, V>
+        }
+
+        private fun <T, V> SceneGen_32(DOOM: DoomMain<T, V>): SceneRenderer<T, V> {
+            return SceneRendererMode.getMode().truecolorGen.apply(DOOM as DoomMain<ByteArray, IntArray>) as SceneRenderer<T, V>
         }
     }
-    
-    @SuppressWarnings("unchecked")
-	private static <T, V> SceneRenderer<T, V> SceneGen_8(DoomMain<T, V> DOOM) {
-        return (SceneRenderer<T, V>) SceneRendererMode.getMode().indexedGen.apply((DoomMain<byte[], byte[]>) DOOM);
-    }
-    
-    @SuppressWarnings("unchecked")
-    private static <T, V> SceneRenderer<T, V> SceneGen_16(DoomMain<T, V> DOOM) {
-        return (SceneRenderer<T, V>) SceneRendererMode.getMode().hicolorGen.apply((DoomMain<byte[], short[]>) DOOM);
-    }
-    
-    @SuppressWarnings("unchecked")
-    private static <T, V> SceneRenderer<T, V> SceneGen_32(DoomMain<T, V> DOOM) {
-        return (SceneRenderer<T, V>) SceneRendererMode.getMode().truecolorGen.apply((DoomMain<byte[], int[]>) DOOM);
-    }
-    
-    interface ScenerGen<T, V> extends Function<DoomMain<T, V>, SceneRenderer<T, V>> {}
-    interface RenderGen<T, V> extends Function<RendererFactory.WithWadLoader<T, V>, SoftwareGraphicsSystem<T, V>> {}
 }

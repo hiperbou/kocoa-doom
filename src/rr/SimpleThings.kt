@@ -1,25 +1,17 @@
-package rr;
+package rr
 
-import v.scale.VideoScale;
+import v.scale.VideoScale
 
 /**
  * A very "simple" things class which just does serial rendering and uses all
  * the base methods from AbstractThings.
- * 
+ *
  * @author velktron
  * @param <T>
  * @param <V>
- */
-
-
-public final class SimpleThings<T,V> extends AbstractThings<T,V> {
-
-    public SimpleThings(VideoScale vs, SceneRenderer<T, V> R) {
-        super(vs, R);
-    }
-
-    @Override
-    public void completeColumn() {
-        colfunc.invoke();
+</V></T> */
+class SimpleThings<T, V>(vs: VideoScale, R: SceneRenderer<T, V>) : AbstractThings<T, V>(vs, R) {
+    override fun completeColumn() {
+        colfunc!!.invoke()
     }
 }

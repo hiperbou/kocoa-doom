@@ -1,19 +1,4 @@
-package boom;
+package boom
 
-public class prboom_comp_t {
 
-    public prboom_comp_t(int minver, int maxver, boolean state, String cmd) {
-        this.minver = minver;
-        this.maxver = maxver;
-        this.state = state;
-        this.cmd = cmd;
-    }
-
-    public int minver;
-
-    public int maxver;
-
-    public boolean state;
-
-    public String cmd;
-}
+class prboom_comp_t(var minver: Int, var maxver: Int, var state: Boolean, var cmd: String)

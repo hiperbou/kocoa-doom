@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,62 +16,52 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions.ActiveStates.MonsterStates;
+package p.Actions.ActiveStates.MonsterStatesimport
 
-import static data.Limits.MAXSKULLS;
-import data.Tables;
-import static data.Tables.ANG180;
-import static data.Tables.ANG270;
-import static data.Tables.ANG90;
-import static data.Tables.finecosine;
-import static data.Tables.finesine;
-import static data.info.mobjinfo;
-import data.mobjtype_t;
-import doom.SourceCode.angle_t;
-import doom.SourceCode.fixed_t;
-import doom.thinker_t;
-import static m.fixed_t.FRACUNIT;
-import static m.fixed_t.FixedMul;
-import p.Actions.ActionTrait;
-import p.ActiveStates;
-import static p.MapUtils.AproxDistance;
-import p.mobj_t;
-import static p.mobj_t.MF_SKULLFLY;
 
-public interface PainsSouls extends ActionTrait {
-    static final int SKULLSPEED = 20 * m.fixed_t.MAPFRACUNIT;
-    
-    void A_FaceTarget(mobj_t actor);
-    void A_Fall(mobj_t actor);
-    
+import data.Limits
+import data.Tables
+import data.info
+import data.mobjtype_t
+import doom.SourceCode
+import doom.SourceCode.angle_t
+import doom.thinker_t
+import m.fixed_t.Companion.FixedMul
+import m.fixed_t.Companion.FRACUNIT
+import m.fixed_t.Companion.MAPFRACUNIT
+import p.Actions.ActionTrait
+import p.ActiveStates
+import p.MapUtils
+import p.mobj_t
+
+interface PainsSouls : ActionTrait {
+    fun A_FaceTarget(actor: mobj_t?)
+    fun A_Fall(actor: mobj_t)
+
     /**
      * SkullAttack
      * Fly at the player like a missile.
      */
-    default void A_SkullAttack(mobj_t actor) {
-        mobj_t dest;
-        int an;
-        int dist;
-
+    fun A_SkullAttack(actor: mobj_t) {
+        val dest: mobj_t
+        val an: Int
+        var dist: Int
         if (actor.target == null) {
-            return;
+            return
         }
-
-        dest = actor.target;
-        actor.flags |= MF_SKULLFLY;
-
-        StartSound(actor, actor.info.attacksound);
-        A_FaceTarget(actor);
-        an = Tables.toBAMIndex(actor.angle);
-        actor.momx = FixedMul(SKULLSPEED, finecosine[an]);
-        actor.momy = FixedMul(SKULLSPEED, finesine[an]);
-        dist = AproxDistance(dest.x - actor.x, dest.y - actor.y);
-        dist /= SKULLSPEED;
-
+        dest = actor.target!!
+        actor.flags = actor.flags or mobj_t.MF_SKULLFLY
+        StartSound(actor, actor.info!!.attacksound)
+        A_FaceTarget(actor)
+        an = Tables.toBAMIndex(actor.angle)
+        actor.momx = FixedMul(PainsSouls.SKULLSPEED, Tables.finecosine[an])
+        actor.momy = FixedMul(PainsSouls.SKULLSPEED, Tables.finesine[an])
+        dist = MapUtils.AproxDistance(dest._x - actor._x, dest._y - actor._y)
+        dist /= PainsSouls.SKULLSPEED
         if (dist < 1) {
-            dist = 1;
+            dist = 1
         }
-        actor.momz = (dest.z + (dest.height >> 1) - actor.z) / dist;
+        actor.momz = (dest._z + (dest.height shr 1) - actor._z) / dist
     }
 
     /**
@@ -81,75 +72,72 @@ public interface PainsSouls extends ActionTrait {
      * mayhem though.
      *
      */
-    default void A_PainShootSkull(mobj_t actor, Long angle) {
-        @fixed_t int x, y, z;
-
-        mobj_t newmobj;
-        @angle_t int an;
-        int prestep;
-        int count;
-        thinker_t currentthinker;
+    fun A_PainShootSkull(actor: mobj_t, angle: Long?) {
+        @SourceCode.fixed_t val x: Int
+        @SourceCode.fixed_t val y: Int
+        @SourceCode.fixed_t val z: Int
+        val newmobj: mobj_t
+        @angle_t val an: Int
+        val prestep: Int
+        var count: Int
+        var currentthinker: thinker_t
 
         // count total number of skull currently on the level
-        count = 0;
-
-        currentthinker = getThinkerCap().next;
-        while (currentthinker != getThinkerCap()) {
-            if ((currentthinker.thinkerFunction == ActiveStates.P_MobjThinker)
-                && ((mobj_t) currentthinker).type == mobjtype_t.MT_SKULL) {
-                count++;
+        count = 0
+        currentthinker = getThinkerCap().next!!
+        while (currentthinker !== getThinkerCap()) {
+            if (currentthinker.thinkerFunction == ActiveStates.P_MobjThinker
+                && (currentthinker as mobj_t).type == mobjtype_t.MT_SKULL
+            ) {
+                count++
             }
-            currentthinker = currentthinker.next;
+            currentthinker = currentthinker.next!!
         }
 
         // if there are allready 20 skulls on the level,
         // don't spit another one
-        if (count > MAXSKULLS) {
-            return;
+        if (count > Limits.MAXSKULLS) {
+            return
         }
 
         // okay, there's playe for another one
-        an = Tables.toBAMIndex(angle);
-
-        prestep
-            = 4 * FRACUNIT
-            + 3 * (actor.info.radius + mobjinfo[mobjtype_t.MT_SKULL.ordinal()].radius) / 2;
-
-        x = actor.x + FixedMul(prestep, finecosine[an]);
-        y = actor.y + FixedMul(prestep, finesine[an]);
-        z = actor.z + 8 * FRACUNIT;
-
-        newmobj = getAttacks().SpawnMobj(x, y, z, mobjtype_t.MT_SKULL);
+        an = Tables.toBAMIndex(angle!!)
+        prestep = (4 * FRACUNIT + 3 * (actor.info!!.radius + info.mobjinfo[mobjtype_t.MT_SKULL.ordinal].radius) / 2)
+        x = actor._x + FixedMul(prestep, Tables.finecosine[an])
+        y = actor._y + FixedMul(prestep, Tables.finesine[an])
+        z = actor._z + 8 * FRACUNIT
+        newmobj = attacks.SpawnMobj(x, y, z, mobjtype_t.MT_SKULL)
 
         // Check for movements.
-        if (!getAttacks().TryMove(newmobj, newmobj.x, newmobj.y)) {
+        if (!attacks.TryMove(newmobj, newmobj._x, newmobj._y)) {
             // kill it immediately
-            getAttacks().DamageMobj(newmobj, actor, actor, 10000);
-            return;
+            attacks.DamageMobj(newmobj, actor, actor, 10000)
+            return
         }
-
-        newmobj.target = actor.target;
-        A_SkullAttack(newmobj);
+        newmobj.target = actor.target
+        A_SkullAttack(newmobj)
     }
 
     //
     // A_PainAttack
     // Spawn a lost soul and launch it at the target
     // 
-    default void A_PainAttack(mobj_t actor) {
+    fun A_PainAttack(actor: mobj_t) {
         if (actor.target == null) {
-            return;
+            return
         }
-
-        A_FaceTarget(actor);
-        A_PainShootSkull(actor, actor.angle);
+        A_FaceTarget(actor)
+        A_PainShootSkull(actor, actor.angle)
     }
 
-    default void A_PainDie(mobj_t actor) {
-        A_Fall(actor);
-        A_PainShootSkull(actor, actor.angle + ANG90);
-        A_PainShootSkull(actor, actor.angle + ANG180);
-        A_PainShootSkull(actor, actor.angle + ANG270);
+    fun A_PainDie(actor: mobj_t) {
+        A_Fall(actor)
+        A_PainShootSkull(actor, actor.angle + Tables.ANG90)
+        A_PainShootSkull(actor, actor.angle + Tables.ANG180)
+        A_PainShootSkull(actor, actor.angle + Tables.ANG270)
     }
 
+    companion object {
+        val SKULLSPEED: Int = 20 * MAPFRACUNIT
+    }
 }

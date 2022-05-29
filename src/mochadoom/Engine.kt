@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,155 +15,149 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package mochadoom
 
-package mochadoom;
 
-import awt.DoomWindow;
-import awt.DoomWindowController;
-import awt.EventBase.KeyStateInterest;
-import static awt.EventBase.KeyStateSatisfaction.*;
-import awt.EventHandler;
-import doom.CVarManager;
-import doom.CommandVariable;
-import doom.ConfigManager;
-import doom.DoomMain;
-import static g.Signals.ScanCode.*;
-import i.Strings;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import awt.*
+import awt.EventBase.KeyStateInterest
+import awt.EventBase.KeyStateSatisfaction
+import doom.*
+import g.Signals.ScanCode
+import i.*
+import java.io.IOException
+import java.util.*
+import java.util.logging.Level
+import java.util.logging.Logger
+import doom.DoomMain
+import java.io.OutputStream
+import java.util.logging.Handler
 
-public class Engine {
-    private static volatile Engine instance;
-    
-    /**
-     * Mocha Doom engine entry point
-     */
-    public static void main(final String[] argv) throws IOException {
-        final Engine local;
-        synchronized (Engine.class) {
-            local = new Engine(argv);
+class Engine private constructor(vararg argv: String) {
+    val cvm: CVarManager
+    val cm: ConfigManager
+    val windowController: DoomWindowController<*, EventHandler>
+    private val DOOM: DoomMain<*, *>
+
+    init {
+        Engine.instance = this
+
+        // reads command line arguments
+        cvm = CVarManager(Arrays.asList(*argv))
+
+        // reads default.cfg and mochadoom.cfg
+        cm = ConfigManager()
+
+        // intiializes stuff
+        DOOM = DoomMain<Any, Any>()
+
+        // opens a window
+        // opens a window
+        windowController =  /*cvm.bool(CommandVariable.AWTFRAME)
+            ? */DoomWindow.createCanvasWindowController(
+            { DOOM.graphicSystem.getScreenImage()!! },
+            DOOM::PostEvent,
+            DOOM.graphicSystem.getScreenWidth(),
+            DOOM.graphicSystem.getScreenHeight()
+        ) as DoomWindowController<*, EventHandler> /* : DoomWindow.createJPanelWindowController(
+                DOOM.graphicSystem::getScreenImage,
+                DOOM::PostEvent,
+                DOOM.graphicSystem.getScreenWidth(),
+                DOOM.graphicSystem.getScreenHeight()
+            )*/
+        windowController.getObserver().addInterest(
+            KeyStateInterest({ obs ->
+                EventHandler.fullscreenChanges(windowController.getObserver(), windowController.switchFullscreen())
+                KeyStateSatisfaction.WANTS_MORE_ATE
+            }, ScanCode.SC_LALT, ScanCode.SC_ENTER)
+        )/*.addInterest(
+            KeyStateInterest({ obs ->
+                if (!windowController.isFullscreen()) {
+                    switchMouseCapture(obs)
+                }
+                KeyStateSatisfaction.WANTS_MORE_PASS
+            }, ScanCode.SC_LALT)
+        )*/.addInterest(
+            KeyStateInterest({ obs ->
+                if (!windowController.isFullscreen()) {
+                    EventHandler.menuCaptureChanges(obs, DOOM.menuactive)
+                }
+                KeyStateSatisfaction.WANTS_MORE_PASS
+            }, ScanCode.SC_ESCAPE)
+        ).addInterest(
+            KeyStateInterest({ obs ->
+                if (!windowController.isFullscreen()) {
+                    EventHandler.menuCaptureChanges(obs, DOOM.getPaused())
+                }
+                KeyStateSatisfaction.WANTS_MORE_PASS
+            }, ScanCode.SC_PAUSE)
+        )
+    }
+
+    fun getWindowTitle(frames: Double): String {
+        return if (cvm.bool(CommandVariable.SHOWFPS)) {
+            String.format("%s - %s FPS: %.2f", Strings.MOCHA_DOOM_TITLE, DOOM.bppMode, frames)
+        } else {
+            String.format("%s - %s", Strings.MOCHA_DOOM_TITLE, DOOM.bppMode)
         }
-        
+    }
+
+    companion object {
+        @Volatile
+        private lateinit var instance: Engine
+
         /**
-         * Add eventHandler listeners to JFrame and its Canvas elememt
+         * Mocha Doom engine entry point
          */
-        /*content.addKeyListener(listener);        
+        @Throws(IOException::class)
+        @JvmStatic
+        fun main(argv: Array<String>) {
+            val local: Engine
+            synchronized(Engine::class.java) { local = Engine(*argv) }
+            /**
+             * Add eventHandler listeners to JFrame and its Canvas elememt
+             */
+            /*content.addKeyListener(listener);
         content.addMouseListener(listener);
         content.addMouseMotionListener(listener);
         frame.addComponentListener(listener);
         frame.addWindowFocusListener(listener);
         frame.addWindowListener(listener);*/
-        // never returns
-        local.DOOM.setupLoop();
-    }  
-    
-    public final CVarManager cvm;
-    public final ConfigManager cm;
-    public final DoomWindowController<?, EventHandler> windowController;
-    private final DoomMain<?, ?> DOOM;
-    
-    @SuppressWarnings("unchecked")
-    private Engine(final String... argv) throws IOException {
-        instance = this;
-        
-        // reads command line arguments
-        this.cvm = new CVarManager(Arrays.asList(argv));
-        
-        // reads default.cfg and mochadoom.cfg
-        this.cm = new ConfigManager();
-        
-        // intiializes stuff
-        this.DOOM = new DoomMain<>();
-        
-        // opens a window
-        this.windowController = /*cvm.bool(CommandVariable.AWTFRAME)
-            ? */DoomWindow.createCanvasWindowController(
-                DOOM.graphicSystem::getScreenImage,
-                DOOM::PostEvent,
-                DOOM.graphicSystem.getScreenWidth(),
-                DOOM.graphicSystem.getScreenHeight()
-            )/* : DoomWindow.createJPanelWindowController(
-                DOOM.graphicSystem::getScreenImage,
-                DOOM::PostEvent,
-                DOOM.graphicSystem.getScreenWidth(),
-                DOOM.graphicSystem.getScreenHeight()
-            )*/;
-        
-        windowController.getObserver().addInterest(
-            new KeyStateInterest<>(obs -> {
-                EventHandler.fullscreenChanges(windowController.getObserver(), windowController.switchFullscreen());
-                return WANTS_MORE_ATE;
-            }, SC_LALT, SC_ENTER)
-        ).addInterest(
-            new KeyStateInterest<>(obs -> {
-                if (!windowController.isFullscreen()) {
-                    if (DOOM.menuactive || DOOM.paused || DOOM.demoplayback) {
-                        EventHandler.menuCaptureChanges(obs, DOOM.mousecaptured = !DOOM.mousecaptured);
-                    } else { // can also work when not DOOM.mousecaptured
-                        EventHandler.menuCaptureChanges(obs, DOOM.mousecaptured = true);
-                    }
-                }
-                return WANTS_MORE_PASS;
-            }, SC_LALT)
-        ).addInterest(
-            new KeyStateInterest<>(obs -> {
-                if (!windowController.isFullscreen() && !DOOM.mousecaptured && DOOM.menuactive) {
-                    EventHandler.menuCaptureChanges(obs, DOOM.mousecaptured = true);
-                }
-                
-                return WANTS_MORE_PASS;
-            }, SC_ESCAPE)
-        ).addInterest(
-            new KeyStateInterest<>(obs -> {
-                if (!windowController.isFullscreen() && !DOOM.mousecaptured && DOOM.paused) {
-                    EventHandler.menuCaptureChanges(obs, DOOM.mousecaptured = true);
-                }
-                return WANTS_MORE_PASS;
-            }, SC_PAUSE)
-        );
-    }
-    
-    /**
-     * Temporary solution. Will be later moved in more detalied place
-     */
-    public static void updateFrame() {
-        instance.windowController.updateFrame();
-    }
-        
-    public String getWindowTitle(double frames) {
-        if (cvm.bool(CommandVariable.SHOWFPS)) {
-            return String.format("%s - %s FPS: %.2f", Strings.MOCHA_DOOM_TITLE, DOOM.bppMode, frames);
-        } else {
-            return String.format("%s - %s", Strings.MOCHA_DOOM_TITLE, DOOM.bppMode);
+            // never returns
+            local.DOOM.setupLoop()
         }
-    }
 
-    public static Engine getEngine() {
-        Engine local = Engine.instance;
-        if (local == null) {
-            synchronized (Engine.class) {
-                local = Engine.instance;
-                if (local == null) {
-                    try {
-                        Engine.instance = local = new Engine();
-                    } catch (IOException ex) {
-                        Logger.getLogger(Engine.class.getName()).log(Level.SEVERE, null, ex);
-                        throw new Error("This launch is DOOMed");
+        /**
+         * Temporary solution. Will be later moved in more detalied place
+         */
+        fun updateFrame() {
+            Engine.instance.windowController.updateFrame()
+        }
+
+        fun getEngine(): Engine? {
+            var local: Engine = Engine.instance
+            if (local == null) {
+                synchronized(Engine::class.java) {
+                    local = Engine.instance
+                    if (local == null) {
+                        try {
+                            local = Engine()
+                            Engine.instance = local
+                        } catch (ex: IOException) {
+                            Logger.getLogger(Engine::class.java.name).log(Level.SEVERE, null, ex)
+                            throw Error("This launch is DOOMed")
+                        }
                     }
                 }
             }
+            return local
         }
-        
-        return local;
-    }
-    
-    public static CVarManager getCVM() {
-        return getEngine().cvm;
-    }
-    
-    public static ConfigManager getConfig() {
-        return getEngine().cm;
+
+        fun getCVM(): CVarManager {
+            return Engine.getEngine()!!.cvm
+        }
+
+        fun getConfig(): ConfigManager {
+            return Engine.getEngine()!!.cm
+        }
     }
 }

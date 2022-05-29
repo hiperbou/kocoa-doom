@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1993-1996 by id Software, Inc.
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,539 +16,481 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package p.Actions;
+package p.Actions
 
-import static data.Defines.*;
-import data.mobjtype_t;
-import data.sounds.sfxenum_t;
-import defines.ammotype_t;
-import defines.card_t;
-import doom.DoomMain;
-import doom.SourceCode.P_Map;
-import static doom.SourceCode.P_Map.PIT_CheckThing;
-import static doom.SourceCode.P_Map.PIT_StompThing;
-import doom.SourceCode.fixed_t;
-import static doom.englsh.*;
-import doom.player_t;
-import doom.weapontype_t;
-import m.Settings;
-import static m.fixed_t.FRACUNIT;
-import p.mobj_t;
-import static p.mobj_t.*;
-import static utils.C2JUtils.eval;
+import data.Defines
+import data.mobjtype_t
+import data.sounds.sfxenum_t
+import data.spritenum_t
+import defines.ammotype_t
+import defines.card_t
+import doom.SourceCode
+import doom.SourceCode.P_Map
+import doom.englsh
+import doom.player_t
+import doom.weapontype_t
+import m.Settings
+import m.fixed_t.Companion.FRACUNIT
+import p.Actions.ActionTrait.Movement
+import p.mobj_t
+import utils.C2JUtils
 
-public interface ActionsThings extends ActionTrait {
-
-    void DamageMobj(mobj_t thing, mobj_t tmthing, mobj_t tmthing0, int damage);
-    void RemoveMobj(mobj_t special);
+interface ActionsThings : ActionTrait {
+    fun DamageMobj(thing: mobj_t, tmthing: mobj_t?, tmthing0: mobj_t?, damage: Int)
+    fun RemoveMobj(special: mobj_t)
 
     /**
      * PIT_CheckThing
      */
-    @Override
-    @P_Map.C(PIT_CheckThing)
-    default boolean CheckThing(mobj_t thing) {
-        final Movement movm = contextRequire(KEY_MOVEMENT);
-        @fixed_t
-        int blockdist;
-        boolean solid;
-        int damage;
-
-        if ((thing.flags & (MF_SOLID | MF_SPECIAL | MF_SHOOTABLE)) == 0) {
-            return true;
+    @P_Map.C(P_Map.PIT_CheckThing)
+    override fun CheckThing(thing: mobj_t): Boolean {
+        val movm = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        @SourceCode.fixed_t val blockdist: Int
+        val solid: Boolean
+        val damage: Int
+        if (thing.flags and (mobj_t.MF_SOLID or mobj_t.MF_SPECIAL or mobj_t.MF_SHOOTABLE) == 0) {
+            return true
         }
-
-        blockdist = thing.radius + movm.tmthing.radius;
-
-        if (Math.abs(thing.x - movm.tmx) >= blockdist
-            || Math.abs(thing.y - movm.tmy) >= blockdist) {
+        blockdist = thing.radius + movm.tmthing!!.radius
+        if (Math.abs(thing._x - movm.tmx) >= blockdist
+            || Math.abs(thing._y - movm.tmy) >= blockdist
+        ) {
             // didn't hit it
-            return true;
+            return true
         }
 
         // don't clip against self
         if (thing == movm.tmthing) {
-            return true;
+            return true
         }
-
+        val tmthing = movm.tmthing!!
         // check for skulls slamming into things
-        if ((movm.tmthing.flags & MF_SKULLFLY) != 0) {
-            damage = ((P_Random() % 8) + 1) * movm.tmthing.info.damage;
-
-            DamageMobj(thing, movm.tmthing, movm.tmthing, damage);
-
-            movm.tmthing.flags &= ~MF_SKULLFLY;
-            movm.tmthing.momx = movm.tmthing.momy = movm.tmthing.momz = 0;
-
-            movm.tmthing.SetMobjState(movm.tmthing.info.spawnstate);
-
-            return false;       // stop moving
+        if (tmthing.flags and mobj_t.MF_SKULLFLY != 0) {
+            damage = (P_Random() % 8 + 1) * tmthing.info!!.damage
+            DamageMobj(thing, tmthing, tmthing, damage)
+            tmthing.flags = tmthing.flags and mobj_t.MF_SKULLFLY.inv()
+            tmthing.momz = 0
+            tmthing.momy = tmthing.momz
+            tmthing.momx = tmthing.momy
+            tmthing.SetMobjState(tmthing.info!!.spawnstate)
+            return false // stop moving
         }
 
         // missiles can hit other things
-        if (eval(movm.tmthing.flags & MF_MISSILE)) {
+        if (C2JUtils.eval(tmthing.flags and mobj_t.MF_MISSILE)) {
             // see if it went over / under
-            if (movm.tmthing.z > thing.z + thing.height) {
-                return true;        // overhead
+            if (tmthing._z > thing._z + thing.height) {
+                return true // overhead
             }
-            if (movm.tmthing.z + movm.tmthing.height < thing.z) {
-                return true;        // underneath
+            if (tmthing._z + tmthing.height < thing._z) {
+                return true // underneath
             }
-            if (movm.tmthing.target != null && (movm.tmthing.target.type == thing.type
-                || (movm.tmthing.target.type == mobjtype_t.MT_KNIGHT && thing.type == mobjtype_t.MT_BRUISER)
-                || (movm.tmthing.target.type == mobjtype_t.MT_BRUISER && thing.type == mobjtype_t.MT_KNIGHT))) {
+            if (tmthing.target != null && (tmthing.target!!.type == thing.type
+                        || (tmthing.target!!.type == mobjtype_t.MT_KNIGHT && thing.type == mobjtype_t.MT_BRUISER)
+                        || (tmthing.target!!.type == mobjtype_t.MT_BRUISER && thing.type == mobjtype_t.MT_KNIGHT))) {
                 // Don't hit same species as originator.
-                if (thing == movm.tmthing.target) {
-                    return true;
+                if (thing === tmthing.target) {
+                    return true
                 }
-
                 if (thing.type != mobjtype_t.MT_PLAYER) {
                     // Explode, but do no damage.
                     // Let players missile other players.
-                    return false;
+                    return false
                 }
             }
-
-            if (!eval(thing.flags & MF_SHOOTABLE)) {
+            if (!C2JUtils.eval(thing.flags and mobj_t.MF_SHOOTABLE)) {
                 // didn't do any damage
-                return !eval(thing.flags & MF_SOLID);
+                return !C2JUtils.eval(thing.flags and mobj_t.MF_SOLID)
             }
 
             // damage / explode
-            damage = ((P_Random() % 8) + 1) * movm.tmthing.info.damage;
-            DamageMobj(thing, movm.tmthing, movm.tmthing.target, damage);
+            damage = (P_Random() % 8 + 1) * tmthing.info!!.damage
+            DamageMobj(thing, tmthing, tmthing.target, damage)
 
             // don't traverse any more
-            return false;
+            return false
         }
 
         // check for special pickup
-        if (eval(thing.flags & MF_SPECIAL)) {
-            solid = eval(thing.flags & MF_SOLID);
-            if (eval(movm.tmflags & MF_PICKUP)) {
+        if (C2JUtils.eval(thing.flags and mobj_t.MF_SPECIAL)) {
+            solid = C2JUtils.eval(thing.flags and mobj_t.MF_SOLID)
+            if (C2JUtils.eval(movm.tmflags and mobj_t.MF_PICKUP)) {
                 // can remove thing
-                TouchSpecialThing(thing, movm.tmthing);
+                TouchSpecialThing(thing, tmthing)
             }
-            return !solid;
+            return !solid
         }
-
-        return !eval(thing.flags & MF_SOLID);
+        return !C2JUtils.eval(thing.flags and mobj_t.MF_SOLID)
     }
-
-    ;
 
     /**
      * P_TouchSpecialThing LIKE ROMERO's ASS!!!
      */
-    default void TouchSpecialThing(mobj_t special, mobj_t toucher) {
-        final DoomMain<?, ?> DOOM = DOOM();
-        player_t player;
-        int i;
-        @fixed_t
-        int delta;
-        sfxenum_t sound;
-
-        delta = special.z - toucher.z;
-
+    fun TouchSpecialThing(special: mobj_t, toucher: mobj_t) {
+        val DOOM = DOOM()!!
+        val player: player_t
+        var i: Int
+        @SourceCode.fixed_t val delta: Int
+        var sound: sfxenum_t
+        delta = special._z - toucher._z
         if (delta > toucher.height || delta < -8 * FRACUNIT) {
             // out of reach
-            return;
+            return
         }
-
-        sound = sfxenum_t.sfx_itemup;
-        player = toucher.player;
+        sound = sfxenum_t.sfx_itemup
+        player = toucher.player!!
 
         // Dead thing touching.
         // Can happen with a sliding player corpse.
         if (toucher.health <= 0) {
-            return;
+            return
         }
-
-        // Identify by sprite.
-        switch (special.mobj_sprite) {
-            // armor
-            case SPR_ARM1:
+        when (special.mobj_sprite) {
+            spritenum_t.SPR_ARM1 -> {
                 if (!player.GiveArmor(1)) {
-                    return;
+                    return
                 }
-                player.message = GOTARMOR;
-                break;
-
-            case SPR_ARM2:
+                player.message = englsh.GOTARMOR
+            }
+            spritenum_t.SPR_ARM2 -> {
                 if (!player.GiveArmor(2)) {
-                    return;
+                    return
                 }
-                player.message = GOTMEGA;
-                break;
-
-            // bonus items
-            case SPR_BON1:
-                player.health[0]++; // can go over 100%
+                player.message = englsh.GOTMEGA
+            }
+            spritenum_t.SPR_BON1 -> {
+                player.health[0]++ // can go over 100%
                 if (player.health[0] > 200) {
-                    player.health[0] = 200;
+                    player.health[0] = 200
                 }
-                player.mo.health = player.health[0];
-                player.message = GOTHTHBONUS;
-                break;
-
-            case SPR_BON2:
-                player.armorpoints[0]++; // can go over 100%
+                player.mo!!.health = player.health[0]
+                player.message = englsh.GOTHTHBONUS
+            }
+            spritenum_t.SPR_BON2 -> {
+                player.armorpoints[0]++ // can go over 100%
                 if (player.armorpoints[0] > 200) {
-                    player.armorpoints[0] = 200;
+                    player.armorpoints[0] = 200
                 }
                 if (player.armortype == 0) {
-                    player.armortype = 1;
+                    player.armortype = 1
                 }
-                player.message = GOTARMBONUS;
-                break;
-
-            case SPR_SOUL:
-                player.health[0] += 100;
+                player.message = englsh.GOTARMBONUS
+            }
+            spritenum_t.SPR_SOUL -> {
+                player.health[0] += 100
                 if (player.health[0] > 200) {
-                    player.health[0] = 200;
+                    player.health[0] = 200
                 }
-                player.mo.health = player.health[0];
-                player.message = GOTSUPER;
-                sound = sfxenum_t.sfx_getpow;
-                break;
-
-            case SPR_MEGA:
+                player.mo!!.health = player.health[0]
+                player.message = englsh.GOTSUPER
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_MEGA -> {
                 if (!DOOM.isCommercial()) {
-                    return;
+                    return
                 }
-                player.health[0] = 200;
-                player.mo.health = player.health[0];
-                player.GiveArmor(2);
-                player.message = GOTMSPHERE;
-                sound = sfxenum_t.sfx_getpow;
-                break;
+                player.health[0] = 200
+                player.mo!!.health = player.health[0]
+                player.GiveArmor(2)
+                player.message = englsh.GOTMSPHERE
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_BKEY -> {
+                if (!player.cards[card_t.it_bluecard.ordinal]) {
+                    player.message = englsh.GOTBLUECARD
+                }
+                player.GiveCard(card_t.it_bluecard)
+                if (DOOM.netgame) {
+                    return
+                }
+            }
+            spritenum_t.SPR_YKEY -> {
+                if (!player.cards[card_t.it_yellowcard.ordinal]) {
+                    player.message = englsh.GOTYELWCARD
+                }
+                player.GiveCard(card_t.it_yellowcard)
+                if (DOOM.netgame) {
+                    return
+                }
 
-            // cards
-            // leave cards for everyone
-            case SPR_BKEY:
-                if (!player.cards[card_t.it_bluecard.ordinal()]) {
-                    player.message = GOTBLUECARD;
+            }
+            spritenum_t.SPR_RKEY -> {
+                if (!player.cards[card_t.it_redcard.ordinal]) {
+                    player.message = englsh.GOTREDCARD
                 }
-                player.GiveCard(card_t.it_bluecard);
+                player.GiveCard(card_t.it_redcard)
+                if (DOOM.netgame) {
+                    return
+                }
+
+            }
+            spritenum_t.SPR_BSKU -> {
+                if (!player.cards[card_t.it_blueskull.ordinal]) {
+                    player.message = englsh.GOTBLUESKUL
+                }
+                player.GiveCard(card_t.it_blueskull)
+                if (DOOM.netgame) {
+                    return
+                }
+
+            }
+            spritenum_t.SPR_YSKU -> {
+                if (!player.cards[card_t.it_yellowskull.ordinal]) {
+                    player.message = englsh.GOTYELWSKUL
+                }
+                player.GiveCard(card_t.it_yellowskull)
+                if (DOOM.netgame) {
+                    return
+                }
+
+            }
+            spritenum_t.SPR_RSKU -> {
+                if (!player.cards[card_t.it_redskull.ordinal]) {
+                    player.message = englsh.GOTREDSKULL
+                }
+                player.GiveCard(card_t.it_redskull)
                 if (!DOOM.netgame) {
-                    break;
+                    return
                 }
-                return;
 
-            case SPR_YKEY:
-                if (!player.cards[card_t.it_yellowcard.ordinal()]) {
-                    player.message = GOTYELWCARD;
-                }
-                player.GiveCard(card_t.it_yellowcard);
-                if (!DOOM.netgame) {
-                    break;
-                }
-                return;
-
-            case SPR_RKEY:
-                if (!player.cards[card_t.it_redcard.ordinal()]) {
-                    player.message = GOTREDCARD;
-                }
-                player.GiveCard(card_t.it_redcard);
-                if (!DOOM.netgame) {
-                    break;
-                }
-                return;
-
-            case SPR_BSKU:
-                if (!player.cards[card_t.it_blueskull.ordinal()]) {
-                    player.message = GOTBLUESKUL;
-                }
-                player.GiveCard(card_t.it_blueskull);
-                if (!DOOM.netgame) {
-                    break;
-                }
-                return;
-
-            case SPR_YSKU:
-                if (!player.cards[card_t.it_yellowskull.ordinal()]) {
-                    player.message = GOTYELWSKUL;
-                }
-                player.GiveCard(card_t.it_yellowskull);
-                if (!DOOM.netgame) {
-                    break;
-                }
-                return;
-
-            case SPR_RSKU:
-                if (!player.cards[card_t.it_redskull.ordinal()]) {
-                    player.message = GOTREDSKULL;
-                }
-                player.GiveCard(card_t.it_redskull);
-                if (!DOOM.netgame) {
-                    break;
-                }
-                return;
-
-            // medikits, heals
-            case SPR_STIM:
+            }
+            spritenum_t.SPR_STIM -> {
                 if (!player.GiveBody(10)) {
-                    return;
+                    return
                 }
-                player.message = GOTSTIM;
-                break;
-
-            case SPR_MEDI:
+                player.message = englsh.GOTSTIM
+            }
+            spritenum_t.SPR_MEDI -> {
                 /**
                  * Another fix with switchable option to enable
                  * - Good Sign 2017/04/03
                  */
-                boolean need = player.health[0] < 25;
-
+                val need = player.health[0] < 25
                 if (!player.GiveBody(25)) {
-                    return;
+                    return
                 }
-
-                if (DOOM.CM.equals(Settings.fix_medi_need, Boolean.FALSE)) // default behavior - with bug
+                if (DOOM.CM.equals(Settings.fix_medi_need, java.lang.Boolean.FALSE)) // default behavior - with bug
                 {
-                    player.message = player.health[0] < 25 ? GOTMEDINEED : GOTMEDIKIT;
-                } else //proper behavior
+                    player.message = if (player.health[0] < 25) englsh.GOTMEDINEED else englsh.GOTMEDIKIT
+                } else  //proper behavior
                 {
-                    player.message = need ? GOTMEDINEED : GOTMEDIKIT;
+                    player.message = if (need) englsh.GOTMEDINEED else englsh.GOTMEDIKIT
                 }
-
-                break;
-
-            // power ups
-            case SPR_PINV:
-                if (!player.GivePower(pw_invulnerability)) {
-                    return;
+            }
+            spritenum_t.SPR_PINV -> {
+                if (!player.GivePower(Defines.pw_invulnerability)) {
+                    return
                 }
-                player.message = GOTINVUL;
-                sound = sfxenum_t.sfx_getpow;
-                break;
-
-            case SPR_PSTR:
-                if (!player.GivePower(pw_strength)) {
-                    return;
+                player.message = englsh.GOTINVUL
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_PSTR -> {
+                if (!player.GivePower(Defines.pw_strength)) {
+                    return
                 }
-                player.message = GOTBERSERK;
+                player.message = englsh.GOTBERSERK
                 if (player.readyweapon != weapontype_t.wp_fist) {
-                    player.pendingweapon = weapontype_t.wp_fist;
+                    player.pendingweapon = weapontype_t.wp_fist
                 }
-                sound = sfxenum_t.sfx_getpow;
-                break;
-
-            case SPR_PINS:
-                if (!player.GivePower(pw_invisibility)) {
-                    return;
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_PINS -> {
+                if (!player.GivePower(Defines.pw_invisibility)) {
+                    return
                 }
-                player.message = GOTINVIS;
-                sound = sfxenum_t.sfx_getpow;
-                break;
-
-            case SPR_SUIT:
-                if (!player.GivePower(pw_ironfeet)) {
-                    return;
+                player.message = englsh.GOTINVIS
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_SUIT -> {
+                if (!player.GivePower(Defines.pw_ironfeet)) {
+                    return
                 }
-                player.message = GOTSUIT;
-                sound = sfxenum_t.sfx_getpow;
-                break;
-
-            case SPR_PMAP:
-                if (!player.GivePower(pw_allmap)) {
-                    return;
+                player.message = englsh.GOTSUIT
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_PMAP -> {
+                if (!player.GivePower(Defines.pw_allmap)) {
+                    return
                 }
-                player.message = GOTMAP;
-                sound = sfxenum_t.sfx_getpow;
-                break;
-
-            case SPR_PVIS:
-                if (!player.GivePower(pw_infrared)) {
-                    return;
+                player.message = englsh.GOTMAP
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_PVIS -> {
+                if (!player.GivePower(Defines.pw_infrared)) {
+                    return
                 }
-                player.message = GOTVISOR;
-                sound = sfxenum_t.sfx_getpow;
-                break;
-
-            // ammo
-            case SPR_CLIP:
-                if ((special.flags & MF_DROPPED) != 0) {
+                player.message = englsh.GOTVISOR
+                sound = sfxenum_t.sfx_getpow
+            }
+            spritenum_t.SPR_CLIP -> {
+                if (special.flags and mobj_t.MF_DROPPED != 0) {
                     if (!player.GiveAmmo(ammotype_t.am_clip, 0)) {
-                        return;
+                        return
                     }
                 } else {
                     if (!player.GiveAmmo(ammotype_t.am_clip, 1)) {
-                        return;
+                        return
                     }
                 }
-                player.message = GOTCLIP;
-                break;
-
-            case SPR_AMMO:
+                player.message = englsh.GOTCLIP
+            }
+            spritenum_t.SPR_AMMO -> {
                 if (!player.GiveAmmo(ammotype_t.am_clip, 5)) {
-                    return;
+                    return
                 }
-                player.message = GOTCLIPBOX;
-                break;
-
-            case SPR_ROCK:
+                player.message = englsh.GOTCLIPBOX
+            }
+            spritenum_t.SPR_ROCK -> {
                 if (!player.GiveAmmo(ammotype_t.am_misl, 1)) {
-                    return;
+                    return
                 }
-                player.message = GOTROCKET;
-                break;
-
-            case SPR_BROK:
+                player.message = englsh.GOTROCKET
+            }
+            spritenum_t.SPR_BROK -> {
                 if (!player.GiveAmmo(ammotype_t.am_misl, 5)) {
-                    return;
+                    return
                 }
-                player.message = GOTROCKBOX;
-                break;
-
-            case SPR_CELL:
+                player.message = englsh.GOTROCKBOX
+            }
+            spritenum_t.SPR_CELL -> {
                 if (!player.GiveAmmo(ammotype_t.am_cell, 1)) {
-                    return;
+                    return
                 }
-                player.message = GOTCELL;
-                break;
-
-            case SPR_CELP:
+                player.message = englsh.GOTCELL
+            }
+            spritenum_t.SPR_CELP -> {
                 if (!player.GiveAmmo(ammotype_t.am_cell, 5)) {
-                    return;
+                    return
                 }
-                player.message = GOTCELLBOX;
-                break;
-
-            case SPR_SHEL:
+                player.message = englsh.GOTCELLBOX
+            }
+            spritenum_t.SPR_SHEL -> {
                 if (!player.GiveAmmo(ammotype_t.am_shell, 1)) {
-                    return;
+                    return
                 }
-                player.message = GOTSHELLS;
-                break;
-
-            case SPR_SBOX:
+                player.message = englsh.GOTSHELLS
+            }
+            spritenum_t.SPR_SBOX -> {
                 if (!player.GiveAmmo(ammotype_t.am_shell, 5)) {
-                    return;
+                    return
                 }
-                player.message = GOTSHELLBOX;
-                break;
-
-            case SPR_BPAK:
+                player.message = englsh.GOTSHELLBOX
+            }
+            spritenum_t.SPR_BPAK -> {
                 if (!player.backpack) {
-                    for (i = 0; i < NUMAMMO; i++) {
-                        player.maxammo[i] *= 2;
+                    i = 0
+                    while (i < Defines.NUMAMMO) {
+                        player.maxammo[i] *= 2
+                        i++
                     }
-                    player.backpack = true;
+                    player.backpack = true
                 }
-                for (i = 0; i < NUMAMMO; i++) {
-                    player.GiveAmmo(ammotype_t.values()[i], 1);
+                i = 0
+                while (i < Defines.NUMAMMO) {
+                    player.GiveAmmo(ammotype_t.values()[i], 1)
+                    i++
                 }
-                player.message = GOTBACKPACK;
-                break;
-
-            // weapons
-            case SPR_BFUG:
+                player.message = englsh.GOTBACKPACK
+            }
+            spritenum_t.SPR_BFUG -> {
                 if (!player.GiveWeapon(weapontype_t.wp_bfg, false)) {
-                    return;
+                    return
                 }
-                player.message = GOTBFG9000;
-                sound = sfxenum_t.sfx_wpnup;
-                break;
-
-            case SPR_MGUN:
-                if (!player.GiveWeapon(weapontype_t.wp_chaingun,
-                    (special.flags & MF_DROPPED) != 0)) {
-                    return;
+                player.message = englsh.GOTBFG9000
+                sound = sfxenum_t.sfx_wpnup
+            }
+            spritenum_t.SPR_MGUN -> {
+                if (!player.GiveWeapon(
+                        weapontype_t.wp_chaingun,
+                        special.flags and mobj_t.MF_DROPPED != 0
+                    )
+                ) {
+                    return
                 }
-                player.message = GOTCHAINGUN;
-                sound = sfxenum_t.sfx_wpnup;
-                break;
-
-            case SPR_CSAW:
+                player.message = englsh.GOTCHAINGUN
+                sound = sfxenum_t.sfx_wpnup
+            }
+            spritenum_t.SPR_CSAW -> {
                 if (!player.GiveWeapon(weapontype_t.wp_chainsaw, false)) {
-                    return;
+                    return
                 }
-                player.message = GOTCHAINSAW;
-                sound = sfxenum_t.sfx_wpnup;
-                break;
-
-            case SPR_LAUN:
+                player.message = englsh.GOTCHAINSAW
+                sound = sfxenum_t.sfx_wpnup
+            }
+            spritenum_t.SPR_LAUN -> {
                 if (!player.GiveWeapon(weapontype_t.wp_missile, false)) {
-                    return;
+                    return
                 }
-                player.message = GOTLAUNCHER;
-                sound = sfxenum_t.sfx_wpnup;
-                break;
-
-            case SPR_PLAS:
+                player.message = englsh.GOTLAUNCHER
+                sound = sfxenum_t.sfx_wpnup
+            }
+            spritenum_t.SPR_PLAS -> {
                 if (!player.GiveWeapon(weapontype_t.wp_plasma, false)) {
-                    return;
+                    return
                 }
-                player.message = GOTPLASMA;
-                sound = sfxenum_t.sfx_wpnup;
-                break;
-
-            case SPR_SHOT:
-                if (!player.GiveWeapon(weapontype_t.wp_shotgun,
-                    (special.flags & MF_DROPPED) != 0)) {
-                    return;
+                player.message = englsh.GOTPLASMA
+                sound = sfxenum_t.sfx_wpnup
+            }
+            spritenum_t.SPR_SHOT -> {
+                if (!player.GiveWeapon(
+                        weapontype_t.wp_shotgun,
+                        special.flags and mobj_t.MF_DROPPED != 0
+                    )
+                ) {
+                    return
                 }
-                player.message = GOTSHOTGUN;
-                sound = sfxenum_t.sfx_wpnup;
-                break;
-
-            case SPR_SGN2:
-                if (!player.GiveWeapon(weapontype_t.wp_supershotgun,
-                    (special.flags & MF_DROPPED) != 0)) {
-                    return;
+                player.message = englsh.GOTSHOTGUN
+                sound = sfxenum_t.sfx_wpnup
+            }
+            spritenum_t.SPR_SGN2 -> {
+                if (!player.GiveWeapon(
+                        weapontype_t.wp_supershotgun,
+                        special.flags and mobj_t.MF_DROPPED != 0
+                    )
+                ) {
+                    return
                 }
-                player.message = GOTSHOTGUN2;
-                sound = sfxenum_t.sfx_wpnup;
-                break;
-
-            default:
-                DOOM.doomSystem.Error("P_SpecialThing: Unknown gettable thing");
+                player.message = englsh.GOTSHOTGUN2
+                sound = sfxenum_t.sfx_wpnup
+            }
+            else -> DOOM.doomSystem.Error("P_SpecialThing: Unknown gettable thing")
         }
-
-        if ((special.flags & MF_COUNTITEM) != 0) {
-            player.itemcount++;
+        if (special.flags and mobj_t.MF_COUNTITEM != 0) {
+            player.itemcount++
         }
-        RemoveMobj(special);
-        player.bonuscount += player_t.BONUSADD;
-        if (player == DOOM.players[DOOM.consoleplayer]) {
-            DOOM.doomSound.StartSound(null, sound);
+        RemoveMobj(special)
+        player.bonuscount += player_t.BONUSADD
+        if (player === DOOM.players[DOOM.consoleplayer]) {
+            DOOM.doomSound.StartSound(null, sound)
         }
     }
 
     /**
      * PIT_StompThing
      */
-    @Override
-    @P_Map.C(PIT_StompThing)
-    default boolean StompThing(mobj_t thing) {
-        final Movement mov = contextRequire(KEY_MOVEMENT);
-        @fixed_t
-        int blockdist;
-
-        if ((thing.flags & MF_SHOOTABLE) == 0) {
-            return true;
+    @P_Map.C(P_Map.PIT_StompThing)
+    override fun StompThing(thing: mobj_t): Boolean {
+        val mov = contextRequire<Movement>(ActionTrait.KEY_MOVEMENT)
+        @SourceCode.fixed_t val blockdist: Int
+        if (thing.flags and mobj_t.MF_SHOOTABLE == 0) {
+            return true
         }
-
-        blockdist = thing.radius + mov.tmthing.radius;
-
-        if (Math.abs(thing.x - mov.tmx) >= blockdist || Math.abs(thing.y - mov.tmy) >= blockdist) {
+        blockdist = thing.radius + mov.tmthing!!.radius
+        if (Math.abs(thing._x - mov.tmx) >= blockdist || Math.abs(thing._y - mov.tmy) >= blockdist) {
             // didn't hit it
-            return true;
+            return true
         }
 
         // don't clip against self
-        if (thing == mov.tmthing) {
-            return true;
+        if (thing === mov.tmthing) {
+            return true
         }
 
         // monsters don't stomp things except on boss level
-        if ((mov.tmthing.player == null) && (MapNumber() != 30)) {
-            return false;
+        if (mov.tmthing!!.player == null && MapNumber() != 30) {
+            return false
         }
-
-        DamageMobj(thing, mov.tmthing, mov.tmthing, 10000); // in interaction
-        return true;
+        DamageMobj(thing, mov.tmthing, mov.tmthing, 10000) // in interaction
+        return true
     }
-;
 }

@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,127 +13,123 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http:></http:>//www.gnu.org/licenses/>.
  */
+package v.renderers
 
-package v.renderers;
-
-import doom.CommandVariable;
-import mochadoom.Engine;
-import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsEnvironment;
-import java.awt.image.ColorModel;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import m.MenuMisc;
-import m.Settings;
+import doom.CommandVariable
+import m.MenuMisc
+import m.Settings
+import mochadoom.Engine
+import v.renderers.RendererFactory.WithWadLoader
+import java.awt.GraphicsEnvironment
+import java.awt.image.ColorModel
+import java.util.*
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 /**
  * Base for HiColor and TrueColor parallel renderers
- * 
+ *
  * @author Good Sign
  * @author velktron
  */
-abstract class SoftwareParallelVideoRenderer<T, V> extends SoftwareGraphicsSystem<T, V> {
-    // How many threads it will use, but default it uses all avalable cores
-    private static final int[] EMPTY_INT_PALETTED_BLOCK = new int[0];
-    private static final short[] EMPTY_SHORT_PALETTED_BLOCK = new short[0];
-    protected static final int PARALLELISM = Engine.getConfig().getValue(Settings.parallelism_realcolor_tint, Integer.class);
-    protected static final GraphicsConfiguration GRAPHICS_CONF = GraphicsEnvironment.getLocalGraphicsEnvironment()
-            .getDefaultScreenDevice().getDefaultConfiguration();
-    
-    protected final boolean GRAYPAL_SET = Engine.getCVM().bool(CommandVariable.GREYPAL);
+internal abstract class SoftwareParallelVideoRenderer<T, V>(rf: WithWadLoader<T, V>, bufferType: Class<V>) :
+    SoftwareGraphicsSystem<T, V>(rf, bufferType) {
+    protected val GRAYPAL_SET: Boolean = Engine.getCVM().bool(CommandVariable.GREYPAL)
 
-    /**
-     * It will render much faster on machines with display already in HiColor mode
-     * Maybe even some acceleration will be possible
-     */
-    static boolean checkConfigurationHicolor() {
-        final ColorModel cm = GRAPHICS_CONF.getColorModel();
-        final int cps = cm.getNumComponents();
-        return cps == 3 && cm.getComponentSize(0) == 5 && cm.getComponentSize(1) == 5 && cm.getComponentSize(2) == 5;
-    }
-
-    /**
-     * It will render much faster on machines with display already in TrueColor mode
-     * Maybe even some acceleration will be possible
-     */
-    static boolean checkConfigurationTruecolor() {
-        final ColorModel cm = GRAPHICS_CONF.getColorModel();
-        final int cps = cm.getNumComponents();
-        return cps == 3 && cm.getComponentSize(0) == 8 && cm.getComponentSize(1) == 8 && cm.getComponentSize(2) == 8;
-    }
-    
     /**
      * We do not need to clear caches anymore - pallettes are applied on post-process
-     *  - Good Sign 2017/04/12
-     * 
+     * - Good Sign 2017/04/12
+     *
      * MEGA HACK FOR SUPER-8BIT MODES
      */
-    protected final HashMap<Integer, V> colcache = new HashMap<>();
+    protected val colcache = HashMap<Int, V>()
 
     // Threads stuff
-    protected final Runnable[] paletteThreads = new Runnable[PARALLELISM];
-    protected final Executor executor = Executors.newFixedThreadPool(PARALLELISM);
-    protected final CyclicBarrier updateBarrier = new CyclicBarrier(PARALLELISM + 1);
-
-    SoftwareParallelVideoRenderer(RendererFactory.WithWadLoader<T, V> rf, Class<V> bufferType) {
-        super(rf, bufferType);
-    }
-
-    abstract void doWriteScreen();
-
-    @Override
-    public boolean writeScreenShot(String name, DoomScreen screen) {
+    protected val paletteThreads = arrayOfNulls<Runnable>(SoftwareParallelVideoRenderer.PARALLELISM)
+    protected val executor: Executor = Executors.newFixedThreadPool(SoftwareParallelVideoRenderer.PARALLELISM)
+    protected val updateBarrier = CyclicBarrier(SoftwareParallelVideoRenderer.PARALLELISM + 1)
+    abstract fun doWriteScreen()
+    override fun writeScreenShot(name: String?, screen: DoomScreen?): Boolean {
         // munge planar buffer to linear
         //DOOM.videoInterface.ReadScreen(screens[screen.ordinal()]);
-        V screenBuffer = screens.get(screen);
-        if (screenBuffer.getClass() == short[].class) {
-            MenuMisc.WritePNGfile(name, (short[]) screenBuffer, width, height);
+        val screenBuffer = screens[screen]!!
+        if (screenBuffer::class.java == ShortArray::class.java) {
+            MenuMisc.WritePNGfile(name, screenBuffer as ShortArray?, width, height)
         } else {
-            MenuMisc.WritePNGfile(name, (int[]) screenBuffer, width, height);
+            MenuMisc.WritePNGfile(name, screenBuffer as IntArray?, width, height)
         }
-        return true;
+        return true
     }
 
     /**
      * Used to decode textures, patches, etc... It converts to the proper palette,
      * but does not apply tinting or gamma - yet
      */
-    @Override
-    @SuppressWarnings(value = "unchecked")
-    public V convertPalettedBlock(byte... data) {
-        final boolean isShort = bufferType == short[].class;
+    override fun convertPalettedBlock(vararg data: Byte): V {
+        val isShort = bufferType == ShortArray::class.java
         /**
          * We certainly do not need to cache neither single color value, nor empty data
-         *  - Good Sign 2017/04/09
+         * - Good Sign 2017/04/09
          */
-        if (data.length > 1) {
-            if (isShort) {
-                return colcache.computeIfAbsent(Arrays.hashCode(data), (h) -> {
+        if (data.size > 1) {
+            return if (isShort) {
+                colcache.computeIfAbsent(Arrays.hashCode(data)) { h: Int? ->
                     //System.out.printf("Generated cache for %d\n",data.hashCode());
-                    short[] stuff = new short[data.length];
-                    for (int i = 0; i < data.length; i++) {
-                        stuff[i] = (short) getBaseColor(data[i]);
+                    val stuff = ShortArray(data.size)
+                    for (i in data.indices) {
+                        stuff[i] = getBaseColor(data[i]).toShort()
                     }
-                    return (V) stuff;
-                });
+                    stuff as V
+                }
             } else {
-                return colcache.computeIfAbsent(Arrays.hashCode(data), (h) -> {
+                colcache.computeIfAbsent(Arrays.hashCode(data)) { h: Int? ->
                     //System.out.printf("Generated cache for %d\n",data.hashCode());
-                    int[] stuff = new int[data.length];
-                    for (int i = 0; i < data.length; i++) {
-                        stuff[i] = getBaseColor(data[i]);
+                    val stuff = IntArray(data.size)
+                    for (i in data.indices) {
+                        stuff[i] = getBaseColor(data[i])
                     }
-                    return (V) stuff;
-                });
+                    stuff as V
+                }
             }
-        } else if (data.length == 0) {
-            return (V) (isShort ? EMPTY_SHORT_PALETTED_BLOCK : EMPTY_INT_PALETTED_BLOCK);
+        } else if (data.size == 0) {
+            return (if (isShort) EMPTY_SHORT_PALETTED_BLOCK else EMPTY_INT_PALETTED_BLOCK) as V
         }
-        return (V) (isShort ? new short[]{(short) getBaseColor(data[0])} : new int[]{getBaseColor(data[0])});
+        return (if (isShort) shortArrayOf(getBaseColor(data[0]).toShort()) else intArrayOf(getBaseColor(data[0]))) as V
+    }
+
+    companion object {
+        // How many threads it will use, but default it uses all avalable cores
+        private val EMPTY_INT_PALETTED_BLOCK = IntArray(0)
+        private val EMPTY_SHORT_PALETTED_BLOCK = ShortArray(0)
+
+        @JvmStatic
+        protected val PARALLELISM: Int =
+            Engine.getConfig().getValue<Int>(Settings.parallelism_realcolor_tint, Int::class.java)
+        @JvmStatic
+        protected val GRAPHICS_CONF = GraphicsEnvironment.getLocalGraphicsEnvironment()
+            .defaultScreenDevice.defaultConfiguration
+
+        /**
+         * It will render much faster on machines with display already in HiColor mode
+         * Maybe even some acceleration will be possible
+         */
+        fun checkConfigurationHicolor(): Boolean {
+            val cm: ColorModel = SoftwareParallelVideoRenderer.GRAPHICS_CONF.getColorModel()
+            val cps = cm.numComponents
+            return cps == 3 && cm.getComponentSize(0) == 5 && cm.getComponentSize(1) == 5 && cm.getComponentSize(2) == 5
+        }
+
+        /**
+         * It will render much faster on machines with display already in TrueColor mode
+         * Maybe even some acceleration will be possible
+         */
+        fun checkConfigurationTruecolor(): Boolean {
+            val cm: ColorModel = SoftwareParallelVideoRenderer.GRAPHICS_CONF.getColorModel()
+            val cps = cm.numComponents
+            return cps == 3 && cm.getComponentSize(0) == 8 && cm.getComponentSize(1) == 8 && cm.getComponentSize(2) == 8
+        }
     }
 }

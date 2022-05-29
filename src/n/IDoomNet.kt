@@ -1,5 +1,6 @@
-package n;
+package n
 
-public interface IDoomNet {
-    public void NetUpdate();
+
+interface IDoomNet {
+    fun NetUpdate()
 }

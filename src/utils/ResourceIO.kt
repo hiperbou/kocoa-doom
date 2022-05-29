@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 Good Sign
+ * Copyright (C) 2022 hiperbou
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,80 +15,79 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package utils;
+package utils
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
+
+import java.io.File
+import java.io.IOException
+import java.nio.charset.Charset
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.OpenOption
+import java.nio.file.Path
+import java.util.function.Consumer
+import java.util.function.Supplier
 
 /**
  * Resource IO to automate read/write on configuration/resources
  *
  * @author Good Sign
  */
-public class ResourceIO {
+class ResourceIO {
+    private val file: Path
+    private val charset = Charset.forName("US-ASCII")
 
-    private final Path file;
-    private final Charset charset = Charset.forName("US-ASCII");
-
-    public ResourceIO(final File file) {
-        this.file = file.toPath();
+    constructor(file: File) {
+        this.file = file.toPath()
     }
 
-    public ResourceIO(final Path file) {
-        this.file = file;
+    constructor(file: Path) {
+        this.file = file
     }
 
-    public ResourceIO(final String path) {
-        this.file = FileSystems.getDefault().getPath(path);
+    constructor(path: String?) {
+        file = FileSystems.getDefault().getPath(path)
     }
 
-    public boolean exists() {
-        return Files.exists(file);
+    fun exists(): Boolean {
+        return Files.exists(file)
     }
 
-    public boolean readLines(final Consumer<String> lineConsumer) {
+    fun readLines(lineConsumer: Consumer<String?>): Boolean {
         if (Files.exists(file)) {
-            try (BufferedReader reader = Files.newBufferedReader(file, charset)) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    lineConsumer.accept(line);
+            try {
+                Files.newBufferedReader(file, charset).use { reader ->
+                    reader.forEachLine {
+                        lineConsumer.accept(it)
+                    }
+                    return true
                 }
-                
-                return true;
-            } catch (IOException x) {
-                System.err.format("IOException: %s%n", x);
-                return false;
+            } catch (x: IOException) {
+                System.err.format("IOException: %s%n", x)
+                return false
             }
         }
-
-        return false;
+        return false
     }
 
-    public boolean writeLines(final Supplier<String> lineSupplier, final OpenOption... options) {
-        try (BufferedWriter writer = Files.newBufferedWriter(file, charset, options)) {
-            String line;
-            while ((line = lineSupplier.get()) != null) {
-                writer.write(line, 0, line.length());
-                writer.newLine();
+    fun writeLines(lineSupplier: Supplier<String?>, vararg options: OpenOption?): Boolean {
+        try {
+            Files.newBufferedWriter(file, charset, *options).use { writer ->
+                var line:String? = lineSupplier.get()
+                while (line != null) {
+                    writer.write(line, 0, line.length)
+                    writer.newLine()
+                    line = lineSupplier.get()
+                }
+                return true
             }
-            
-            return true;
-        } catch (IOException x) {
-            System.err.format("IOException: %s%n", x);
-            return false;
+        } catch (x: IOException) {
+            System.err.format("IOException: %s%n", x)
+            return false
         }
     }
-    
-    public String getFileame() {
-        return file.toString();
+
+    fun getFilename(): String {
+        return file.toString()
     }
 }

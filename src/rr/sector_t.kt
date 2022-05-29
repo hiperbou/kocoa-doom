@@ -1,129 +1,117 @@
-package rr;
+package rr
 
-import static data.Limits.MAXINT;
-import static data.Limits.MAX_ADJOINING_SECTORS;
-import doom.SourceCode;
-import doom.SourceCode.P_Spec;
-import static doom.SourceCode.P_Spec.P_FindLowestCeilingSurrounding;
-import doom.SourceCode.fixed_t;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.logging.Level;
-import m.IRandom;
-import static m.fixed_t.FRACBITS;
-import static m.fixed_t.FRACUNIT;
-import mochadoom.Loggers;
-import p.Resettable;
-import p.ThinkerList;
-import p.mobj_t;
-import s.degenmobj_t;
-import static utils.C2JUtils.memset;
-import w.DoomIO;
-import w.IPackableDoomObject;
-import w.IReadableDoomObject;
+import data.Limits
+import doom.SourceCode
+import doom.SourceCode.P_Spec
+import m.IRandom
+import m.fixed_t.Companion.FRACBITS
+import m.fixed_t.Companion.FRACUNIT
+import mochadoom.Loggers
+import p.Resettable
+import p.ThinkerList
+import p.mobj_t
+import s.degenmobj_t
+import utils.C2JUtils
+import w.DoomIO
+import w.IPackableDoomObject
+import w.IReadableDoomObject
+import java.io.DataInputStream
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.util.logging.Level
 
 /**
  * The SECTORS record, at runtime. Stores things/mobjs. Can be
  * archived/unarchived during savegames.
- * 
+ *
  * @author Maes
  */
-public class sector_t implements IReadableDoomObject, IPackableDoomObject, Resettable {
+class sector_t : IReadableDoomObject, IPackableDoomObject, Resettable {
+    var TL: ThinkerList? = null
+    var RND: IRandom? = null
 
-    public ThinkerList TL;
+    /** (fixed_t)  */
+    var floorheight = 0
+    var ceilingheight = 0
+    var floorpic: Short = 0
+    var ceilingpic: Short = 0
+    var lightlevel: Short = 0
+    var special: Short = 0
+    var tag: Short = 0
 
-    public IRandom RND;
+    /** 0 = untraversed, 1,2 = sndlines -1  */
+    var soundtraversed = 0
 
-    public sector_t() {
-        blockbox = new int[4];
-        id = -1;
-    }
+    /** thing that made a sound (or null) (MAES: single pointer)  */
+    var soundtarget: mobj_t? = null
 
-    /** (fixed_t) */
-    public int floorheight, ceilingheight;
-
-    public short floorpic;
-
-    public short ceilingpic;
-
-    public short lightlevel;
-
-    public short special;
-
-    public short tag;
-
-    /** 0 = untraversed, 1,2 = sndlines -1 */
-    public int soundtraversed;
-
-    /** thing that made a sound (or null) (MAES: single pointer) */
-    public mobj_t soundtarget;
-
-    /** mapblock bounding box for height changes */
-    public int[] blockbox;
+    /** mapblock bounding box for height changes  */
+    var blockbox: IntArray
 
     /**
      * origin for any sounds played by the sector. Used to be degenmobj_t, but
      * that's really a futile distinction.
      */
-    public degenmobj_t soundorg;
+    var soundorg: degenmobj_t? = null
 
-    /** if == validcount, already checked */
-    public int validcount;
+    /** if == validcount, already checked  */
+    var validcount = 0
 
-    /** list of mobjs in sector (MAES: it's used as a linked list) */
-    public mobj_t thinglist;
+    /** list of mobjs in sector (MAES: it's used as a linked list)  */
+    var thinglist: mobj_t? = null
 
     /**
      * thinker_t for reversable actions. This actually was a void*, and in
      * practice it could store doors, plats, floors and ceiling objects.
      */
-    public SectorAction specialdata;
-
-    public int linecount;
+    var specialdata: SectorAction? = null
+    var linecount = 0
 
     // struct line_s** lines; // [linecount] size
     // MAES: make this line_t[] for now?
-    public line_t[] lines;
+    var lines: Array<line_t?>? = null
 
-    /** Use for internal identification */
-    public int id;
+    /** Use for internal identification  */
+    var id: Int
 
-    /** killough 1/30/98: improves searches for tags. */
-    public int nexttag,firsttag;  
+    /** killough 1/30/98: improves searches for tags.  */
+    var nexttag = 0
+    var firsttag = 0
 
-    @Override
-    public String toString() {
-        String str =
-            String.format("Sector: %d %x %x %d %d %d %d %d", id, floorheight,
-                ceilingheight, floorpic, ceilingpic, lightlevel, special, // needed?
-                tag); // needed?
-
-        return str;
+    init {
+        blockbox = IntArray(4)
+        id = -1
     }
 
+    override fun toString(): String {
+        return String.format(
+            "Sector: %d %x %x %d %d %d %d %d", id, floorheight,
+            ceilingheight, floorpic, ceilingpic, lightlevel, special,  // needed?
+            tag
+        )
+    }
 
     //
     // P_FindLowestFloorSurrounding()
     // FIND LOWEST FLOOR HEIGHT IN SURROUNDING SECTORS
     //
-    public int FindLowestFloorSurrounding() {
-        int i;
-        line_t check;
-        sector_t other;
-        int floor = this.floorheight;
-
-        for (i = 0; i < this.linecount; i++) {
-            check = this.lines[i];
-            other = check.getNextSector(this);
-
-            if (other == null)
-                continue;
-
-            if (other.floorheight < floor)
-                floor = other.floorheight;
+    fun FindLowestFloorSurrounding(): Int {
+        var i: Int
+        var check: line_t
+        var other: sector_t?
+        var floor = floorheight
+        i = 0
+        while (i < linecount) {
+            check = lines!![i]!!
+            other = check.getNextSector(this)
+            if (other == null) {
+                i++
+                continue
+            }
+            if (other.floorheight < floor) floor = other.floorheight
+            i++
         }
-        return floor;
+        return floor
     }
 
     /**
@@ -133,187 +121,177 @@ public class sector_t implements IReadableDoomObject, IPackableDoomObject, Reset
      * "semi-Boom" maps not to work, since it won't be able to lower stuff below
      * -500 units. The correct fix here would be to allow for -compatlevel style
      * options. Maybe later.
-     * 
+     *
      * @param sec
      */
-
-    public int FindHighestFloorSurrounding() {
-        int i;
-        line_t check;
-        sector_t other;
-
-        int floor = -500 * FRACUNIT;
-
-        for (i = 0; i < this.linecount; i++) {
-            check = this.lines[i];
-            other = check.getNextSector(this);
+    fun FindHighestFloorSurrounding(): Int {
+        var i: Int
+        var check: line_t
+        var other: sector_t?
+        var floor: Int = -500 * FRACUNIT
+        i = 0
+        while (i < linecount) {
+            check = lines!![i]!!
+            other = check.getNextSector(this)
 
             // The compiler nagged about this being unreachable, with
             // some older 1.6 JDKs, but that's obviously not true.
-            if (other == null)
-                continue;
-
-            if (other.floorheight > floor)
-                floor = other.floorheight;
+            if (other == null) {
+                i++
+                continue
+            }
+            if (other.floorheight > floor) floor = other.floorheight
+            i++
         }
-        return floor;
+        return floor
     }
 
     /**
      * P_FindNextHighestFloor FIND NEXT HIGHEST FLOOR IN SURROUNDING SECTORS
      * Note: this should be doable w/o a fixed array.
-     * 
+     *
      * @param sec
      * @param currentheight
      * @return fixed
      */
-
-    public int FindNextHighestFloor(int currentheight) {
-        int i;
-        int h;
-        int min;
-        line_t check;
-        sector_t other;
-        int height = currentheight;
-
-        int heightlist[] = new int[MAX_ADJOINING_SECTORS];
-
-        for (i = 0, h = 0; i < this.linecount; i++) {
-            check = this.lines[i];
-            other = check.getNextSector(this);
-
-            if (other == null)
-                continue;
-
-            if (other.floorheight > height)
-                heightlist[h++] = other.floorheight;
+    fun FindNextHighestFloor(currentheight: Int): Int {
+        var i: Int
+        var h: Int
+        var min: Int
+        var check: line_t
+        var other: sector_t?
+        val heightlist = IntArray(Limits.MAX_ADJOINING_SECTORS)
+        i = 0
+        h = 0
+        while (i < linecount) {
+            check = lines!![i]!!
+            other = check.getNextSector(this)
+            if (other == null) {
+                i++
+                continue
+            }
+            if (other.floorheight > currentheight) heightlist[h++] = other.floorheight
 
             // Check for overflow. Exit.
-            if (h >= MAX_ADJOINING_SECTORS) {
-                Loggers.getLogger(sector_t.class.getName()).log(Level.WARNING,
-                    "Sector with more than 20 adjoining sectors\n");
-                break;
+            if (h >= Limits.MAX_ADJOINING_SECTORS) {
+                Loggers.getLogger(sector_t::class.java.name).log(
+                    Level.WARNING,
+                    "Sector with more than 20 adjoining sectors\n"
+                )
+                break
             }
+            i++
         }
 
         // Find lowest height in list
-        if (h == 0)
-            return currentheight;
-
-        min = heightlist[0];
+        if (h == 0) return currentheight
+        min = heightlist[0]
 
         // Range checking?
-        for (i = 1; i < h; i++)
-            if (heightlist[i] < min)
-                min = heightlist[i];
-
-        return min;
+        i = 1
+        while (i < h) {
+            if (heightlist[i] < min) min = heightlist[i]
+            i++
+        }
+        return min
     }
 
     //
     // FIND LOWEST CEILING IN THE SURROUNDING SECTORS
     //
     @SourceCode.Exact
-    @P_Spec.C(P_FindLowestCeilingSurrounding)
-    public @fixed_t int FindLowestCeilingSurrounding() {
-        line_t check;
-        sector_t other;
-        int height = MAXINT;
-
-        for (int i = 0; i < this.linecount; i++) {
-            check = this.lines[i];
-            getNextSector: {
-                other = check.getNextSector(this);
+    @P_Spec.C(P_Spec.P_FindLowestCeilingSurrounding)
+    @SourceCode.fixed_t
+    fun FindLowestCeilingSurrounding(): Int {
+        var check: line_t
+        var other: sector_t?
+        var height = Limits.MAXINT
+        for (i in 0 until linecount) {
+            check = lines!![i]!!
+            getNextSector@ run {
+                other = check.getNextSector(this)
             }
-
             if (other == null) {
-                continue;
+                continue
             }
-
-            if (other.ceilingheight < height) {
-                height = other.ceilingheight;
+            if (other!!.ceilingheight < height) {
+                height = other!!.ceilingheight
             }
         }
-        return height;
+        return height
     }
 
     //
     // FIND HIGHEST CEILING IN THE SURROUNDING SECTORS
     //
-    public int FindHighestCeilingSurrounding() {
-        int i;
-        line_t check;
-        sector_t other;
-        int height = 0;
-
-        for (i = 0; i < this.linecount; i++) {
-            check = this.lines[i];
-            other = check.getNextSector(this);
-
-            if (other == null)
-                continue;
-
-            if (other.ceilingheight > height)
-                height = other.ceilingheight;
+    fun FindHighestCeilingSurrounding(): Int {
+        var i: Int
+        var check: line_t
+        var other: sector_t?
+        var height = 0
+        i = 0
+        while (i < linecount) {
+            check = lines!![i]!!
+            other = check.getNextSector(this)
+            if (other == null) {
+                i++
+                continue
+            }
+            if (other.ceilingheight > height) height = other.ceilingheight
+            i++
         }
-        return height;
+        return height
     }
 
-    @Override
-    public void read(DataInputStream f)
-            throws IOException {
+    @Throws(IOException::class)
+    override fun read(f: DataInputStream) {
 
         // ACHTUNG: the only situation where we'd
         // like to read memory-format sector_t's is from
         // savegames, and in vanilla savegames, not all info
         // is saved (or read) from disk.
-
-        this.floorheight = DoomIO.readLEShort(f) << FRACBITS;
-        this.ceilingheight = DoomIO.readLEShort(f) << FRACBITS;
+        floorheight = DoomIO.readLEShort(f).toInt() shl FRACBITS
+        ceilingheight = DoomIO.readLEShort(f).toInt() shl FRACBITS
         // MAES: it may be necessary to apply a hack in order to
         // read vanilla savegames.
-        this.floorpic = DoomIO.readLEShort(f);
-        this.ceilingpic = DoomIO.readLEShort(f);
+        floorpic = DoomIO.readLEShort(f)
+        ceilingpic = DoomIO.readLEShort(f)
         // f.skipBytes(4);
-        this.lightlevel = DoomIO.readLEShort(f);
-        this.special = DoomIO.readLEShort(f); // needed?
-        this.tag = DoomIO.readLEShort(f); // needed?
+        lightlevel = DoomIO.readLEShort(f)
+        special = DoomIO.readLEShort(f) // needed?
+        tag = DoomIO.readLEShort(f) // needed?
     }
 
-    @Override
-    public void pack(ByteBuffer b) {
-
-        b.putShort((short) (floorheight >> FRACBITS));
-        b.putShort((short) (ceilingheight >> FRACBITS));
+    override fun pack(b: ByteBuffer) {
+        b.putShort((floorheight shr FRACBITS).toShort())
+        b.putShort((ceilingheight shr FRACBITS).toShort())
         // MAES: it may be necessary to apply a hack in order to
         // read vanilla savegames.
-        b.putShort(floorpic);
-        b.putShort(ceilingpic);
+        b.putShort(floorpic)
+        b.putShort(ceilingpic)
         // f.skipBytes(4);
-        b.putShort(lightlevel);
-        b.putShort(special);
-        b.putShort(tag);
+        b.putShort(lightlevel)
+        b.putShort(special)
+        b.putShort(tag)
     }
 
-    @Override
-    public void reset() {
-        floorheight = 0;
-        ceilingheight = 0;
-        floorpic = 0;
-        ceilingpic = 0;
-        lightlevel = 0;
-        special = 0;
-        tag = 0;
-        soundtraversed = 0;
-        soundtarget = null;
-        memset(blockbox, 0, blockbox.length);
-        soundorg = null;
-        validcount = 0;
-        thinglist = null;
-        specialdata = null;
-        linecount = 0;
-        lines = null;
-        id = -1;
-
+    override fun reset() {
+        floorheight = 0
+        ceilingheight = 0
+        floorpic = 0
+        ceilingpic = 0
+        lightlevel = 0
+        special = 0
+        tag = 0
+        soundtraversed = 0
+        soundtarget = null
+        C2JUtils.memset(blockbox, 0, blockbox.size)
+        soundorg = null
+        validcount = 0
+        thinglist = null
+        specialdata = null
+        linecount = 0
+        lines = null
+        id = -1
     }
 }

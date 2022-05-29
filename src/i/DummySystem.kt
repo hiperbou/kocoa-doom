@@ -1,85 +1,62 @@
-package i;
+package i
 
-import doom.ticcmd_t;
 
-public class DummySystem implements IDoomSystem{
+import doom.ticcmd_t
 
-    @Override
-    public void AllocLow(int length) {
+class DummySystem : IDoomSystem {
+    override fun AllocLow(length: Int) {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public void BeginRead() {
+    override fun BeginRead() {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public void EndRead() {
+    override fun EndRead() {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public void WaitVBL(int count) {
+    override fun WaitVBL(count: Int) {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public byte[] ZoneBase(int size) {
+    override fun ZoneBase(size: Int): ByteArray? {
         // TODO Auto-generated method stub
-        return null;
+        return null
     }
 
-    @Override
-    public int GetHeapSize() {
+    override fun GetHeapSize(): Int {
         // TODO Auto-generated method stub
-        return 0;
+        return 0
     }
 
-    @Override
-    public void Tactile(int on, int off, int total) {
+    override fun Tactile(on: Int, off: Int, total: Int) {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public void Quit() {
+    override fun Quit() {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public ticcmd_t BaseTiccmd() {
+    override fun BaseTiccmd(): ticcmd_t? {
         // TODO Auto-generated method stub
-        return null;
+        return null
     }
 
-    @Override
-    public void Error(String error, Object... args) {
+    override fun Error(error: String?, vararg args: Any?) {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public void Error(String error) {
+    override fun Error(error: String?) {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public void Init() {
+    override fun Init() {
         // TODO Auto-generated method stub
-        
     }
 
-    @Override
-    public boolean GenerateAlert(String title, String cause) {
+    override fun GenerateAlert(title: String?, cause: String?): Boolean {
         // TODO Auto-generated method stub
-        return false;
+        return false
     }
-
 }

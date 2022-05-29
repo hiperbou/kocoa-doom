@@ -1,59 +1,47 @@
-package pooling;
+package pooling
 
-import java.util.Stack;
 
-import p.mobj_t;
+import p.mobj_t
+import java.util.*
 
 /** A convenient object pooling class, derived from the stock ObjectPool.
- *  
- *  It's about 50% faster than calling new, and MUCH faster than ObjectPool
- *  because it doesn't do that bullshit object cleanup every so often.
- * 
+ *
+ * It's about 50% faster than calling new, and MUCH faster than ObjectPool
+ * because it doesn't do that bullshit object cleanup every so often.
+ *
  */
-
-
-public abstract class ObjectQueuePool<K>
-{
-
-	private static final boolean D=false;
-	
-    public ObjectQueuePool(long expirationTime)
-    {
-        locked = new Stack<K>();
-        
+abstract class ObjectQueuePool<K>(expirationTime: Long) {
+    protected abstract fun create(): K
+    abstract fun validate(obj: K): Boolean
+    abstract fun expire(obj: K)
+    fun drain() {
+        locked.clear()
     }
 
-    protected abstract K create();
-
-    public abstract boolean validate(K obj);
-
-    public abstract void expire(K obj);
-
-    public void drain(){
-        locked.clear();
+    fun checkOut(): K {
+        val t: K
+        if (!locked.isEmpty()) {
+            return locked.pop()
         }
-    
-    public K checkOut()
-    {
-        
-        K t;
-        if(!locked.isEmpty())
-        {
-            return locked.pop(); 
-
-        }
-
-        t = create();
-        return t;
+        t = create()
+        return t
     }
 
-    public void checkIn(K t)
-    {
-    	if (D) if (t instanceof mobj_t)
-    	System.out.printf("Object %s returned to the pool\n",t.toString());
-        locked.push(t);
+    fun checkIn(t: K) {
+        if (ObjectQueuePool.D) if (t is mobj_t) System.out.printf(
+            "Object %s returned to the pool\n",
+            t.toString()
+        )
+        locked.push(t)
     }
 
-    protected Stack<K> locked;
-   // private Hashtable<K,Long> unlocked;
+    protected var locked: Stack<K> // private Hashtable<K,Long> unlocked;
+
+    init {
+        locked = Stack()
+    }
+
+    companion object {
+        private const val D = false
+    }
 }

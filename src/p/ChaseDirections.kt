@@ -1,46 +1,62 @@
-package p;
+package p
 
-import static m.fixed_t.MAPFRACUNIT;
-import static data.Defines.TIC_MUL;
 
-public final class ChaseDirections {
+import data.Defines
+import m.fixed_t.Companion.MAPFRACUNIT
 
-    public static final int DI_EAST = 0;
+object ChaseDirections {
+    const val DI_EAST = 0
+    const val DI_NORTHEAST = 1
+    const val DI_NORTH = 2
+    const val DI_NORTHWEST = 3
+    const val DI_WEST = 4
+    const val DI_SOUTHWEST = 5
+    const val DI_SOUTH = 6
+    const val DI_SOUTHEAST = 7
+    const val DI_NODIR = 8
+    const val NUMDIR = 9
 
-    public static final int DI_NORTHEAST = 1;
-
-    public static final int DI_NORTH = 2;
-
-    public static final int DI_NORTHWEST = 3;
-
-    public static final int DI_WEST = 4;
-
-    public static final int DI_SOUTHWEST = 5;
-
-    public static final int DI_SOUTH = 6;
-
-    public static final int DI_SOUTHEAST = 7;
-
-    public static final int DI_NODIR = 8;
-
-    public static final int NUMDIR = 9;
-    
     //
     // P_NewChaseDir related LUT.
     //
-    public final static int opposite[] =
-        { DI_WEST, DI_SOUTHWEST, DI_SOUTH, DI_SOUTHEAST, DI_EAST, DI_NORTHEAST,
-                DI_NORTH, DI_NORTHWEST, DI_NODIR };
+    val opposite = intArrayOf(
+        ChaseDirections.DI_WEST,
+        ChaseDirections.DI_SOUTHWEST,
+        ChaseDirections.DI_SOUTH,
+        ChaseDirections.DI_SOUTHEAST,
+        ChaseDirections.DI_EAST,
+        ChaseDirections.DI_NORTHEAST,
+        ChaseDirections.DI_NORTH,
+        ChaseDirections.DI_NORTHWEST,
+        ChaseDirections.DI_NODIR
+    )
+    val diags = intArrayOf(
+        ChaseDirections.DI_NORTHWEST,
+        ChaseDirections.DI_NORTHEAST,
+        ChaseDirections.DI_SOUTHWEST,
+        ChaseDirections.DI_SOUTHEAST
+    )
+    val xspeed = intArrayOf(
+        MAPFRACUNIT,
+        47000 / Defines.TIC_MUL,
+        0,
+        -47000 / Defines.TIC_MUL,
+        -MAPFRACUNIT,
+        -47000 / Defines.TIC_MUL,
+        0,
+        47000 / Defines.TIC_MUL
+    ) // all
 
-    public final static int diags[] =
-        { DI_NORTHWEST, DI_NORTHEAST, DI_SOUTHWEST, DI_SOUTHEAST };
-
-    public final static int[] xspeed =
-        { MAPFRACUNIT, 47000/TIC_MUL, 0, -47000/TIC_MUL, -MAPFRACUNIT, -47000/TIC_MUL, 0, 47000/TIC_MUL }; // all
-                                                                     // fixed
-
-    public final static int[] yspeed =
-        { 0, 47000/TIC_MUL, MAPFRACUNIT, 47000/TIC_MUL, 0, -47000/TIC_MUL, -MAPFRACUNIT, -47000/TIC_MUL }; // all
-                                                                     // fixed
-    
+    // fixed
+    val yspeed = intArrayOf(
+        0,
+        47000 / Defines.TIC_MUL,
+        MAPFRACUNIT,
+        47000 / Defines.TIC_MUL,
+        0,
+        -47000 / Defines.TIC_MUL,
+        -MAPFRACUNIT,
+        -47000 / Defines.TIC_MUL
+    ) // all
+    // fixed
 }
