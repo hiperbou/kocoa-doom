@@ -2,7 +2,7 @@ package i
 
 
 object Strings {
-    const val MOCHA_DOOM_TITLE = "Mocha Doom Alpha 1.6"
+    const val MOCHA_DOOM_TITLE = "Kocoa Doom Alpha 1.7"
     const val MODIFIED_GAME = "===========================================================================\n" +
             "ATTENTION:  This version of DOOM has been modified.  If you would like to\n" +
             "get a copy of the original game, call 1-800-IDGAMES or see the readme file.\n" +
