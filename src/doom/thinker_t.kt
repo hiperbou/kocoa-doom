@@ -14,7 +14,7 @@ import java.nio.ByteOrder
 open class thinker_t : CacheableDoomObject, IReadableDoomObject, IPackableDoomObject {
     var prev: thinker_t? = null
     var next: thinker_t? = null
-    var thinkerFunction: ActiveStates? = null
+    var thinkerFunction: ActiveStates = ActiveStates.NOP
     /**
      * killough's code for thinkers seems to be totally broken in M.D,
      * so commented it out and will not probably restore, but may invent
@@ -54,7 +54,7 @@ open class thinker_t : CacheableDoomObject, IReadableDoomObject, IPackableDoomOb
         b.order(ByteOrder.LITTLE_ENDIAN)
         b.putInt(C2JUtils.pointer(prev))
         b.putInt(C2JUtils.pointer(next))
-        b.putInt(C2JUtils.pointer(thinkerFunction!!.ordinal))
+        b.putInt(C2JUtils.pointer(thinkerFunction.ordinal))
         //System.out.printf("Packed thinker %d %d %d\n",pointer(prev),pointer(next),pointer(function));
     }
 

@@ -240,8 +240,8 @@ interface ActionsThinkers : ActionsSectors, ThinkerList {
                 thinker.next!!.prev = thinker.prev
                 thinker.prev!!.next = thinker.next
                 // Z_Free (currentthinker);
-            } else if(thinker.thinkerFunction != null){
-                val thinkerFunction = thinker.thinkerFunction!!
+            } else {
+                val thinkerFunction = thinker.thinkerFunction
                 if (thinkerFunction.activeState is MobjActiveStates) {
                     thinkerFunction.activeState.accept(DOOM().actions, MobjConsumer(thinker as mobj_t))
                 } else if (thinkerFunction.activeState is ThinkerActiveStates) {

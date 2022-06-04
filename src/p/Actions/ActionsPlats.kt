@@ -159,7 +159,7 @@ interface ActionsPlats : ActionsMoveEvents, ActionsUseEvents {
             if (activeplat != null && activeplat.status != plat_e.in_stasis && activeplat.tag == line.tag.toInt()) {
                 activeplat.oldstatus = activeplat.status
                 activeplat.status = plat_e.in_stasis
-                activeplat.thinkerFunction = null
+                activeplat.thinkerFunction = ActiveStates.NOP
             }
         }
     }
