@@ -29,8 +29,6 @@ import java.util.*
 import java.util.logging.Level
 import java.util.logging.Logger
 import doom.DoomMain
-import java.io.OutputStream
-import java.util.logging.Handler
 
 class Engine private constructor(vararg argv: String) {
     val cvm: CVarManager

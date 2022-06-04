@@ -19,6 +19,7 @@
 package p.Actions
 
 
+import com.hiperbou.lang.times
 import data.Limits
 import data.sounds.sfxenum_t
 import m.fixed_t
@@ -173,21 +174,18 @@ interface ActionsFloors : ActionsPlats {
                     floor.direction = 1
                     floor.sector = sec
                     floor.speed = ActionsFloors.FLOORSPEED
-                    var i = 0
-                    while (i < sec.linecount) {
+                    sec.linecount.times { i ->
                         if (twoSided(secnum, i)) {
-                            var s = 0
-                            while (s < 2) {
+
+                            2.times { s ->
                                 side = getSide(secnum, i, s)
                                 if (side.bottomtexture >= 0) {
                                     if (DOOM().textureManager.getTextureheight(side.bottomtexture.toInt()) < minsize) {
                                         minsize = DOOM().textureManager.getTextureheight(side.bottomtexture.toInt())
                                     }
                                 }
-                                ++s
                             }
                         }
-                        ++i
                     }
                     floor.floordestheight = floor.sector!!.floorheight + minsize
                 }

@@ -19,6 +19,7 @@
 package p.Actions.ActiveStates.MonsterStatesimportimport
 
 
+import com.hiperbou.lang.times
 import data.Defines
 import data.info
 import data.sounds.sfxenum_t
@@ -48,7 +49,6 @@ interface Zombies : ActionTrait {
     }
 
     fun A_SPosAttack(actor: mobj_t) {
-        var i: Int
         var angle: Long
         val bangle: Long
         var damage: Int
@@ -60,12 +60,11 @@ interface Zombies : ActionTrait {
         A_FaceTarget(actor)
         bangle = actor.angle
         slope = attacks.AimLineAttack(actor, bangle, Defines.MISSILERANGE)
-        i = 0
-        while (i < 3) {
+
+        3.times {
             angle = bangle + (P_Random() - P_Random() shl 20)
             damage = (P_Random() % 5 + 1) * 3
             attacks.LineAttack(actor, angle, Defines.MISSILERANGE, slope, damage)
-            i++
         }
     }
 

@@ -1,5 +1,6 @@
 package hu
 
+import com.hiperbou.lang.times
 import data.Defines
 import data.Limits
 import data.sounds.sfxenum_t
@@ -474,16 +475,13 @@ class HU(  // MAES: Status and wad data.
         }
         // create the chat widget
         w_chat.initIText(
-            HU.HU_INPUTX, HU_INPUTY, hu_font, Defines.HU_FONTSTART.toInt(),
+            HU_INPUTX, HU_INPUTY, hu_font, Defines.HU_FONTSTART.toInt(),
             chat_on
         )
 
         // create the inputbuffer widgets
-        i = 0
-        while (i < Limits.MAXPLAYERS) {
-            w_inputbuffer[i] = hu_itext_t()
-            w_inputbuffer[i]!!.initIText(0, 0, null, 0, always_off)
-            i++
+        Limits.MAXPLAYERS.times { i ->
+            w_inputbuffer[i] = hu_itext_t().apply { initIText(0, 0, null, 0, always_off) }
         }
         headsupactive = true
     }
@@ -598,10 +596,9 @@ class HU(  // MAES: Status and wad data.
 
     init {
         w_message = hu_stext_t()
-        w_inputbuffer = arrayOfNulls(Limits.MAXPLAYERS)
-        for (i in 0 until Limits.MAXPLAYERS) {
-            w_inputbuffer[i] = hu_itext_t()
-        }
+
+        w_inputbuffer = Array (Limits.MAXPLAYERS) { hu_itext_t() }
+
         w_title = hu_textline_t()
         w_chat = hu_itext_t()
     }
@@ -902,22 +899,19 @@ class HU(  // MAES: Status and wad data.
         }
 
         fun drawSText() {
-            var i: Int
             var idx: Int
             var l: hu_textline_t?
             if (!on[0]) return  // if not on, don't draw
 
 
             // draw everything
-            i = 0
-            while (i < height) {
+            height.times { i ->
                 idx = currline - i
                 if (idx < 0) idx += height // handle queue of lines
                 l = lines[idx]
 
                 // need a decision made here on whether to skip the draw
                 l!!.drawTextLine(false) // no cursor, please
-                i++
             }
         }
 

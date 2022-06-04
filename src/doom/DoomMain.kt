@@ -1,6 +1,10 @@
 package doom
 
 import automap.IAutoMap
+import com.hiperbou.lang.apply
+import com.hiperbou.lang.times
+import com.hiperbou.lang.transform
+import com.hiperbou.lang.transformIndexed
 import data.*
 import data.Limits.MAXEVENTS
 import data.sounds.musicenum_t
@@ -644,17 +648,17 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
             // Check for fake IWAD with right name,
             // but w/o all the lumps of the registered version.
             if (isRegistered()) {
-                i = 0
-                while (i < 23) {
-                    if (wadLoader.CheckNumForName(name[i].uppercase(Locale.getDefault())) < 0) {
+
+                name.forEach {
+                    if (wadLoader.CheckNumForName(it.uppercase(Locale.getDefault())) < 0) {
                         doomSystem.Error(
                             """
     
-    This is not the registered version: ${name[i]}
+    This is not the registered version: $it
     """.trimIndent()
                         )
                     }
-                    i++
+
                 }
             }
         }
@@ -1628,11 +1632,7 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
                 }
                 9 ->                     // MAES: end of secret level
                 {
-                    var i = 0
-                    while (i < Limits.MAXPLAYERS) {
-                        players[i].didsecret = true
-                        i++
-                    }
+                    players.apply({ it.didsecret = true })
                 }
                 else -> {}
             }
@@ -2176,11 +2176,9 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
         // Do this, otherwise previously loaded demos will be stuck at their end.
         demobuffer.resetDemo()
         val pigs = demobuffer.getPlayeringame()
-        i = 0
-        while (i < Limits.MAXPLAYERS) {
-            playeringame[i] = pigs[i]
-            i++
-        }
+
+        playeringame.transformIndexed({ index ->  pigs[index] }, Limits.MAXPLAYERS )
+
         if (playeringame[1]) {
             netgame = true
             netdemo = true
@@ -2726,15 +2724,14 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
                 debugfile, "send (" + ExpandTics(netbuffer.starttic.toInt()) + ", " + netbuffer.numtics + ", R "
                         + realretrans + "[" + doomcom.datalength + "]"
             )
-            i = 0
-            while (i < doomcom.datalength) {
+
+            doomcom.datalength.times {
                 logger(
                     debugfile, """
      $netbuffer
      
      """.trimIndent()
                 )
-                i++
             }
         }
 
@@ -2784,7 +2781,7 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
         }
         if (C2JUtils.eval(debugfile)) {
             val realretrans: Int
-            var i: Int
+
             if (C2JUtils.flags(netbuffer.checksum, NetConsts.NCMD_SETUP)) logger(
                 debugfile,
                 "setup packet\n"
@@ -2815,11 +2812,9 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
                  * should be inside netbuffer....right?
                  */
                 try {
-                    i = 0
-                    while (i < doomcom.datalength) {
-                        debugfile.write(Integer.toHexString(netbuffer.cached()[i].toInt()))
+                    doomcom.datalength.times {
+                        debugfile.write(Integer.toHexString(netbuffer.cached()[it].toInt()))
                         debugfile.write('\n'.code)
-                        i++
                     }
                 } catch (e: IOException) {
                 } // "Drown" IOExceptions here.
@@ -3238,7 +3233,6 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
     var oldentertics = 0
     @Throws(IOException::class)
     override fun TryRunTics() {
-        var i: Int
         var lowtic: Int
         val entertic: Int
         val realtics: Int
@@ -3256,16 +3250,15 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
         NetUpdate()
         lowtic = Limits.MAXINT
         numplaying = 0
-        i = 0
+
         val doomcom = doomcom!!
-        while (i < doomcom.numnodes) {
+        doomcom.numnodes.times { i ->
             if (nodeingame[i]) {
                 numplaying++
                 if (nettics[i] < lowtic) {
                     lowtic = nettics[i]
                 }
             }
-            i++
         }
         availabletics = lowtic - gametic / _ticdup
 
@@ -3296,7 +3289,7 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
         if (!demoplayback) {
             // ideally nettics[0] should be 1 - 3 tics above lowtic
             // if we are consistantly slower, speed up time
-            i = 0
+            var i = 0
             while (i < Limits.MAXPLAYERS) {
                 if (playeringame[i]) {
                     break
@@ -3325,12 +3318,11 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
             lowtic = Limits.MAXINT
 
             // Finds the node with the lowest number of tics.
-            i = 0
-            while (i < doomcom.numnodes) {
+
+            doomcom.numnodes.times { i ->
                 if (nodeingame[i] && nettics[i] < lowtic) {
                     lowtic = nettics[i]
                 }
-                i++
             }
             if (lowtic < gametic / _ticdup) {
                 doomSystem.Error("TryRunTics: lowtic < gametic")
@@ -3346,8 +3338,8 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
 
         // run the count * ticdup dics
         while (counts-- > 0) {
-            i = 0
-            while (i < _ticdup) {
+
+            _ticdup.times { i ->
                 if (gametic / _ticdup > lowtic) {
                     doomSystem.Error("gametic>lowtic")
                 }
@@ -3361,20 +3353,16 @@ class DoomMain<T, V> : DoomStatus<T, V>(), IDoomGameNetworking, IDoomGame, IDoom
                 // modify command for duplicated tics
                 if (i != _ticdup - 1) {
                     var cmd: ticcmd_t
-                    var buf: Int
-                    var j: Int
-                    buf = gametic / _ticdup % Defines.BACKUPTICS
-                    j = 0
-                    while (j < Limits.MAXPLAYERS) {
-                        cmd = netcmds[j][buf]!!
+                    val buf = gametic / _ticdup % Defines.BACKUPTICS
+
+                    netcmds.forEach{ netcmd ->
+                        cmd = netcmd[buf]!!
                         cmd.chatchar = 0.toChar()
                         if (C2JUtils.flags(cmd.buttons.code, Defines.BT_SPECIAL)) {
                             cmd.buttons = 0.toChar()
                         }
-                        j++
                     }
                 }
-                i++
             }
             NetUpdate() // check for new console commands
         }

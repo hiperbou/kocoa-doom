@@ -92,24 +92,11 @@ abstract class AbstractEndLevel {
             anim_t(animenum_t.ANIM_ALWAYS, Defines.TICRATE / 4, 3, point_t(40, 0))
         )
 
-        /*static int NUMANIMS[NUMEPISODES] =
-	{
-	 sizeof(epsd0animinfo)/sizeof(anim_t),
-	 sizeof(epsd1animinfo)/sizeof(anim_t),
-	 sizeof(epsd2animinfo)/sizeof(anim_t)
-	};*/
-        // MAES: cute, but we can do it in a more Java-friendly way :-p
-        val NUMANIMS = intArrayOf(
-            AbstractEndLevel.epsd0animinfo.size,
-            AbstractEndLevel.epsd1animinfo.size,
-            AbstractEndLevel.epsd2animinfo.size
-        )
-
         /** ATTENTION: there's a difference between these "anims" and those used in p_spec.c  */
-        val anims = arrayOf<Array<anim_t>>(
-            AbstractEndLevel.epsd0animinfo,
-            AbstractEndLevel.epsd1animinfo,
-            AbstractEndLevel.epsd2animinfo
+        val anims = arrayOf(
+            epsd0animinfo,
+            epsd1animinfo,
+            epsd2animinfo
         )
     }
 }

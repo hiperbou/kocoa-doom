@@ -1,5 +1,7 @@
 package f
 
+import com.hiperbou.lang.repeatFor
+import com.hiperbou.lang.times
 import data.Defines
 import data.Defines.PU_STATIC
 import data.Limits
@@ -167,7 +169,7 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
     var state: endlevel_state? = null
 
     // contains information passed into intermission
-    var wbs: wbstartstruct_t? = null
+    lateinit var wbs: wbstartstruct_t
     lateinit var plrs // wbs->plyr[]
             : Array<wbplayerstruct_t>
 
@@ -291,14 +293,14 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
         // draw <LevelName> 
         DOOM.graphicSystem.DrawPatchScaled(
             DoomScreen.FG,
-            lnames!![wbs!!.last]!!,
+            lnames!![wbs.last]!!,
             DOOM.vs,
-            (320 - lnames!![wbs!!.last]!!.width) / 2,
+            (320 - lnames!![wbs.last]!!.width) / 2,
             y
         )
 
         // draw "Finished!"
-        y += 5 * lnames!![wbs!!.last]!!.height / 4
+        y += 5 * lnames!![wbs.last]!!.height / 4
         DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, finished!!, DOOM.vs, (320 - finished!!.width) / 2, y)
     }
 
@@ -316,15 +318,15 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
         // FIXME: this is only useful in a handful of prBoom+ maps, which use
         // a modified endlevel screen. The reason it works there is the behavior of the 
         // unified patch drawing function, which is approximated with this hack.
-        if (lnames!![wbs!!.next]!!.topoffset.toInt() == 0) {
-            y += 5 * lnames!![wbs!!.next]!!.height / 4
+        if (lnames!![wbs.next]!!.topoffset.toInt() == 0) {
+            y += 5 * lnames!![wbs.next]!!.height / 4
         }
         // draw level.
         DOOM.graphicSystem.DrawPatchScaled(
             DoomScreen.FG,
-            lnames!![wbs!!.next]!!,
+            lnames!![wbs.next]!!,
             DOOM.vs,
-            (320 - lnames!![wbs!!.next]!!.width) / 2,
+            (320 - lnames!![wbs.next]!!.width) / 2,
             y
         )
     }
@@ -358,8 +360,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
         var fits = false
         i = 0
         do {
-            left = AbstractEndLevel.lnodes.get(wbs!!.epsd).get(n).x - c[i]!!.leftoffset
-            top = AbstractEndLevel.lnodes.get(wbs!!.epsd).get(n).y - c[i]!!.topoffset
+            left = lnodes.get(wbs.epsd).get(n).x - c[i]!!.leftoffset
+            top = lnodes.get(wbs.epsd).get(n).y - c[i]!!.topoffset
             right = left + c[i]!!.width
             bottom = top + c[i]!!.height
             if (left >= 0 && right < DOOM.vs.getScreenWidth() && top >= 0 && bottom < DOOM.vs.getScreenHeight()) {
@@ -375,9 +377,9 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                 DoomScreen.FG,
                 c[i]!!,
                 DOOM.vs,
-                AbstractEndLevel.lnodes.get(wbs!!.epsd).get(n).x,
-                AbstractEndLevel.lnodes.get(
-                    wbs!!.epsd
+                lnodes.get(wbs.epsd).get(n).x,
+                lnodes.get(
+                    wbs.epsd
                 ).get(n).y
             )
         } else {
@@ -389,44 +391,35 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
     @SourceCode.Exact
     @WI_Stuff.C(WI_Stuff.WI_initAnimatedBack)
     protected fun initAnimatedBack() {
-        var a: anim_t
         if (DOOM.isCommercial()) {
             return
         }
-        if (wbs!!.epsd > 2) {
+        if (wbs.epsd > 2) {
             return
         }
-        for (i in 0 until AbstractEndLevel.NUMANIMS.get(wbs!!.epsd)) {
-            a = AbstractEndLevel.anims.get(wbs!!.epsd).get(i)
-
+        anims[wbs.epsd].forEach{ a ->
             // init variables
             a.ctr = -1
-            if (null != a.type) when (a.type) {
+            when (a.type) {
                 animenum_t.ANIM_ALWAYS -> a.nexttic = bcnt + 1 + DOOM.random.M_Random() % a.period
                 animenum_t.ANIM_RANDOM -> a.nexttic = bcnt + 1 + a.data2 + DOOM.random.M_Random() % a.data1
                 animenum_t.ANIM_LEVEL -> a.nexttic = bcnt + 1
-                else -> {}
             }
         }
     }
 
     protected fun updateAnimatedBack() {
-        var i: Int
-        var a: anim_t
         if (DOOM.isCommercial()) {
             return
         }
-        if (wbs!!.epsd > 2) {
+        if (wbs.epsd > 2) {
             return
         }
-        val aaptr = wbs!!.epsd
-        i = 0
-        while (i < AbstractEndLevel.NUMANIMS.get(wbs!!.epsd)) {
-            a = AbstractEndLevel.anims.get(aaptr).get(i)
+        anims[wbs.epsd].forEachIndexed { i, a ->
             if (bcnt == a.nexttic) {
                 when (a.type) {
                     animenum_t.ANIM_ALWAYS -> {
-                        if (++AbstractEndLevel.anims.get(aaptr).get(i).ctr >= a.nanims) {
+                        if (++a.ctr >= a.nanims) {
                             a.ctr = 0
                         }
                         a.nexttic = bcnt + a.period
@@ -442,7 +435,7 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                     }
                     animenum_t.ANIM_LEVEL ->                         // gawd-awful hack for level anims
                         if (!(state == endlevel_state.StatCount && i == 7)
-                            && wbs!!.next == a.data1
+                            && wbs.next == a.data1
                         ) {
                             a.ctr++
                             if (a.ctr == a.nanims) {
@@ -452,26 +445,21 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                         }
                 }
             }
-            i++
         }
     }
 
     protected fun drawAnimatedBack() {
-        var i: Int
-        var a: anim_t
         if (DOOM.isCommercial()) {
             return
         }
-        if (wbs!!.epsd > 2) {
+        if (wbs.epsd > 2) {
             return
         }
-        i = 0
-        while (i < AbstractEndLevel.NUMANIMS.get(wbs!!.epsd)) {
-            a = AbstractEndLevel.anims.get(wbs!!.epsd).get(i)
+
+        anims[wbs.epsd].forEach { a ->
             if (a.ctr >= 0) {
                 DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, a.p[a.ctr]!!, DOOM.vs, a.loc.x, a.loc.y)
             }
-            i++
         }
     }
 
@@ -607,22 +595,18 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
     }
 
     protected fun unloadData() {
-        var i: Int
-        var j: Int
         DOOM.wadLoader.UnlockLumpNum(wiminus)
         wiminus = null
-        i = 0
-        while (i < 10) {
-            DOOM.wadLoader.UnlockLumpNum(num[i])
-            num[i] = null
-            i++
+
+        num.forEachIndexed { index, it ->
+            DOOM.wadLoader.UnlockLumpNum(it)
+            num[index] = null
         }
+
         if (DOOM.isCommercial()) {
-            i = 0
-            while (i < NUMCMAPS) {
-                DOOM.wadLoader.UnlockLumpNum(lnames!![i])
-                lnames!![i] = null
-                i++
+            NUMCMAPS.times {
+                DOOM.wadLoader.UnlockLumpNum(lnames!![it])
+                lnames!![it] = null
             }
         } else {
             DOOM.wadLoader.UnlockLumpNum(yah[0])
@@ -631,26 +615,21 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
             yah[1] = null
             DOOM.wadLoader.UnlockLumpNum(splat[0])
             splat[0] = null
-            i = 0
-            while (i < Defines.NUMMAPS) {
-                DOOM.wadLoader.UnlockLumpNum(lnames!![i])
-                lnames!![i] = null
-                i++
+
+            Defines.NUMMAPS.times {
+                DOOM.wadLoader.UnlockLumpNum(lnames!![it])
+                lnames!![it] = null
             }
-            if (wbs!!.epsd < 3) {
-                j = 0
-                while (j < AbstractEndLevel.NUMANIMS.get(wbs!!.epsd)) {
-                    if (wbs!!.epsd != 1 || j != 8) {
-                        i = 0
-                        while (i < AbstractEndLevel.anims.get(wbs!!.epsd).get(j).nanims) {
+            if (wbs.epsd < 3) {
+                anims[wbs.epsd].forEachIndexed { j, a->
+                    if (wbs.epsd != 1 || j != 8) {
+                        (a.nanims).times { i ->
                             DOOM.wadLoader.UnlockLumpNum(
-                                AbstractEndLevel.anims.get(wbs!!.epsd).get(j).p.get(i)
+                                a.p[i]
                             )
-                            AbstractEndLevel.anims.get(wbs!!.epsd).get(j).p.set(i, null)
-                            i++
+                            a.p[i] = null
                         }
                     }
-                    j++
                 }
             }
         }
@@ -684,13 +663,12 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
         killers = null
         DOOM.wadLoader.UnlockLumpNum(total)
         total = null
-        i = 0
-        while (i < Limits.MAXPLAYERS) {
-            DOOM.wadLoader.UnlockLumpNum(p[i])
-            DOOM.wadLoader.UnlockLumpNum(bp[i])
-            p[i] = null
-            bp[i] = null
-            i++
+
+        Limits.MAXPLAYERS.times {
+            DOOM.wadLoader.UnlockLumpNum(p[it])
+            DOOM.wadLoader.UnlockLumpNum(bp[it])
+            p[it] = null
+            bp[it] = null
         }
     }
 
@@ -733,11 +711,11 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
         // draw animated background
         drawAnimatedBack()
         if (!DOOM.isCommercial()) {
-            if (wbs!!.epsd > 2) {
+            if (wbs.epsd > 2) {
                 drawEL()
                 return
             }
-            last = if (wbs!!.last == 8) wbs!!.next - 1 else wbs!!.last
+            last = if (wbs.last == 8) wbs.next - 1 else wbs.last
 
             // draw a splat on taken cities.
             i = 0
@@ -747,19 +725,19 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
             }
 
             // splat the secret level?
-            if (wbs!!.didsecret) {
+            if (wbs.didsecret) {
                 drawOnLnode(8, splat)
             }
 
             // draw flashing ptr
             if (snl_pointeron) {
-                drawOnLnode(wbs!!.next, yah)
+                drawOnLnode(wbs.next, yah)
             }
         }
 
         // draws which level you are entering..
         if (!DOOM.isCommercial()
-            || wbs!!.next != 30
+            || wbs.next != 30
         ) {
             drawEL()
         }
@@ -771,16 +749,14 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
     }
 
     protected fun fragSum(playernum: Int): Int {
-        var i: Int
         var frags = 0
-        i = 0
-        while (i < Limits.MAXPLAYERS) {
+
+        Limits.MAXPLAYERS.times { i ->
             if (DOOM.playeringame[i]
                 && i != playernum
             ) {
                 frags += plrs[playernum].frags[i]
             }
-            i++
         }
 
         // JDC hack - negative frags.
@@ -816,25 +792,19 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
     }
 
     protected fun updateDeathmatchStats() {
-        var i: Int
-        var j: Int
         var stillticking: Boolean
         updateAnimatedBack()
         if (acceleratestage != 0 && dm_state != 4) {
             acceleratestage = 0
-            i = 0
-            while (i < Limits.MAXPLAYERS) {
+            Limits.MAXPLAYERS.times { i ->
                 if (DOOM.playeringame[i]) {
-                    j = 0
-                    while (j < Limits.MAXPLAYERS) {
+                    Limits.MAXPLAYERS.times { j ->
                         if (DOOM.playeringame[j]) {
                             dm_frags[i][j] = plrs[i].frags[j]
                         }
-                        j++
                     }
                     dm_totals[i] = fragSum(i)
                 }
-                i++
             }
             DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_barexp)
             dm_state = 4
@@ -844,11 +814,9 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_pistol)
             }
             stillticking = false
-            i = 0
-            while (i < Limits.MAXPLAYERS) {
+            Limits.MAXPLAYERS.times { i ->
                 if (DOOM.playeringame[i]) {
-                    j = 0
-                    while (j < Limits.MAXPLAYERS) {
+                    Limits.MAXPLAYERS.times { j ->
                         if (DOOM.playeringame[j]
                             && dm_frags[i][j] != plrs[i].frags[j]
                         ) {
@@ -865,7 +833,6 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                             }
                             stillticking = true
                         }
-                        j++
                     }
                     dm_totals[i] = fragSum(i)
                     if (dm_totals[i] > 99) {
@@ -875,7 +842,6 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                         dm_totals[i] = -99
                     }
                 }
-                i++
             }
             if (!stillticking) {
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_barexp)
@@ -899,8 +865,6 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
     }
 
     protected fun drawDeathmatchStats() {
-        var i: Int
-        var j: Int
         var x: Int
         var y: Int
         val w: Int
@@ -915,38 +879,37 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
         DOOM.graphicSystem.DrawPatch(
             DoomScreen.FG,
             total!!,
-            AbstractEndLevel.DM_TOTALSX - total!!.width / 2,
-            AbstractEndLevel.DM_MATRIXY - WI_SPACINGY + 10
+            DM_TOTALSX - total!!.width / 2,
+            DM_MATRIXY - WI_SPACINGY + 10
         )
         DOOM.graphicSystem.DrawPatch(
             DoomScreen.FG,
             killers!!,
-            AbstractEndLevel.DM_KILLERSX,
-            AbstractEndLevel.DM_KILLERSY
+            DM_KILLERSX,
+            DM_KILLERSY
         )
         DOOM.graphicSystem.DrawPatch(
             DoomScreen.FG,
             victims!!,
-            AbstractEndLevel.DM_VICTIMSX,
-            AbstractEndLevel.DM_VICTIMSY
+            DM_VICTIMSX,
+            DM_VICTIMSY
         )
 
         // draw P?
-        x = AbstractEndLevel.DM_MATRIXX + AbstractEndLevel.DM_SPACINGX
-        y = AbstractEndLevel.DM_MATRIXY
-        i = 0
-        while (i < Limits.MAXPLAYERS) {
+        x = DM_MATRIXX + DM_SPACINGX
+        y = DM_MATRIXY
+        Limits.MAXPLAYERS.times { i ->
             if (DOOM.playeringame[i]) {
                 DOOM.graphicSystem.DrawPatch(
                     DoomScreen.FG,
                     p[i]!!,
                     x - p[i]!!.width / 2,
-                    AbstractEndLevel.DM_MATRIXY - WI_SPACINGY
+                    DM_MATRIXY - WI_SPACINGY
                 )
                 DOOM.graphicSystem.DrawPatch(
                     DoomScreen.FG,
                     p[i]!!,
-                    AbstractEndLevel.DM_MATRIXX - p[i]!!.width / 2,
+                    DM_MATRIXX - p[i]!!.width / 2,
                     y
                 )
                 if (i == me) {
@@ -954,12 +917,12 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                         DoomScreen.FG,
                         bstar!!,
                         x - p[i]!!.width / 2,
-                        AbstractEndLevel.DM_MATRIXY - WI_SPACINGY
+                        DM_MATRIXY - WI_SPACINGY
                     )
                     DOOM.graphicSystem.DrawPatch(
                         DoomScreen.FG,
                         star!!,
-                        AbstractEndLevel.DM_MATRIXX - p[i]!!.width / 2,
+                        DM_MATRIXX - p[i]!!.width / 2,
                         y
                     )
                 }
@@ -969,30 +932,25 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                 // V_DrawPatch(DM_MATRIXX-SHORT(bp[i].width)/2,
                 //   y, FB, bp[i]);
             }
-            x += AbstractEndLevel.DM_SPACINGX
+            x += DM_SPACINGX
             y += WI_SPACINGY
-            i++
         }
 
         // draw stats
-        y = AbstractEndLevel.DM_MATRIXY + 10
+        y = DM_MATRIXY + 10
         w = num[0]!!.width.toInt()
-        i = 0
-        while (i < Limits.MAXPLAYERS) {
-            x = AbstractEndLevel.DM_MATRIXX + AbstractEndLevel.DM_SPACINGX
+        Limits.MAXPLAYERS.times { i ->
+            x = DM_MATRIXX + DM_SPACINGX
             if (DOOM.playeringame[i]) {
-                j = 0
-                while (j < Limits.MAXPLAYERS) {
+                Limits.MAXPLAYERS.times { j ->
                     if (DOOM.playeringame[j]) {
                         drawNum(x + w, y, dm_frags[i][j], 2)
                     }
-                    x += AbstractEndLevel.DM_SPACINGX
-                    j++
+                    x += DM_SPACINGX
                 }
-                drawNum(AbstractEndLevel.DM_TOTALSX + w, y, dm_totals[i], 2)
+                drawNum(DM_TOTALSX + w, y, dm_totals[i], 2)
             }
             y += WI_SPACINGY
-            i++
         }
     }
 
@@ -1038,9 +996,9 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                     i++
                     continue
                 }
-                cnt_kills[i] = plrs[i].skills * 100 / wbs!!.maxkills
-                cnt_items[i] = plrs[i].sitems * 100 / wbs!!.maxitems
-                cnt_secret[i] = plrs[i].ssecret * 100 / wbs!!.maxsecret
+                cnt_kills[i] = plrs[i].skills * 100 / wbs.maxkills
+                cnt_items[i] = plrs[i].sitems * 100 / wbs.maxitems
+                cnt_secret[i] = plrs[i].ssecret * 100 / wbs.maxsecret
                 if (dofrags != 0) {
                     cnt_frags[i] = fragSum(i)
                 }
@@ -1061,8 +1019,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                     continue
                 }
                 cnt_kills[i] += 2
-                if (cnt_kills[i] >= plrs[i].skills * 100 / wbs!!.maxkills) {
-                    cnt_kills[i] = plrs[i].skills * 100 / wbs!!.maxkills
+                if (cnt_kills[i] >= plrs[i].skills * 100 / wbs.maxkills) {
+                    cnt_kills[i] = plrs[i].skills * 100 / wbs.maxkills
                 } else {
                     stillticking = true
                 }
@@ -1084,8 +1042,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                     continue
                 }
                 cnt_items[i] += 2
-                if (cnt_items[i] >= plrs[i].sitems * 100 / wbs!!.maxitems) {
-                    cnt_items[i] = plrs[i].sitems * 100 / wbs!!.maxitems
+                if (cnt_items[i] >= plrs[i].sitems * 100 / wbs.maxitems) {
+                    cnt_items[i] = plrs[i].sitems * 100 / wbs.maxitems
                 } else {
                     stillticking = true
                 }
@@ -1107,8 +1065,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                     continue
                 }
                 cnt_secret[i] += 2
-                if (cnt_secret[i] >= plrs[i].ssecret * 100 / wbs!!.maxsecret) {
-                    cnt_secret[i] = plrs[i].ssecret * 100 / wbs!!.maxsecret
+                if (cnt_secret[i] >= plrs[i].ssecret * 100 / wbs.maxsecret) {
+                    cnt_secret[i] = plrs[i].ssecret * 100 / wbs.maxsecret
                 } else {
                     stillticking = true
                 }
@@ -1270,11 +1228,11 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
         //System.out.println("SP_State "+sp_state);
         if (acceleratestage != 0 && sp_state != COUNT_DONE) {
             acceleratestage = 0
-            cnt_kills[0] = plrs[me].skills * 100 / wbs!!.maxkills
-            cnt_items[0] = plrs[me].sitems * 100 / wbs!!.maxitems
-            cnt_secret[0] = plrs[me].ssecret * 100 / wbs!!.maxsecret
+            cnt_kills[0] = plrs[me].skills * 100 / wbs.maxkills
+            cnt_items[0] = plrs[me].sitems * 100 / wbs.maxitems
+            cnt_secret[0] = plrs[me].ssecret * 100 / wbs.maxsecret
             cnt_time = plrs[me].stime / Defines.TICRATE
-            cnt_par = wbs!!.partime / Defines.TICRATE
+            cnt_par = wbs.partime / Defines.TICRATE
             DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_barexp)
             sp_state = 10
         }
@@ -1283,8 +1241,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
             if (bcnt and 3 == 0) {
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_pistol)
             }
-            if (cnt_kills[0] >= plrs[me].skills * 100 / wbs!!.maxkills) {
-                cnt_kills[0] = plrs[me].skills * 100 / wbs!!.maxkills
+            if (cnt_kills[0] >= plrs[me].skills * 100 / wbs.maxkills) {
+                cnt_kills[0] = plrs[me].skills * 100 / wbs.maxkills
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_barexp)
                 sp_state++
             }
@@ -1293,8 +1251,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
             if (bcnt and 3 == 0) {
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_pistol)
             }
-            if (cnt_items[0] >= plrs[me].sitems * 100 / wbs!!.maxitems) {
-                cnt_items[0] = plrs[me].sitems * 100 / wbs!!.maxitems
+            if (cnt_items[0] >= plrs[me].sitems * 100 / wbs.maxitems) {
+                cnt_items[0] = plrs[me].sitems * 100 / wbs.maxitems
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_barexp)
                 sp_state++
             }
@@ -1303,8 +1261,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
             if (bcnt and 3 == 0) {
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_pistol)
             }
-            if (cnt_secret[0] >= plrs[me].ssecret * 100 / wbs!!.maxsecret) {
-                cnt_secret[0] = plrs[me].ssecret * 100 / wbs!!.maxsecret
+            if (cnt_secret[0] >= plrs[me].ssecret * 100 / wbs.maxsecret) {
+                cnt_secret[0] = plrs[me].ssecret * 100 / wbs.maxsecret
                 DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_barexp)
                 sp_state++
             }
@@ -1317,8 +1275,8 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
                 cnt_time = plrs[me].stime / Defines.TICRATE
             }
             cnt_par += 3
-            if (cnt_par >= wbs!!.partime / Defines.TICRATE) {
-                cnt_par = wbs!!.partime / Defines.TICRATE
+            if (cnt_par >= wbs.partime / Defines.TICRATE) {
+                cnt_par = wbs.partime / Defines.TICRATE
                 if (cnt_time >= plrs[me].stime / Defines.TICRATE) {
                     DOOM.doomSound.StartSound(null, sounds.sfxenum_t.sfx_barexp)
                     sp_state++
@@ -1387,7 +1345,7 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
             DoomGraphicSystem.V_NOSCALESTART
         )
         drawTime(DOOM.vs.getScreenWidth() / 2 - SP_TIMEX, SP_TIMEY, cnt_time)
-        if (wbs!!.epsd < 3) {
+        if (wbs.epsd < 3) {
             DOOM.graphicSystem.DrawPatchScaled(
                 DoomScreen.FG,
                 par!!,
@@ -1462,16 +1420,15 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
     @WI_Stuff.C(WI_Stuff.WI_loadData)
     protected fun loadData() {
         var name: String?
-        var a: anim_t
         if (DOOM.isCommercial()) {
             name = "INTERPIC"
         } else { //sprintf(name, "WIMAP%d", wbs.epsd);
-            name = "WIMAP" + Integer.toString(wbs!!.epsd)
+            name = "WIMAP" + Integer.toString(wbs.epsd)
         }
 
         // MAES: For Ultimate Doom
         if (DOOM.isRetail()) {
-            if (wbs!!.epsd == 3) {
+            if (wbs.epsd == 3) {
                 name = "INTERPIC"
             }
         }
@@ -1503,7 +1460,7 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
             lnames = arrayOfNulls(Defines.NUMMAPS)
             var xxx = "WILV%d%d"
             for (i in 0 until Defines.NUMMAPS) {
-                name = String.format(xxx, wbs!!.epsd, i)
+                name = String.format(xxx, wbs.epsd, i)
                 lnames!![i] = DOOM.wadLoader.CacheLumpName(name, PU_STATIC, patch_t::class.java)
             }
 
@@ -1516,20 +1473,18 @@ class EndLevel<T, V>(  ////////////////// STATUS ///////////////////
 
             // splat
             splat = arrayOf(DOOM.wadLoader.CacheLumpName("WISPLAT", PU_STATIC, patch_t::class.java), null)
-            if (wbs!!.epsd < 3) {
+            if (wbs.epsd < 3) {
                 xxx = "WIA%d%02d%02d"
                 //xxx=new PrintfFormat("WIA%d%.2d%.2d");
-                for (j in 0 until AbstractEndLevel.NUMANIMS.get(wbs!!.epsd)) {
-                    a = AbstractEndLevel.anims.get(wbs!!.epsd).get(j)
-                    for (i in 0 until a.nanims) {
+                anims[wbs.epsd].forEachIndexed { j, a ->
+                    a.nanims.times { i ->
                         // MONDO HACK!
-                        if (wbs!!.epsd != 1 || j != 8) {
+                        if (wbs.epsd != 1 || j != 8) {
                             // animations
-                            name = String.format(xxx, wbs!!.epsd, j, i)
-                            a.p[i] = DOOM.wadLoader.CacheLumpName(name, PU_STATIC, patch_t::class.java)
+                            a.p[i] = DOOM.wadLoader.CacheLumpName(String.format(xxx, wbs.epsd, j, i), PU_STATIC, patch_t::class.java)
                         } else {
                             // HACK ALERT!
-                            a.p[i] = AbstractEndLevel.anims.get(1).get(4).p.get(i)
+                            a.p[i] = anims[1][4].p[i]
                         }
                     }
                 }
@@ -1705,37 +1660,37 @@ public void WI_unloadData()
         if (RANGECHECKING) {
             if (!DOOM.isCommercial()) {
                 if (DOOM.isRetail()) {
-                    RNGCHECK(wbs!!.epsd, 0, 3)
+                    RNGCHECK(wbs.epsd, 0, 3)
                 } else {
-                    RNGCHECK(wbs!!.epsd, 0, 2)
+                    RNGCHECK(wbs.epsd, 0, 2)
                 }
             } else {
-                RNGCHECK(wbs!!.last, 0, 8)
-                RNGCHECK(wbs!!.next, 0, 8)
+                RNGCHECK(wbs.last, 0, 8)
+                RNGCHECK(wbs.next, 0, 8)
             }
-            RNGCHECK(wbs!!.pnum, 0, Limits.MAXPLAYERS)
-            RNGCHECK(wbs!!.pnum, 0, Limits.MAXPLAYERS)
+            RNGCHECK(wbs.pnum, 0, Limits.MAXPLAYERS)
+            RNGCHECK(wbs.pnum, 0, Limits.MAXPLAYERS)
         }
         acceleratestage = 0
         bcnt = 0
         cnt = bcnt
         firstrefresh = 1
-        me = wbs!!.pnum
-        plrs = wbs!!.plyr.clone()
-        if (wbs!!.maxkills == 0) {
-            wbs!!.maxkills = 1
+        me = wbs.pnum
+        plrs = wbs.plyr.clone()
+        if (wbs.maxkills == 0) {
+            wbs.maxkills = 1
         }
-        if (wbs!!.maxitems == 0) {
-            wbs!!.maxitems = 1
+        if (wbs.maxitems == 0) {
+            wbs.maxitems = 1
         }
-        if (wbs!!.maxsecret == 0) {
-            wbs!!.maxsecret = 1
+        if (wbs.maxsecret == 0) {
+            wbs.maxsecret = 1
         }
 
         // Sanity check for Ultimate.
         if (!DOOM.isRetail()) {
-            if (wbs!!.epsd > 2) {
-                wbs!!.epsd -= 3
+            if (wbs.epsd > 2) {
+                wbs.epsd -= 3
             }
         }
     }

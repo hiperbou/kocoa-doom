@@ -18,6 +18,8 @@
  */
 package p.Actions
 
+import com.hiperbou.lang.apply
+import com.hiperbou.lang.multiply
 import data.Defines
 import data.mobjtype_t
 import data.sounds.sfxenum_t
@@ -378,18 +380,11 @@ interface ActionsThings : ActionTrait {
             }
             spritenum_t.SPR_BPAK -> {
                 if (!player.backpack) {
-                    i = 0
-                    while (i < Defines.NUMAMMO) {
-                        player.maxammo[i] *= 2
-                        i++
-                    }
+                    player.maxammo.multiply(2, Defines.NUMAMMO)
                     player.backpack = true
                 }
-                i = 0
-                while (i < Defines.NUMAMMO) {
-                    player.GiveAmmo(ammotype_t.values()[i], 1)
-                    i++
-                }
+
+                ammotype_t.values().apply({ player.GiveAmmo(it, 1) }, Defines.NUMAMMO)
                 player.message = englsh.GOTBACKPACK
             }
             spritenum_t.SPR_BFUG -> {

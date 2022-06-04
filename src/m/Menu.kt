@@ -1,5 +1,6 @@
 package m
 
+import com.hiperbou.lang.times
 import data.Defines
 import data.dstrings
 import data.sounds.sfxenum_t
@@ -349,7 +350,7 @@ class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
      */
     private fun DrawSaveLoadBorder(x: Int, y: Int) {
         var x = x
-        var i: Int
+
         DOOM.graphicSystem.DrawPatchScaled(
             DoomScreen.FG,
             DOOM.wadLoader.CachePatchName("M_LSLEFT"),
@@ -357,8 +358,7 @@ class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
             x - 8,
             y + 7
         )
-        i = 0
-        while (i < 24) {
+        24.times { i ->
             DOOM.graphicSystem.DrawPatchScaled(
                 DoomScreen.FG,
                 DOOM.wadLoader.CachePatchName("M_LSCNTR"),
@@ -367,7 +367,6 @@ class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
                 y + 7
             )
             x += 8
-            i++
         }
         DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_LSRGHT"), DOOM.vs, x, y + 7)
     }
@@ -423,17 +422,14 @@ class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
     //
     inner class M_DrawSave : DrawRoutine {
         override fun invoke() {
-            var i: Int
             DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_SAVEG"), DOOM.vs, 72, 28)
-            i = 0
-            while (i < load_end) {
+            load_end.times { i ->
                 DrawSaveLoadBorder(LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i)
                 WriteText(LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i, savegamestrings[i])
-                i++
             }
             if (saveStringEnter) {
-                i = StringWidth(savegamestrings[saveSlot])
-                WriteText(LoadDef!!.x + i, LoadDef!!.y + LINEHEIGHT * saveSlot, "_")
+                val width = StringWidth(savegamestrings[saveSlot])
+                WriteText(LoadDef!!.x + width, LoadDef!!.y + LINEHEIGHT * saveSlot, "_")
             }
         }
     }
@@ -702,14 +698,12 @@ class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
      * Find string width from hu_font chars
      */
     fun StringWidth(string: CharArray): Int {
-        var i: Int
         var w = 0
         var c: Int
-        i = 0
-        while (i < C2JUtils.strlen(string)) {
+
+        C2JUtils.strlen(string).times { i ->
             c = string[i].uppercaseChar().code - Defines.HU_FONTSTART
             w += if (c < 0 || c >= Defines.HU_FONTSIZE) 4 else hu_font[c]!!.width.toInt()
-            i++
         }
         return w
     }
@@ -720,16 +714,7 @@ class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
      * Actually it just counts occurences of 'n' and adds height to height.
      */
     private fun StringHeight(string: CharArray): Int {
-        var i: Int
-        var h: Int
-        val height = hu_font[0]!!.height.toInt()
-        h = height
-        i = 0
-        while (i < string.size) {
-            if (string[i] == '\n') h += height
-            i++
-        }
-        return h
+        return hu_font[0]!!.height.toInt() * (1 + string.count { it == '\n' })
     }
 
     /**
@@ -1339,16 +1324,13 @@ class Menu<T, V>  ////////////////// CONSTRUCTOR ////////////////
      */
     internal inner class M_DrawLoad : DrawRoutine {
         override fun invoke() {
-            var i: Int
             DOOM.graphicSystem.DrawPatchScaled(DoomScreen.FG, DOOM.wadLoader.CachePatchName("M_LOADG"), DOOM.vs, 72, 28)
-            i = 0
-            while (i < load_end) {
+            load_end.times { i ->
                 DrawSaveLoadBorder(LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i)
                 WriteText(
                     LoadDef!!.x, LoadDef!!.y + LINEHEIGHT * i,
                     savegamestrings[i]
                 )
-                i++
             }
         }
     }

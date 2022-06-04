@@ -19,6 +19,7 @@
 package p.Actions
 
 
+import com.hiperbou.lang.times
 import data.Limits
 import data.sounds.sfxenum_t
 import doom.SourceCode.P_Ceiling
@@ -235,19 +236,14 @@ interface ActionsCeilings : ActionsMoveEvents, ActionsUseEvents {
     // Stop a ceiling from crushing!
     //
     override fun CeilingCrushStop(line: line_t): Int {
-        var i: Int
-        var rtn: Int
-        rtn = 0
-        val activeCeilings: Array<ceiling_t?> = this.getActiveCeilings()
-        i = 0
-        while (i < activeCeilings.size) {
-            if (activeCeilings[i] != null && activeCeilings[i]!!.tag == line.tag.toInt() && activeCeilings[i]!!.direction != 0) {
-                activeCeilings[i]!!.olddirection = activeCeilings[i]!!.direction
-                activeCeilings[i]!!.thinkerFunction = ActiveStates.NOP
-                activeCeilings[i]!!.direction = 0 // in-stasis
+        var rtn = 0
+        getActiveCeilings().forEach { ceiling ->
+            if (ceiling != null && ceiling.tag == line.tag.toInt() && ceiling.direction != 0) {
+                ceiling.olddirection = ceiling.direction
+                ceiling.thinkerFunction = ActiveStates.NOP
+                ceiling.direction = 0 // in-stasis
                 rtn = 1
             }
-            ++i
         }
         return rtn
     }

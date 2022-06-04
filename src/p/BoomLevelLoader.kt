@@ -3,6 +3,7 @@ package p
 
 import boom.*
 import boom.DeepBSPNodesV4
+import com.hiperbou.lang.times
 import data.*
 import defines.skill_t
 import defines.slopetype_t
@@ -480,29 +481,24 @@ class BoomLevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
     }
 
     private fun P_LoadSegs_V4(lump: Int) {
-        var i: Int
         val data: Array<mapseg_v4_t>?
         numsegs = DOOM.wadLoader.LumpLength(lump) / mapseg_v4_t.sizeOf()
-        segs = calloc_IfSameLevel(segs, numsegs, { seg_t() })
+        segs = calloc_IfSameLevel(segs, numsegs) { seg_t() }
         data = DOOM.wadLoader.CacheLumpNumIntoArray(lump, numsegs, { mapseg_v4_t() }, IntFunction { arrayOfNulls<mapseg_v4_t>(it) } as IntFunction<Array<mapseg_v4_t>?>)
         if (data == null || numsegs == 0) DOOM.doomSystem.Error("P_LoadSegs_V4: no segs in level")
-        i = 0
-        while (i < numsegs) {
+
+        numsegs.times { i ->
             val li = segs[i]
             val ml = data[i]
-            var v1: Int
-            var v2: Int
             var side: Int
-            var linedef: Int
-            var ldef: line_t
             li.iSegID = i // proff 11/05/2000: needed for OpenGL
-            v1 = ml.v1
-            v2 = ml.v2
+            val v1 = ml.v1
+            val v2 = ml.v2
             li.miniseg = false // figgi -- there are no minisegs in classic BSP
             // nodes
             li.angle = (ml.angle.code shl 16).toLong()
             li.offset = ml.offset.code shl 16
-            linedef = ml.linedef.code
+            val linedef = ml.linedef.code
 
             // e6y: check for wrong indexes
             if (C2JUtils.unsigned(linedef) >= C2JUtils.unsigned(numlines)) {
@@ -511,7 +507,7 @@ class BoomLevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
                     i, C2JUtils.unsigned(linedef)
                 )
             }
-            ldef = lines[linedef]
+            val ldef = lines[linedef]
             li.linedef = ldef
             side = ml.side.code
 
@@ -585,7 +581,6 @@ class BoomLevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
             // with certain nodebuilders. Fixes among others, line 20365
             // of DV.wad, map 5
             li.offset = BoomLevelLoader.GetOffset(li.v1!!, if (ml.side.code != 0) ldef.v2!! else ldef.v1!!)
-            i++
         }
         DOOM.wadLoader.UnlockLumpNum(lump) // cph - release the data
     }

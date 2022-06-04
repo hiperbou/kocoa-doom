@@ -1,5 +1,6 @@
 package s
 
+import com.hiperbou.lang.times
 import s.DoomIO.Companion.freadint
 import s.DoomIO.Endian
 import java.io.*
@@ -127,11 +128,8 @@ class QMusToMid {
         tracknum: Char, string: String, length: Int,
         track: Array<QMusToMid.Track?>
     ) {
-        var i: Int
-        i = 0
-        while (i < length) {
-            TWriteByte(tracknum.code, string[i].code.toByte(), track)
-            i++
+        length.times {
+            TWriteByte(tracknum.code, string[it].code.toByte(), track)
         }
     }
 
@@ -187,14 +185,12 @@ class QMusToMid {
     }
 
     fun FirstChannelAvailable(MUS2MIDchannel: ByteArray): Byte {
-        var i: Int
+
         val old15 = MUS2MIDchannel[15]
         var max: Byte = -1
         MUS2MIDchannel[15] = -1
-        i = 0
-        while (i < 16) {
+        16.times { i ->
             if (MUS2MIDchannel[i] > max) max = MUS2MIDchannel[i]
-            i++
         }
         MUS2MIDchannel[15] = old15
         return if (max.toInt() == 8) 10 else (max + 1).toByte()
@@ -219,7 +215,6 @@ class QMusToMid {
         var MIDIchannel: Byte
         var MIDItrack: Byte
         var NewEvent: Byte
-        var i: Int
         var event: Int
         var data: Int
         val r: Int
@@ -266,15 +261,14 @@ class QMusToMid {
         if (MUSh.channels > 15) /* <=> MUSchannels+drums > 16 */ {
             return QMusToMid.TOOMCHAN
         }
-        i = 0
-        while (i < 16) {
+
+        16.times { i ->
             MUS2MIDchannel[i] = -1
             track[i]!!.current = 0
             track[i]!!.vel = 64
             track[i]!!.DeltaTime = 0
             track[i]!!.LastEvent = 0
             track[i]!!.data = null
-            i++
         }
         if (BufferSize != 0) {
             TRACKBUFFERSIZE = BufferSize.toLong() shl 10
@@ -373,10 +367,8 @@ class QMusToMid {
             if (last(event).toInt() != 0) {
                 DeltaTime = ReadTime(mus)
                 TotalTime += DeltaTime
-                i = 0
-                while (i < TrackCnt) {
-                    track[i]!!.DeltaTime += DeltaTime
-                    i++
+                TrackCnt.times {
+                    track[it]!!.DeltaTime += DeltaTime
                 }
             }
             event = getc(mus)
@@ -409,10 +401,8 @@ class QMusToMid {
         }
         WriteMIDheader(TrackCnt + 1, division, mid)
         WriteFirstTrack(mid)
-        i = 0
-        while (i < TrackCnt) {
-            WriteTrack(i, mid, track)
-            i++
+        TrackCnt.times {
+            WriteTrack(it, mid, track)
         }
         if (!nodisplay) println("done !\n")
         if (!nodisplay && !nocomp) println(

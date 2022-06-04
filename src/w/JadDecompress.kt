@@ -1,5 +1,7 @@
 package w
 
+import com.hiperbou.lang.times
+
 object JadDecompress {
     const val WINDOW_SIZE = 4096
     const val LOOKAHEAD_SIZE = 16
@@ -13,7 +15,6 @@ object JadDecompress {
         var getidbyte = 0
         var len: Int
         var pos: Int
-        var i: Int
         var source_ptr: Int
         var input_ptr = 0
         var output_ptr = 0
@@ -30,10 +31,8 @@ object JadDecompress {
                 source_ptr = output_ptr - pos - 1
                 len = (0xFF and input[input_ptr++].toInt() and 0xf) + 1
                 if (len == 1) break
-                i = 0
-                while (i < len) {
+                len.times {
                     output[output_ptr++] = output[source_ptr++]
-                    i++
                 }
             } else {
                 output[output_ptr++] = input[input_ptr++]

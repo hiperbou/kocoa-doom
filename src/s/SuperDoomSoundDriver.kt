@@ -1,6 +1,7 @@
 package s
 
 
+import com.hiperbou.lang.times
 import data.sounds
 import data.sounds.sfxenum_t
 import doom.DoomMain
@@ -268,15 +269,12 @@ class SuperDoomSoundDriver(DM: DoomMain<*, *>, numChannels: Int) : AbstractSound
         // Unlock sound thread if it's waiting.
         produce.release()
         update_mixer.release()
-        var i = 0
         do {
             done = true
-            i = 0
-            while (i < numChannels) {
+            numChannels.times { i ->
 
                 // If even one channel is playing, loop again.
                 done = done and !channels[i]
-                i++
             }
             //System.out.println(done+" "+this.channelStatus());
         } while (!done)

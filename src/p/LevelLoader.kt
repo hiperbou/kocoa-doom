@@ -1,5 +1,7 @@
 package p
 
+import com.hiperbou.lang.apply
+import com.hiperbou.lang.times
 import data.*
 import defines.skill_t
 import defines.slopetype_t
@@ -189,32 +191,27 @@ class LevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
      */
     @Throws(IOException::class)
     fun LoadNodes(lump: Int) {
-        val data: Array<mapnode_t>
-        var i: Int
-        var j: Int
-        var k: Int
         var mn: mapnode_t
         var no: node_t
         numnodes = DOOM.wadLoader.LumpLength(lump) / mapnode_t.sizeOf()
         nodes = GenericCopy.malloc({ node_t() }, numnodes)
 
         // Read "mapnodes"
-        data = DOOM.wadLoader.CacheLumpNumIntoArray(
+        val data: Array<mapnode_t> = DOOM.wadLoader.CacheLumpNumIntoArray(
             lump,
             numnodes,
             { mapnode_t() },
             IntFunction { arrayOfNulls<mapnode_t>(it) } as IntFunction<Array<mapnode_t>?>
         )
-        i = 0
-        while (i < numnodes) {
+        numnodes.times { i ->
             mn = data[i]
             no = nodes[i]
             no.x = mn.x.toInt() shl fixed_t.FRACBITS
             no.y = mn.y.toInt() shl fixed_t.FRACBITS
             no.dx = mn.dx.toInt() shl fixed_t.FRACBITS
             no.dy = mn.dy.toInt() shl fixed_t.FRACBITS
-            j = 0
-            while (j < 2) {
+
+            2.times { j ->
 
                 // e6y: support for extended nodes
                 no.children[j] = mn.children[j].code
@@ -237,14 +234,11 @@ class LevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
                     }
                     no.children[j] = no.children[j] or Defines.NF_SUBSECTOR
                 }
-                k = 0
-                while (k < 4) {
+
+                4.times { k ->
                     no.bbox[j][k] = mn.bbox[j][k].toInt() shl fixed_t.FRACBITS
-                    k++
                 }
-                j++
             }
-            i++
         }
     }
 
@@ -634,7 +628,6 @@ class LevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
         playermask: Int,
         skill: skill_t?
     ) {
-        var i: Int
         val lumpname: String
         val lumpnum: Int
         try {
@@ -643,12 +636,10 @@ class LevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
             DOOM.totalitems = DOOM.totalsecret
             DOOM.totalkills = DOOM.totalitems
             DOOM.wminfo.partime = 180
-            i = 0
-            while (i < Limits.MAXPLAYERS) {
-                DOOM.players[i].itemcount = 0
-                DOOM.players[i].secretcount = DOOM.players[i].itemcount
-                DOOM.players[i].killcount = DOOM.players[i].secretcount
-                i++
+            DOOM.players.forEach {
+                it.itemcount = 0
+                it.secretcount = 0
+                it.killcount = 0
             }
 
             // Initial height of PointOfView
@@ -719,13 +710,11 @@ class LevelLoader(DM: DoomMain<*, *>) : AbstractLevelLoader(DM) {
 
             // if deathmatch, randomly spawn the active players
             if (DOOM.deathmatch) {
-                i = 0
-                while (i < Limits.MAXPLAYERS) {
+                Limits.MAXPLAYERS.times { i ->
                     if (DOOM.playeringame[i]) {
                         DOOM.players[i].mo = null
                         DOOM.DeathMatchSpawnPlayer(i)
                     }
-                    i++
                 }
             }
 

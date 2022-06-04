@@ -1,5 +1,6 @@
 package rr
 
+import com.hiperbou.lang.times
 import data.Defines
 import doom.player_t
 import i.IDoomSystem
@@ -326,9 +327,7 @@ abstract class AbstractThings<T, V>(vs: VideoScale, R: SceneRenderer<T, V>) : IM
      * R_DrawPlayerSprites This is where stuff like guns is drawn...right?
      */
     protected fun DrawPlayerSprites() {
-        var i: Int
         val lightnum: Int
-        var psp: pspdef_t
 
         // get light level
         lightnum = ((view.player!!.mo!!.subsector!!.sector!!.lightlevel.toInt() shr colormaps.lightSegShift())
@@ -352,13 +351,10 @@ abstract class AbstractThings<T, V>(vs: VideoScale, R: SceneRenderer<T, V>) : IM
         // PSP from actually being updated. This in turn uncovered
         // other bugs in the way psp and state were treated, and the way
         // flash states were set. It should be OK now.
-        i = 0
-        while (i < player_t.NUMPSPRITES) {
-            psp = view.player!!.psprites[i]
+        view.player!!.psprites.forEach { psp ->
             if (psp.state != null && psp.state!!.id != 0) {
                 DrawPSprite(psp)
             }
-            i++
         }
     }
 

@@ -18,6 +18,7 @@
  */
 package p.Actions.ActiveStates
 
+import com.hiperbou.lang.times
 import data.Defines
 import data.Tables
 import data.mobjtype_t
@@ -54,7 +55,6 @@ interface Attacks : Monsters {
     // A_FireShotgun
     //
     fun A_FireShotgun(player: player_t, psp: pspdef_t?) {
-        var i: Int
         StartSound(player.mo, sfxenum_t.sfx_shotgn)
         player.mo!!.SetMobjState(statenum_t.S_PLAY_ATK2)
         player.ammo[items.weaponinfo[player.readyweapon.ordinal].ammo.ordinal]--
@@ -63,10 +63,8 @@ interface Attacks : Monsters {
             items.weaponinfo[player.readyweapon.ordinal].flashstate
         )
         attacks.P_BulletSlope(player.mo!!)
-        i = 0
-        while (i < 7) {
+        7.times {
             attacks.P_GunShot(player.mo!!, false)
-            i++
         }
     }
 
