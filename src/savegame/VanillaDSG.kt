@@ -12,6 +12,7 @@ import mochadoom.Loggers
 import p.*
 import p.Actions.ActionsLights.glow_t
 import p.Actions.ActionsLights.lightflash_t
+import p.Actions.ActionsThinkers
 import rr.line_t
 import rr.sector_t
 import rr.side_t
@@ -149,7 +150,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
             i++
         }
         adaptSectors()
-        fo!!.write(buffer.array(), 0, buffer.position())
+        fo.write(buffer.array(), 0, buffer.position())
 
         // do lines 
         // Allocate for the worst-case scenario (6+20 per line)
@@ -176,7 +177,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
             i++
         }
         val write = buffer.position()
-        fo!!.write(buffer.array(), 0, write)
+        fo.write(buffer.array(), 0, write)
     }
 
     //
@@ -367,9 +368,9 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
         // save off the current thinkers
         th = DOOM.actions.getThinkerCap().next!!
         while (th !== DOOM.actions.getThinkerCap()) {
-            if (th.thinkerFunction != null && th.thinkerFunction == ActiveStates.P_MobjThinker) {
+            if (th.thinkerFunction == ActiveStates.P_MobjThinker) {
                 // Indicate valid thinker
-                fo!!.writeByte(thinkerclass_t.tc_mobj.ordinal)
+                fo.writeByte(thinkerclass_t.tc_mobj.ordinal)
                 // Pad...
                 PADSAVEP(fo)
                 mobj = th as mobj_t
@@ -386,7 +387,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
         }
 
         // add a terminating marker
-        fo!!.writeByte(thinkerclass_t.tc_end.ordinal)
+        fo.writeByte(thinkerclass_t.tc_end.ordinal)
     }
 
     //
@@ -419,7 +420,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
         // read in saved thinkers
         var end = false
         while (!end) {
-            val tmp = f!!.readUnsignedByte()
+            val tmp = f.readUnsignedByte()
             tclass = VanillaDSG.thinkerclass_t.values()[tmp]
             when (tclass) {
                 thinkerclass_t.tc_end ->                     // That's how we know when to stop.
@@ -542,7 +543,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Write out any pending objects.
             if (buffer.position() > 0) {
-                fo!!.write(buffer.array(), 0, buffer.position())
+                fo.write(buffer.array(), 0, buffer.position())
                 //System.out.println("Wrote out "+buffer.position()+" bytes");
             }
 
@@ -550,7 +551,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
             buffer.position(0)
 
             // So ceilings don't think?
-            if (th.thinkerFunction == null) {
+            if (th.thinkerFunction == ActiveStates.NOP) {
                 // i maintains status between iterations
                 i = 0
                 while (i < DOOM.actions.getMaxCeilings()) {
@@ -560,7 +561,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
                     i++
                 }
                 if (i < Limits.MAXCEILINGS) {
-                    fo!!.writeByte(specials_e.tc_ceiling.ordinal)
+                    fo.writeByte(specials_e.tc_ceiling.ordinal)
                     PADSAVEP(fo)
                     // Set id for saving        
                     ceiling = th as ceiling_t
@@ -573,7 +574,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Well, apparently some do.
             if (th.thinkerFunction == ActiveStates.T_MoveCeiling) {
-                fo!!.writeByte(specials_e.tc_ceiling.ordinal)
+                fo.writeByte(specials_e.tc_ceiling.ordinal)
                 PADSAVEP(fo)
                 ceiling = th as ceiling_t
                 ceiling.sectorid = ceiling.sector!!.id
@@ -584,7 +585,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Well, apparently some do.
             if (th.thinkerFunction == ActiveStates.T_VerticalDoor) {
-                fo!!.writeByte(specials_e.tc_door.ordinal)
+                fo.writeByte(specials_e.tc_door.ordinal)
                 PADSAVEP(fo)
                 door = th as vldoor_t
                 door.sectorid = door.sector!!.id
@@ -595,7 +596,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Well, apparently some do.
             if (th.thinkerFunction == ActiveStates.T_MoveFloor) {
-                fo!!.writeByte(specials_e.tc_floor.ordinal)
+                fo.writeByte(specials_e.tc_floor.ordinal)
                 PADSAVEP(fo)
                 floor = th as floormove_t
                 floor.sectorid = floor.sector!!.id
@@ -606,7 +607,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Well, apparently some do.
             if (th.thinkerFunction == ActiveStates.T_PlatRaise) {
-                fo!!.writeByte(specials_e.tc_plat.ordinal)
+                fo.writeByte(specials_e.tc_plat.ordinal)
                 PADSAVEP(fo)
                 plat = th as plat_t
                 plat.sectorid = plat.sector!!.id
@@ -617,7 +618,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Well, apparently some do.
             if (th.thinkerFunction == ActiveStates.T_LightFlash) {
-                fo!!.writeByte(specials_e.tc_flash.ordinal)
+                fo.writeByte(specials_e.tc_flash.ordinal)
                 PADSAVEP(fo)
                 flash = th as lightflash_t
                 flash.sectorid = flash.sector!!.id
@@ -628,7 +629,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Well, apparently some do.
             if (th.thinkerFunction == ActiveStates.T_StrobeFlash) {
-                fo!!.writeByte(specials_e.tc_strobe.ordinal)
+                fo.writeByte(specials_e.tc_strobe.ordinal)
                 PADSAVEP(fo)
                 strobe = th as strobe_t
                 strobe.sectorid = strobe.sector!!.id
@@ -639,7 +640,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
             // Well, apparently some do.
             if (th.thinkerFunction == ActiveStates.T_Glow) {
-                fo!!.writeByte(specials_e.tc_glow.ordinal)
+                fo.writeByte(specials_e.tc_glow.ordinal)
                 PADSAVEP(fo)
                 glow = th as glow_t
                 glow.sectorid = glow.sector!!.id
@@ -648,11 +649,11 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
             th = th.next!!
         }
         if (buffer.position() > 0) {
-            fo!!.write(buffer.array(), 0, buffer.position())
+            fo.write(buffer.array(), 0, buffer.position())
         }
 
         // Finito!
-        fo!!.writeByte(specials_e.tc_endspecials.ordinal.toByte().toInt())
+        fo.writeByte(specials_e.tc_endspecials.ordinal.toByte().toInt())
     }
 
     //
@@ -676,7 +677,7 @@ class VanillaDSG<T, V>(val DOOM: DoomMain<T, V>) : IDoomSaveGame {
 
         // read in saved thinkers
         while (true) {
-            val tmp = f!!.readUnsignedByte()
+            val tmp = f.readUnsignedByte()
             //tmp&=0x00ff; // To "unsigned byte"
             tclass = VanillaDSG.specials_e.values()[tmp]
             when (tclass) {

@@ -97,7 +97,15 @@ fun interface PlayerSpriteActiveStates : ActiveState<PlayerSpriteConsumer>
 fun interface ThinkerActiveStates : ActiveState<ThinkerConsumer>
 fun interface MobjActiveStates : ActiveState<MobjConsumer>
 
-enum class ActiveStates(val activeState:ActiveStatesBase) {
+interface ThinkerStates {
+    val ordinal:Int
+    val activeState:ActiveStatesBase
+}
+enum class RemoveState(override val activeState:ActiveStatesBase):ThinkerStates {
+    REMOVE(ThinkerActiveStates { action, args -> action.nop(args.t) }),
+}
+
+enum class ActiveStates(override val activeState:ActiveStatesBase):ThinkerStates {
     NOP(ThinkerActiveStates { action, args -> action.nop(args.t) }),
     A_Light0(PlayerSpriteActiveStates { action, args -> action.A_Light0(args.p, args.s) }),
     A_WeaponReady(PlayerSpriteActiveStates { action, args -> action.A_WeaponReady(args.p, args.s) }),

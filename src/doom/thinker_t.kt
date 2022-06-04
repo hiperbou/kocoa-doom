@@ -2,6 +2,7 @@ package doom
 
 
 import p.ActiveStates
+import p.ThinkerStates
 import utils.C2JUtils
 import w.CacheableDoomObject
 import w.IPackableDoomObject
@@ -14,7 +15,7 @@ import java.nio.ByteOrder
 open class thinker_t : CacheableDoomObject, IReadableDoomObject, IPackableDoomObject {
     var prev: thinker_t? = null
     var next: thinker_t? = null
-    var thinkerFunction: ActiveStates = ActiveStates.NOP
+    var thinkerFunction: ThinkerStates = ActiveStates.NOP
     /**
      * killough's code for thinkers seems to be totally broken in M.D,
      * so commented it out and will not probably restore, but may invent

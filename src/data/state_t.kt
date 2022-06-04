@@ -14,7 +14,7 @@ class state_t {
         nextstate: statenum_t?,
         misc1: Int,
         misc2: Int,
-        _action: ActiveStates/*<ParamClassDani>*/ = ActiveStates.NOP //as ActiveStates<ParamClassDani>
+        _action: ActiveStates = ActiveStates.NOP
     ) {
         this.sprite = sprite
         this.frame = frame

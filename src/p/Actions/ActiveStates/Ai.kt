@@ -192,16 +192,16 @@ interface Ai : Monsters, Sounds {
             attacks.XYMovement(mobj)
 
             // FIXME: decent NOP/NULL/Nil function pointer please.
-            if (mobj.thinkerFunction == ActiveStates.NOP) {
-                return  // mobj was removed
+            if (mobj.thinkerFunction.ordinal == 0) {
+                return  // mobj was removed or nop
             }
         }
         if (mobj._z != mobj.floorz || mobj.momz != 0) {
             mobj.ZMovement()
 
             // FIXME: decent NOP/NULL/Nil function pointer please.
-            if (mobj.thinkerFunction == ActiveStates.NOP) {
-                return  // mobj was removed
+            if (mobj.thinkerFunction.ordinal == 0) {
+                return  // mobj was removed or nop
             }
         }
 

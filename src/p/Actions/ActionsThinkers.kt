@@ -47,7 +47,7 @@ interface ActionsThinkers : ActionsSectors, ThinkerList {
     @Compatible("thinker->function.acv = (actionf_v)(-1)")
     @P_Tick.C(P_Tick.P_RemoveThinker)
     override fun RemoveThinker(thinker: thinker_t) {
-        thinker.thinkerFunction = ActiveStates.NOP
+        thinker.thinkerFunction = RemoveState.REMOVE
     }
 
     /**
@@ -235,7 +235,7 @@ interface ActionsThinkers : ActionsSectors, ThinkerList {
     fun RunThinkers() {
         var thinker = getThinkerCap().next
         while (thinker !== getThinkerCap()) {
-            if (thinker!!.thinkerFunction == ActiveStates.NOP) {
+            if (thinker!!.thinkerFunction == RemoveState.REMOVE) {
                 // time to remove it
                 thinker.next!!.prev = thinker.prev
                 thinker.prev!!.next = thinker.next
@@ -243,9 +243,9 @@ interface ActionsThinkers : ActionsSectors, ThinkerList {
             } else {
                 val thinkerFunction = thinker.thinkerFunction
                 if (thinkerFunction.activeState is MobjActiveStates) {
-                    thinkerFunction.activeState.accept(DOOM().actions, MobjConsumer(thinker as mobj_t))
+                    (thinkerFunction.activeState as MobjActiveStates).accept(DOOM().actions, MobjConsumer(thinker as mobj_t))
                 } else if (thinkerFunction.activeState is ThinkerActiveStates) {
-                    thinkerFunction.activeState.accept(DOOM().actions, ThinkerConsumer(thinker))
+                    (thinkerFunction.activeState as ThinkerActiveStates).accept(DOOM().actions, ThinkerConsumer(thinker))
                 }
             }
             thinker = thinker.next
