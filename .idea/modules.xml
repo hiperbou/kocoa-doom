@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/mocadoom.iml" filepath="$PROJECT_DIR$/mocadoom.iml" />
+      <module fileurl="file://$PROJECT_DIR$/kocoa-doom.iml" filepath="$PROJECT_DIR$/kocoa-doom.iml" />
     </modules>
   </component>
 </project>
